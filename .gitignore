@@ -1,0 +1,28 @@
+# Secrets — gitignored from commit one. The repo is public.
+.env
+.env.local
+*.pem
+.aws/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Local state
+*.db
+*.sqlite3
+.provision/
+runs/
+
+# Node / Next.js
+node_modules/
+web/.next/
+web/out/
+.vercel/
+
+# OS
+.DS_Store
