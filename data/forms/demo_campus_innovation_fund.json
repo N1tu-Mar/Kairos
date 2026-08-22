@@ -1,0 +1,21 @@
+{
+  "opportunity_id": "demo_campus_innovation_fund",
+  "name": "[DEMO] Campus Innovation Fund — Application",
+  "source_url": "https://example.invalid/campus-innovation-fund",
+  "fields": [
+    { "field_id": "project_name", "label": "Project name", "kind": "short_text", "max_chars": 80 },
+    { "field_id": "one_liner", "label": "Describe your project in one sentence", "kind": "short_text", "max_chars": 200 },
+    { "field_id": "problem", "label": "What problem are you solving?", "kind": "long_text", "max_chars": 1200 },
+    { "field_id": "progress", "label": "What have you built or tested so far?", "kind": "long_text", "max_chars": 1200 },
+    { "field_id": "evidence", "label": "What evidence do you have that people want this?", "kind": "long_text", "max_chars": 1200 },
+    { "field_id": "team", "label": "Team members and roles", "kind": "long_text", "max_chars": 800 },
+    { "field_id": "use_of_funds", "label": "How would you use the funding?", "kind": "long_text", "max_chars": 1000 },
+    { "field_id": "next_milestone", "label": "What is your next milestone?", "kind": "long_text", "max_chars": 600 },
+    { "field_id": "faculty_sponsor", "label": "Faculty sponsor name and department", "kind": "short_text", "required": false },
+    { "field_id": "entity_status", "label": "Legal entity status, if any", "kind": "short_text", "required": false },
+    { "field_id": "budget_total", "label": "Total requested amount (USD)", "kind": "number" },
+    { "field_id": "ein", "label": "Employer Identification Number (EIN), if you have one", "kind": "short_text", "required": false },
+    { "field_id": "certification", "label": "I certify that the information in this application is true and complete to the best of my knowledge.", "kind": "checkbox" },
+    { "field_id": "signature", "label": "Applicant signature", "kind": "short_text" }
+  ]
+}

@@ -205,3 +205,34 @@ def test_curated_seed_row_wins_over_a_live_duplicate(tmp_path):
 
     assert len(found) == 1
     assert found[0].title == "[DEMO] Curated title"
+
+
+def test_curation_metadata_does_not_break_the_loader(tmp_path):
+    """Rows carry notes from humans and from the verifier. Neither is a field."""
+    path = write_seed(
+        tmp_path,
+        [
+            seed_row(
+                id="annotated",
+                _curation_note="a human wrote this",
+                verification_note="HTTP 200, title terms present",
+            )
+        ],
+    )
+
+    assert [o.id for o in SeedCatalog(path).fetch(NOW)] == ["annotated"]
+
+
+def test_a_typo_in_a_curated_row_still_fails_loudly(tmp_path):
+    path = write_seed(tmp_path, [seed_row(id="typo", award_maximum=5000)])
+
+    with pytest.raises(Exception, match="award_maximum"):
+        SeedCatalog(path).fetch(NOW)
+
+
+def test_the_real_seed_catalog_parses():
+    """Whatever scripts/verify_seed.py last wrote must be loadable."""
+    real = Path(__file__).parent.parent / "data" / "opportunities.seed.json"
+    if not real.exists():
+        pytest.skip("seed catalog has not been generated yet")
+    SeedCatalog(real, allow_unverified=True).fetch(NOW)

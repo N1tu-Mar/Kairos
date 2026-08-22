@@ -76,6 +76,21 @@ class Source(Protocol):
 # ── Tier 1: seeded catalog ───────────────────────────────────────────────────
 
 
+#: Written by humans and by `scripts/verify_seed.py`, not part of the model.
+#: Stripped explicitly rather than by relaxing `extra="forbid"` — strict
+#: validation is what catches a typo in a hand-curated row, and that is worth
+#: keeping.
+_CURATION_KEYS = ("verification_note",)
+
+
+def _strip_curation_keys(row: dict) -> dict:
+    return {
+        k: v
+        for k, v in row.items()
+        if not k.startswith("_") and k not in _CURATION_KEYS
+    }
+
+
 class SeedCatalog:
     """The curated floor.
 
@@ -103,7 +118,9 @@ class SeedCatalog:
         skipped_unverified = 0
 
         for row in rows:
-            opportunity = Opportunity.model_validate({**row, "source": "seed"})
+            opportunity = Opportunity.model_validate(
+                {**_strip_curation_keys(row), "source": "seed"}
+            )
             if not opportunity.verified and not self.allow_unverified:
                 skipped_unverified += 1
                 continue

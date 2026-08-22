@@ -1,0 +1,53 @@
+{
+  "founder_id": "founder_demo",
+  "degree_level": "undergrad",
+  "institution": "Georgia Institute of Technology",
+  "citizenship": "us_citizen",
+  "entity_type": "none",
+  "team_size": 2,
+  "stage": "mvp",
+  "traction": { "users": 40, "interviews": 12, "pilots": 1 },
+  "funding_range": [2000, 50000],
+  "equity_ok": false,
+  "has_faculty_advisor": false,
+  "max_application_hours": 8,
+  "geographies": ["GA", "US"],
+  "knowledge_base": [
+    {
+      "chunk_id": "deck_p1",
+      "text": "[DEMO] LabQueue is a scheduling tool for shared university lab equipment. Students currently book microscopes and centrifuges on a paper sign-up sheet outside each room.",
+      "source": "pitch_deck.pdf p.1",
+      "confidence": 1.0
+    },
+    {
+      "chunk_id": "deck_p3",
+      "text": "[DEMO] We ran a pilot in one materials science building for six weeks. 40 students used it. Average wait time for a microscope dropped, and we stopped 12 double-bookings.",
+      "source": "pitch_deck.pdf p.3",
+      "confidence": 1.0
+    },
+    {
+      "chunk_id": "deck_p4",
+      "text": "[DEMO] We interviewed 12 lab managers across 4 departments before building anything. All 12 said equipment conflicts were a weekly problem.",
+      "source": "pitch_deck.pdf p.4",
+      "confidence": 1.0
+    },
+    {
+      "chunk_id": "onboarding_team",
+      "text": "[DEMO] Two undergraduates, both third-year. One writes the software, one runs the pilot and talks to lab managers. Neither has a faculty advisor yet.",
+      "source": "onboarding_q2",
+      "confidence": 1.0
+    },
+    {
+      "chunk_id": "onboarding_entity",
+      "text": "[DEMO] No legal entity has been formed. No revenue. No outside funding of any kind so far.",
+      "source": "onboarding_q4",
+      "confidence": 1.0
+    },
+    {
+      "chunk_id": "onboarding_plan",
+      "text": "[DEMO] The next step is running the pilot in two more buildings and handling authentication against the university directory.",
+      "source": "onboarding_q6",
+      "confidence": 1.0
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "nsf_reu",
+    "title": "Research Experiences for Undergraduates (REU)",
+    "funder": "National Science Foundation",
+    "source_url": "https://www.nsf.gov/funding/opportunities/reu-research-experiences-undergraduates",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "requires_faculty_pi": true
+    },
+    "_curation_note": "TODO: a human must read the page and fill award_min/award_max/deadline. Left null so they surface as UNKNOWN rather than as a guess.",
+    "verified": true,
+    "verified_at": "2026-08-22T07:36:13.128092+00:00",
+    "verification_note": "HTTP 200, title terms present (79518 bytes)"
+  },
+  {
+    "id": "venturewell_eteam",
+    "title": "E-Team Grant Program",
+    "funder": "VentureWell",
+    "source_url": "https://venturewell.org/e-team-grants/",
+    "_curation_note": "Kept deliberately. This URL looks correct and returns 404. It is the worked example in data/README.md for why seed rows are verified rather than written.",
+    "verified": false,
+    "verified_at": null,
+    "verification_note": "HTTP 404"
+  }
+]

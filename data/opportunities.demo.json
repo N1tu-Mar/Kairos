@@ -1,0 +1,129 @@
+[
+  {
+    "id": "demo_campus_innovation_fund",
+    "title": "[DEMO] Campus Innovation Fund",
+    "funder": "[DEMO] Example University Office of Innovation",
+    "source_url": "https://example.invalid/campus-innovation-fund",
+    "award_min": 2500,
+    "award_max": 10000,
+    "deadline": "2026-10-15",
+    "rolling": false,
+    "effort_hours_estimate": 5.0,
+    "eligibility": {
+      "degree_levels": ["undergrad", "masters"],
+      "citizenships": ["us_citizen", "us_permanent_resident", "f1_visa"],
+      "entity_types": ["none", "llc", "c_corp"],
+      "max_team_size": 5,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "Open to currently enrolled undergraduate and master's students working on an early-stage venture.",
+        "source_doc": "example.invalid/campus-innovation-fund#eligibility"
+      }
+    ],
+    "description_excerpt": "[DEMO] Seed funding for enrolled students building early-stage ventures. Applications are reviewed once per semester.",
+    "verified": false,
+    "verified_at": null
+  },
+  {
+    "id": "demo_student_venture_prize",
+    "title": "[DEMO] Student Venture Prize",
+    "funder": "[DEMO] Example Foundation",
+    "source_url": "https://example.invalid/student-venture-prize",
+    "award_min": 25000,
+    "award_max": 25000,
+    "deadline": "2026-11-30",
+    "rolling": false,
+    "effort_hours_estimate": 12.0,
+    "eligibility": {
+      "degree_levels": ["undergrad", "masters", "phd"],
+      "entity_types": ["llc", "c_corp"],
+      "min_team_size": 2,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "Applicants must have formed a legal entity before the application deadline.",
+        "source_doc": "example.invalid/student-venture-prize#eligibility"
+      }
+    ],
+    "description_excerpt": "[DEMO] A single $25,000 prize for a student-led venture with a formed entity and at least two team members.",
+    "verified": false,
+    "verified_at": null
+  },
+  {
+    "id": "demo_undergrad_research_grant",
+    "title": "[DEMO] Undergraduate Research Grant",
+    "funder": "[DEMO] Example University Research Office",
+    "source_url": "https://example.invalid/undergraduate-research-grant",
+    "award_min": 1000,
+    "award_max": 1500,
+    "deadline": "2026-09-30",
+    "rolling": false,
+    "effort_hours_estimate": 3.0,
+    "eligibility": {
+      "degree_levels": ["undergrad"],
+      "requires_faculty_pi": true,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "A faculty member must serve as principal investigator on the application.",
+        "source_doc": "example.invalid/undergraduate-research-grant#eligibility"
+      }
+    ],
+    "description_excerpt": "[DEMO] Small grants supporting undergraduate research projects, sponsored by a faculty principal investigator.",
+    "verified": false,
+    "verified_at": null
+  },
+  {
+    "id": "demo_phd_commercialization_award",
+    "title": "[DEMO] Doctoral Commercialization Award",
+    "funder": "[DEMO] Example State Innovation Agency",
+    "source_url": "https://example.invalid/doctoral-commercialization-award",
+    "award_min": 40000,
+    "award_max": 60000,
+    "deadline": "2026-12-01",
+    "rolling": false,
+    "effort_hours_estimate": 30.0,
+    "eligibility": {
+      "degree_levels": ["phd", "postdoc"],
+      "citizenships": ["us_citizen"],
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "Open to doctoral candidates and postdoctoral researchers only.",
+        "source_doc": "example.invalid/doctoral-commercialization-award#eligibility"
+      }
+    ],
+    "description_excerpt": "[DEMO] Commercialization funding for doctoral and postdoctoral researchers.",
+    "verified": false,
+    "verified_at": null
+  },
+  {
+    "id": "demo_equity_accelerator",
+    "title": "[DEMO] Campus Accelerator Cohort",
+    "funder": "[DEMO] Example Ventures",
+    "source_url": "https://example.invalid/campus-accelerator",
+    "award_min": 20000,
+    "award_max": 20000,
+    "deadline": null,
+    "rolling": true,
+    "effort_hours_estimate": 6.0,
+    "eligibility": {
+      "degree_levels": ["undergrad", "masters"],
+      "takes_equity": true
+    },
+    "criteria": [
+      {
+        "text": "Participants receive $20,000 in exchange for 6% common stock.",
+        "source_doc": "example.invalid/campus-accelerator#terms"
+      }
+    ],
+    "description_excerpt": "[DEMO] A rolling accelerator that invests in student teams in exchange for equity.",
+    "verified": false,
+    "verified_at": null
+  }
+]
