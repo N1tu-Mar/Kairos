@@ -1,0 +1,1216 @@
+{
+  "errorcode": 0,
+  "msg": "Webservice Succeeds",
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.IjJlSm90anNQbGpKQ2Y1cFpBR3pXY2p6dnh4djRTK1BHLzFNRjhubXFrazg9Ig.sgztCZbTZhUZR3z9-4VFOyPGWg-z-u6dJzhXYgamdSY",
+  "data": {
+    "id": 348985,
+    "revision": 6,
+    "opportunityNumber": "23-601",
+    "opportunityTitle": "Research Experiences for Undergraduates (REU)",
+    "owningAgencyCode": "NSF",
+    "listed": "L",
+    "publisherUid": "5990951853740090865314141184033594214",
+    "modifiedComments": "Updated Synopsis via NSF Grants Opportunity Sync",
+    "flag2006": "N",
+    "opportunityCategory": {
+      "category": "D",
+      "description": "Discretionary"
+    },
+    "synopsis": {
+      "opportunityId": 348985,
+      "version": 7,
+      "agencyCode": "NSF",
+      "agencyName": "U.S. National Science Foundation",
+      "agencyPhone": "703-292-4203",
+      "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+      "agencyDetails": {
+        "code": "NSF",
+        "seed": "NSF",
+        "agencyName": "U.S. National Science Foundation",
+        "agencyCode": "NSF",
+        "topAgencyCode": "NSF"
+      },
+      "topAgencyDetails": {
+        "code": "NSF",
+        "seed": "NSF",
+        "agencyName": "U.S. National Science Foundation",
+        "agencyCode": "NSF",
+        "topAgencyCode": "NSF"
+      },
+      "agencyContactPhone": "703-292-4203",
+      "agencyContactName": "U.S. National Science Foundation",
+      "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+      "agencyContactEmail": "grantsgovsupport@nsf.gov",
+      "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+      "synopsisDesc": "<p>The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:</p>\n<ul>\n<li><em>REU Sites</em> are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li>\n<li><em>REU Supplements</em> may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li>\n</ul>\n<p>REU projects with an international dimension are welcome.</p>\n<p>Undergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,&nbsp;or U.S. permanent residents.</p>\n<p>Students do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.</p>",
+      "responseDate": "Aug 18, 2027 12:00:00 AM EDT",
+      "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+      "fundingDescLinkDesc": "NSF Publication 23-601",
+      "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+      "archiveDate": "Sep 17, 2027 12:00:00 AM EDT",
+      "costSharing": false,
+      "numberOfAwards": "1350",
+      "estimatedFunding": "84800000",
+      "estimatedFundingFormatted": "84,800,000",
+      "awardCeiling": "500000",
+      "awardCeilingFormatted": "500,000",
+      "awardFloor": "5000",
+      "awardFloorFormatted": "5,000",
+      "applicantEligibilityDesc": "*Who May Serve as PI:\nFor REU Site proposals, a single individual may&amp;nbsp;be designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.&amp;nbsp;After a proposal is awarded,&amp;nbsp;some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+      "sendEmail": "Y",
+      "createTimeStamp": "Aug 20, 2026 05:01:03 AM EDT",
+      "modComments": "Updated Synopsis via NSF Grants Opportunity Sync",
+      "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+      "lastUpdatedDate": "Aug 20, 2026 05:01:03 AM EDT",
+      "applicantTypes": [
+        {
+          "id": "25",
+          "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+        }
+      ],
+      "fundingInstruments": [
+        {
+          "id": "G",
+          "description": "Grant"
+        }
+      ],
+      "fundingActivityCategories": [
+        {
+          "id": "ST",
+          "description": "Science and Technology and other Research and Development"
+        }
+      ],
+      "responseDateStr": "2027-08-18-00-00-00",
+      "postingDateStr": "2023-06-29-00-00-00",
+      "archiveDateStr": "2027-09-17-00-00-00",
+      "createTimeStampStr": "2026-08-20-05-01-03"
+    },
+    "agencyDetails": {
+      "code": "NSF",
+      "seed": "NSF",
+      "agencyName": "U.S. National Science Foundation",
+      "agencyCode": "NSF",
+      "topAgencyCode": "NSF"
+    },
+    "topAgencyDetails": {
+      "code": "NSF",
+      "seed": "NSF",
+      "agencyName": "U.S. National Science Foundation",
+      "agencyCode": "NSF",
+      "topAgencyCode": "NSF"
+    },
+    "synopsisAttachmentFolders": [],
+    "synopsisDocumentURLs": [],
+    "synAttChangeComments": [],
+    "cfdas": [
+      {
+        "id": 412251,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.041",
+        "programTitle": "Engineering"
+      },
+      {
+        "id": 412252,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.049",
+        "programTitle": "Mathematical and Physical Sciences"
+      },
+      {
+        "id": 412254,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.050",
+        "programTitle": "Geosciences"
+      },
+      {
+        "id": 412250,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.070",
+        "programTitle": "Computer and Information Science and Engineering"
+      },
+      {
+        "id": 412255,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.074",
+        "programTitle": "Biological Sciences"
+      },
+      {
+        "id": 412257,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.075",
+        "programTitle": "Social, Behavioral, and Economic Sciences"
+      },
+      {
+        "id": 412259,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.076",
+        "programTitle": "STEM Education (formerly Education and Human Resources)"
+      },
+      {
+        "id": 412256,
+        "opportunityId": 348985,
+        "cfdaNumber": "47.084",
+        "programTitle": "NSF Technology, Innovation, and Partnerships"
+      },
+      {
+        "id": 412261,
+        "opportunityId": 348985
+      }
+    ],
+    "opportunityHistoryDetails": [
+      {
+        "oppHistId": {
+          "opportunityId": 348985,
+          "revision": 0
+        },
+        "opportunityId": 348985,
+        "revision": 0,
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates",
+        "owningAgencyCode": "NSF",
+        "publisherUid": "NSFServices",
+        "listed": "L",
+        "opportunityCategory": {
+          "category": "D",
+          "description": "Discretionary"
+        },
+        "synopsis": {
+          "id": {
+            "opportunityId": 348985,
+            "revision": 0
+          },
+          "opportunityId": 348985,
+          "revision": 0,
+          "version": 1,
+          "agencyCode": "NSF",
+          "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "agencyDetails": {
+            "code": "NSF",
+            "seed": "NSF",
+            "agencyName": "U.S. National Science Foundation",
+            "agencyCode": "NSF",
+            "topAgencyCode": "NSF"
+          },
+          "agencyContactPhone": "703-292-4261",
+          "agencyContactName": "National Science Foundation",
+          "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+          "agencyContactEmail": "grantsgovsupport@nsf.gov",
+          "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "synopsisDesc": "The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:\n\r\n<ul>\r\n<li>REU Sites are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li>\r\n<li>REU Supplements may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li>\r\n</ul>\r\n\nREU projects with an international dimension are welcome.\n\r\n\nUndergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,or U.S. permanent residents.\n\r\n\nStudents do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.",
+          "responseDate": "Sep 27, 2023 12:00:00 AM EDT",
+          "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+          "fundingDescLinkDesc": "NSF Publication 23-601",
+          "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+          "archiveDate": "Sep 15, 2028 12:00:00 AM EDT",
+          "costSharing": false,
+          "numberOfAwards": "1350",
+          "estimatedFunding": "84800000",
+          "estimatedFundingFormatted": "84,800,000",
+          "awardCeiling": "500000",
+          "awardCeilingFormatted": "500,000",
+          "awardFloor": "5000",
+          "awardFloorFormatted": "5,000",
+          "applicantEligibilityDesc": "*Who May Serve as PI:\n\nFor REU Site proposals, a single individual maybe designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.After a proposal is awarded,some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+          "createTimeStamp": "Jun 29, 2023 01:00:18 AM EDT",
+          "actionType": "U",
+          "actionDate": "Oct 05, 2023 01:00:21 AM EDT",
+          "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "lastUpdatedDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "applicantTypes": [
+            {
+              "id": "25",
+              "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+            }
+          ],
+          "fundingInstruments": [
+            {
+              "id": "G",
+              "description": "Grant"
+            }
+          ],
+          "fundingActivityCategories": [
+            {
+              "id": "ST",
+              "description": "Science and Technology and other Research and Development"
+            }
+          ],
+          "responseDateStr": "2023-09-27-00-00-00",
+          "postingDateStr": "2023-06-29-00-00-00",
+          "archiveDateStr": "2028-09-15-00-00-00",
+          "createTimeStampStr": "2023-06-29-01-00-18"
+        },
+        "cfdas": [
+          {
+            "id": 412251,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.041",
+            "programTitle": "Engineering"
+          },
+          {
+            "id": 412252,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.049",
+            "programTitle": "Mathematical and Physical Sciences"
+          },
+          {
+            "id": 412254,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.050",
+            "programTitle": "Geosciences"
+          },
+          {
+            "id": 412250,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.070",
+            "programTitle": "Computer and Information Science and Engineering"
+          },
+          {
+            "id": 412255,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.074",
+            "programTitle": "Biological Sciences"
+          },
+          {
+            "id": 412257,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.075",
+            "programTitle": "Social, Behavioral, and Economic Sciences"
+          },
+          {
+            "id": 412259,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.076",
+            "programTitle": "STEM Education (formerly Education and Human Resources)"
+          },
+          {
+            "id": 412253,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.079",
+            "programTitle": "Office of International Science and Engineering"
+          },
+          {
+            "id": 412258,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.083",
+            "programTitle": "Integrative Activities"
+          },
+          {
+            "id": 412256,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.084",
+            "programTitle": "NSF Technology, Innovation, and Partnerships"
+          },
+          {
+            "id": 412261,
+            "opportunityId": 348985,
+            "revision": 5
+          }
+        ],
+        "synopsisModifiedFields": [],
+        "forecastModifiedFields": []
+      },
+      {
+        "oppHistId": {
+          "opportunityId": 348985,
+          "revision": 1
+        },
+        "opportunityId": 348985,
+        "revision": 1,
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates",
+        "owningAgencyCode": "NSF",
+        "publisherUid": "NSFServices",
+        "listed": "L",
+        "opportunityCategory": {
+          "category": "D",
+          "description": "Discretionary"
+        },
+        "synopsis": {
+          "id": {
+            "opportunityId": 348985,
+            "revision": 1
+          },
+          "opportunityId": 348985,
+          "revision": 1,
+          "version": 2,
+          "agencyCode": "NSF",
+          "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "agencyDetails": {
+            "code": "NSF",
+            "seed": "NSF",
+            "agencyName": "U.S. National Science Foundation",
+            "agencyCode": "NSF",
+            "topAgencyCode": "NSF"
+          },
+          "agencyContactPhone": "703-292-4261",
+          "agencyContactName": "National Science Foundation",
+          "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+          "agencyContactEmail": "grantsgovsupport@nsf.gov",
+          "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "synopsisDesc": "The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:\n\r\n<ul>\r\n<li>REU Sites are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li>\r\n<li>REU Supplements may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li>\r\n</ul>\r\n\nREU projects with an international dimension are welcome.\n\r\n\nUndergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,or U.S. permanent residents.\n\r\n\nStudents do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.",
+          "responseDate": "Aug 21, 2024 12:00:00 AM EDT",
+          "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+          "fundingDescLinkDesc": "NSF Publication 23-601",
+          "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+          "archiveDate": "Sep 15, 2028 12:00:00 AM EDT",
+          "costSharing": false,
+          "numberOfAwards": "1350",
+          "estimatedFunding": "84800000",
+          "estimatedFundingFormatted": "84,800,000",
+          "awardCeiling": "500000",
+          "awardCeilingFormatted": "500,000",
+          "awardFloor": "5000",
+          "awardFloorFormatted": "5,000",
+          "applicantEligibilityDesc": "*Who May Serve as PI:\n\nFor REU Site proposals, a single individual maybe designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.After a proposal is awarded,some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+          "createTimeStamp": "Oct 05, 2023 01:00:21 AM EDT",
+          "sendEmail": "N",
+          "modComments": ".",
+          "actionType": "U",
+          "actionDate": "Feb 24, 2024 12:52:58 AM EST",
+          "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "lastUpdatedDate": "Oct 05, 2023 01:00:21 AM EDT",
+          "applicantTypes": [
+            {
+              "id": "25",
+              "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+            }
+          ],
+          "fundingInstruments": [
+            {
+              "id": "G",
+              "description": "Grant"
+            }
+          ],
+          "fundingActivityCategories": [
+            {
+              "id": "ST",
+              "description": "Science and Technology and other Research and Development"
+            }
+          ],
+          "responseDateStr": "2024-08-21-00-00-00",
+          "postingDateStr": "2023-06-29-00-00-00",
+          "archiveDateStr": "2028-09-15-00-00-00",
+          "createTimeStampStr": "2023-10-05-01-00-21"
+        },
+        "cfdas": [
+          {
+            "id": 412251,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.041",
+            "programTitle": "Engineering"
+          },
+          {
+            "id": 412252,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.049",
+            "programTitle": "Mathematical and Physical Sciences"
+          },
+          {
+            "id": 412254,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.050",
+            "programTitle": "Geosciences"
+          },
+          {
+            "id": 412250,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.070",
+            "programTitle": "Computer and Information Science and Engineering"
+          },
+          {
+            "id": 412255,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.074",
+            "programTitle": "Biological Sciences"
+          },
+          {
+            "id": 412257,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.075",
+            "programTitle": "Social, Behavioral, and Economic Sciences"
+          },
+          {
+            "id": 412259,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.076",
+            "programTitle": "STEM Education (formerly Education and Human Resources)"
+          },
+          {
+            "id": 412253,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.079",
+            "programTitle": "Office of International Science and Engineering"
+          },
+          {
+            "id": 412258,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.083",
+            "programTitle": "Integrative Activities"
+          },
+          {
+            "id": 412256,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.084",
+            "programTitle": "NSF Technology, Innovation, and Partnerships"
+          },
+          {
+            "id": 412261,
+            "opportunityId": 348985,
+            "revision": 5
+          }
+        ],
+        "synopsisModifiedFields": [
+          "revision",
+          "version",
+          "responseDate",
+          "createTimeStamp"
+        ],
+        "forecastModifiedFields": []
+      },
+      {
+        "oppHistId": {
+          "opportunityId": 348985,
+          "revision": 2
+        },
+        "opportunityId": 348985,
+        "revision": 2,
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates",
+        "owningAgencyCode": "NSF",
+        "publisherUid": "NSFServices",
+        "listed": "L",
+        "opportunityCategory": {
+          "category": "D",
+          "description": "Discretionary"
+        },
+        "synopsis": {
+          "id": {
+            "opportunityId": 348985,
+            "revision": 2
+          },
+          "opportunityId": 348985,
+          "revision": 2,
+          "version": 3,
+          "agencyCode": "NSF",
+          "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "agencyDetails": {
+            "code": "NSF",
+            "seed": "NSF",
+            "agencyName": "U.S. National Science Foundation",
+            "agencyCode": "NSF",
+            "topAgencyCode": "NSF"
+          },
+          "agencyContactPhone": "703-292-4261",
+          "agencyContactName": "National Science Foundation",
+          "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+          "agencyContactEmail": "grantsgovsupport@nsf.gov",
+          "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "synopsisDesc": "The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:\n\r\n<ul>\r\n<li>REU Sites are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li>\r\n<li>REU Supplements may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li>\r\n</ul>\r\n\nREU projects with an international dimension are welcome.\n\r\n\nUndergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,or U.S. permanent residents.\n\r\n\nStudents do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.",
+          "responseDate": "Aug 21, 2024 12:00:00 AM EDT",
+          "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+          "fundingDescLinkDesc": "NSF Publication 23-601",
+          "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+          "archiveDate": "Sep 15, 2028 12:00:00 AM EDT",
+          "costSharing": false,
+          "numberOfAwards": "1350",
+          "estimatedFunding": "84800000",
+          "estimatedFundingFormatted": "84,800,000",
+          "awardCeiling": "500000",
+          "awardCeilingFormatted": "500,000",
+          "awardFloor": "5000",
+          "awardFloorFormatted": "5,000",
+          "applicantEligibilityDesc": "*Who May Serve as PI:\n\nFor REU Site proposals, a single individual maybe designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.After a proposal is awarded,some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+          "createTimeStamp": "Feb 24, 2024 12:52:58 AM EST",
+          "sendEmail": "N",
+          "modComments": ".",
+          "actionType": "U",
+          "actionDate": "Aug 29, 2024 01:00:07 AM EDT",
+          "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "lastUpdatedDate": "Feb 24, 2024 12:52:58 AM EST",
+          "applicantTypes": [
+            {
+              "id": "25",
+              "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+            }
+          ],
+          "fundingInstruments": [
+            {
+              "id": "G",
+              "description": "Grant"
+            }
+          ],
+          "fundingActivityCategories": [
+            {
+              "id": "ST",
+              "description": "Science and Technology and other Research and Development"
+            }
+          ],
+          "responseDateStr": "2024-08-21-00-00-00",
+          "postingDateStr": "2023-06-29-00-00-00",
+          "archiveDateStr": "2028-09-15-00-00-00",
+          "createTimeStampStr": "2024-02-24-00-52-58"
+        },
+        "cfdas": [
+          {
+            "id": 412251,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.041",
+            "programTitle": "Engineering"
+          },
+          {
+            "id": 412252,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.049",
+            "programTitle": "Mathematical and Physical Sciences"
+          },
+          {
+            "id": 412254,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.050",
+            "programTitle": "Geosciences"
+          },
+          {
+            "id": 412250,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.070",
+            "programTitle": "Computer and Information Science and Engineering"
+          },
+          {
+            "id": 412255,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.074",
+            "programTitle": "Biological Sciences"
+          },
+          {
+            "id": 412257,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.075",
+            "programTitle": "Social, Behavioral, and Economic Sciences"
+          },
+          {
+            "id": 412259,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.076",
+            "programTitle": "STEM Education (formerly Education and Human Resources)"
+          },
+          {
+            "id": 412253,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.079",
+            "programTitle": "Office of International Science and Engineering"
+          },
+          {
+            "id": 412258,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.083",
+            "programTitle": "Integrative Activities"
+          },
+          {
+            "id": 412256,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.084",
+            "programTitle": "NSF Technology, Innovation, and Partnerships"
+          },
+          {
+            "id": 412261,
+            "opportunityId": 348985,
+            "revision": 5
+          }
+        ],
+        "synopsisModifiedFields": [
+          "revision",
+          "version",
+          "createTimeStamp"
+        ],
+        "forecastModifiedFields": []
+      },
+      {
+        "oppHistId": {
+          "opportunityId": 348985,
+          "revision": 3
+        },
+        "opportunityId": 348985,
+        "revision": 3,
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates",
+        "owningAgencyCode": "NSF",
+        "publisherUid": "NSFServices",
+        "listed": "L",
+        "opportunityCategory": {
+          "category": "D",
+          "description": "Discretionary"
+        },
+        "synopsis": {
+          "id": {
+            "opportunityId": 348985,
+            "revision": 3
+          },
+          "opportunityId": 348985,
+          "revision": 3,
+          "version": 4,
+          "agencyCode": "NSF",
+          "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "agencyDetails": {
+            "code": "NSF",
+            "seed": "NSF",
+            "agencyName": "U.S. National Science Foundation",
+            "agencyCode": "NSF",
+            "topAgencyCode": "NSF"
+          },
+          "agencyContactPhone": "703-292-4261",
+          "agencyContactName": "National Science Foundation",
+          "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+          "agencyContactEmail": "grantsgovsupport@nsf.gov",
+          "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "synopsisDesc": "The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:\n\n<ul>\n<li>REU Sites are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li>\n<li>REU Supplements may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li>\n</ul>\n\nREU projects with an international dimension are welcome.\n\n\nUndergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,or U.S. permanent residents.\n\n\nStudents do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.",
+          "responseDate": "Aug 20, 2025 12:00:00 AM EDT",
+          "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+          "fundingDescLinkDesc": "NSF Publication 23-601",
+          "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+          "archiveDate": "Sep 15, 2028 12:00:00 AM EDT",
+          "costSharing": false,
+          "numberOfAwards": "1350",
+          "estimatedFunding": "84800000",
+          "estimatedFundingFormatted": "84,800,000",
+          "awardCeiling": "500000",
+          "awardCeilingFormatted": "500,000",
+          "awardFloor": "5000",
+          "awardFloorFormatted": "5,000",
+          "applicantEligibilityDesc": "*Who May Serve as PI:\n\nFor REU Site proposals, a single individual maybe designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.After a proposal is awarded,some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+          "createTimeStamp": "Aug 29, 2024 01:00:07 AM EDT",
+          "sendEmail": "N",
+          "modComments": ".",
+          "actionType": "U",
+          "actionDate": "Aug 28, 2025 11:00:06 PM EDT",
+          "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "lastUpdatedDate": "Aug 29, 2024 01:00:07 AM EDT",
+          "applicantTypes": [
+            {
+              "id": "25",
+              "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+            }
+          ],
+          "fundingInstruments": [
+            {
+              "id": "G",
+              "description": "Grant"
+            }
+          ],
+          "fundingActivityCategories": [
+            {
+              "id": "ST",
+              "description": "Science and Technology and other Research and Development"
+            }
+          ],
+          "responseDateStr": "2025-08-20-00-00-00",
+          "postingDateStr": "2023-06-29-00-00-00",
+          "archiveDateStr": "2028-09-15-00-00-00",
+          "createTimeStampStr": "2024-08-29-01-00-07"
+        },
+        "cfdas": [
+          {
+            "id": 412251,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.041",
+            "programTitle": "Engineering"
+          },
+          {
+            "id": 412252,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.049",
+            "programTitle": "Mathematical and Physical Sciences"
+          },
+          {
+            "id": 412254,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.050",
+            "programTitle": "Geosciences"
+          },
+          {
+            "id": 412250,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.070",
+            "programTitle": "Computer and Information Science and Engineering"
+          },
+          {
+            "id": 412255,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.074",
+            "programTitle": "Biological Sciences"
+          },
+          {
+            "id": 412257,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.075",
+            "programTitle": "Social, Behavioral, and Economic Sciences"
+          },
+          {
+            "id": 412259,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.076",
+            "programTitle": "STEM Education (formerly Education and Human Resources)"
+          },
+          {
+            "id": 412253,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.079",
+            "programTitle": "Office of International Science and Engineering"
+          },
+          {
+            "id": 412258,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.083",
+            "programTitle": "Integrative Activities"
+          },
+          {
+            "id": 412256,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.084",
+            "programTitle": "NSF Technology, Innovation, and Partnerships"
+          },
+          {
+            "id": 412261,
+            "opportunityId": 348985,
+            "revision": 5
+          }
+        ],
+        "synopsisModifiedFields": [
+          "revision",
+          "version",
+          "synopsisDesc",
+          "responseDate",
+          "createTimeStamp"
+        ],
+        "forecastModifiedFields": []
+      },
+      {
+        "oppHistId": {
+          "opportunityId": 348985,
+          "revision": 4
+        },
+        "opportunityId": 348985,
+        "revision": 4,
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates",
+        "owningAgencyCode": "NSF",
+        "publisherUid": "NSFServices",
+        "listed": "L",
+        "opportunityCategory": {
+          "category": "D",
+          "description": "Discretionary"
+        },
+        "synopsis": {
+          "id": {
+            "opportunityId": 348985,
+            "revision": 4
+          },
+          "opportunityId": 348985,
+          "revision": 4,
+          "version": 5,
+          "agencyCode": "NSF",
+          "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "agencyDetails": {
+            "code": "NSF",
+            "seed": "NSF",
+            "agencyName": "U.S. National Science Foundation",
+            "agencyCode": "NSF",
+            "topAgencyCode": "NSF"
+          },
+          "agencyContactPhone": "703-292-4203",
+          "agencyContactName": "U.S. National Science Foundation",
+          "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+          "agencyContactEmail": "grantsgovsupport@nsf.gov",
+          "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "synopsisDesc": "The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:\n\n<ul>\n<li>REU Sites are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li>\n<li>REU Supplements may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li>\n</ul>\n\nREU projects with an international dimension are welcome.\n\n\nUndergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,or U.S. permanent residents.\n\n\nStudents do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.",
+          "responseDate": "Aug 19, 2026 12:00:00 AM EDT",
+          "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+          "fundingDescLinkDesc": "NSF Publication 23-601",
+          "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+          "archiveDate": "Sep 15, 2028 12:00:00 AM EDT",
+          "costSharing": false,
+          "numberOfAwards": "1350",
+          "estimatedFunding": "84800000",
+          "estimatedFundingFormatted": "84,800,000",
+          "awardCeiling": "500000",
+          "awardCeilingFormatted": "500,000",
+          "awardFloor": "5000",
+          "awardFloorFormatted": "5,000",
+          "applicantEligibilityDesc": "*Who May Serve as PI:\n\nFor REU Site proposals, a single individual maybe designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.After a proposal is awarded,some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+          "createTimeStamp": "Aug 28, 2025 11:00:06 PM EDT",
+          "sendEmail": "N",
+          "modComments": ".",
+          "actionType": "U",
+          "actionDate": "Aug 20, 2026 05:01:03 AM EDT",
+          "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "lastUpdatedDate": "Aug 28, 2025 11:00:06 PM EDT",
+          "applicantTypes": [
+            {
+              "id": "25",
+              "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+            }
+          ],
+          "fundingInstruments": [
+            {
+              "id": "G",
+              "description": "Grant"
+            }
+          ],
+          "fundingActivityCategories": [
+            {
+              "id": "ST",
+              "description": "Science and Technology and other Research and Development"
+            }
+          ],
+          "responseDateStr": "2026-08-19-00-00-00",
+          "postingDateStr": "2023-06-29-00-00-00",
+          "archiveDateStr": "2028-09-15-00-00-00",
+          "createTimeStampStr": "2025-08-28-23-00-06"
+        },
+        "cfdas": [
+          {
+            "id": 412251,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.041",
+            "programTitle": "Engineering"
+          },
+          {
+            "id": 412252,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.049",
+            "programTitle": "Mathematical and Physical Sciences"
+          },
+          {
+            "id": 412254,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.050",
+            "programTitle": "Geosciences"
+          },
+          {
+            "id": 412250,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.070",
+            "programTitle": "Computer and Information Science and Engineering"
+          },
+          {
+            "id": 412255,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.074",
+            "programTitle": "Biological Sciences"
+          },
+          {
+            "id": 412257,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.075",
+            "programTitle": "Social, Behavioral, and Economic Sciences"
+          },
+          {
+            "id": 412259,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.076",
+            "programTitle": "STEM Education (formerly Education and Human Resources)"
+          },
+          {
+            "id": 412253,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.079",
+            "programTitle": "Office of International Science and Engineering"
+          },
+          {
+            "id": 412258,
+            "opportunityId": 348985,
+            "revision": 4,
+            "cfdaNumber": "47.083",
+            "programTitle": "Integrative Activities"
+          },
+          {
+            "id": 412256,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.084",
+            "programTitle": "NSF Technology, Innovation, and Partnerships"
+          },
+          {
+            "id": 412261,
+            "opportunityId": 348985,
+            "revision": 5
+          }
+        ],
+        "synopsisModifiedFields": [
+          "revision",
+          "version",
+          "responseDate",
+          "createTimeStamp"
+        ],
+        "forecastModifiedFields": []
+      },
+      {
+        "oppHistId": {
+          "opportunityId": 348985,
+          "revision": 5
+        },
+        "opportunityId": 348985,
+        "revision": 5,
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates (REU)",
+        "owningAgencyCode": "NSF",
+        "publisherUid": "5990951853740090865314141184033594214",
+        "listed": "L",
+        "opportunityCategory": {
+          "category": "D",
+          "description": "Discretionary"
+        },
+        "modifiedComments": "Updated Synopsis via NSF Grants Opportunity Sync",
+        "synopsis": {
+          "id": {
+            "opportunityId": 348985,
+            "revision": 5
+          },
+          "opportunityId": 348985,
+          "revision": 5,
+          "version": 6,
+          "agencyCode": "NSF",
+          "agencyAddressDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "agencyDetails": {
+            "code": "NSF",
+            "seed": "NSF",
+            "agencyName": "U.S. National Science Foundation",
+            "agencyCode": "NSF",
+            "topAgencyCode": "NSF"
+          },
+          "agencyContactPhone": "703-292-4203",
+          "agencyContactName": "U.S. National Science Foundation",
+          "agencyContactDesc": "NSF grants.gov support\ngrantsgovsupport@nsf.gov",
+          "agencyContactEmail": "grantsgovsupport@nsf.gov",
+          "agencyContactEmailDesc": "If you have any problems linking to this funding announcement, please contact the email address above.",
+          "synopsisDesc": "The Research Experiences for Undergraduates (REU) program supports active research participation by undergraduate students in any of the areas of research funded by the National Science Foundation. REU projects involve students in meaningful ways in ongoing research programs or in research projects specifically designed for the REU program. This solicitation features two mechanisms for supporting student research:<ul><li>REU Sites are based on independent proposals to initiate and conduct projects that engage a number of students in research. REU Sites may be based in a single discipline or academic department or may offer interdisciplinary or multi-department research opportunities with a coherent intellectual theme.</li><li>REU Supplements may be included as a component of proposals for new or renewal NSF grants or cooperative agreements or may be requested for ongoing NSF-funded research projects.</li></ul>REU projects with an international dimension are welcome.Undergraduate student participants in either REU Sites or REU Supplements must be U.S. citizens, U.S. nationals,or U.S. permanent residents.Students do not apply to NSF to participate in REU activities, and NSF does not select students for the opportunities. Investigators who receive REU awards establish their own process for receiving and reviewing applications and selecting students, and students follow the instructions provided by each REU Site or REU Supplement to apply. (In some cases, investigators pre-select students for REU Supplements.) To identify appropriate REU Sites, students should consult the directory of active REU Sites on the Web at <a title=\"Online Directory of REU Sites\" href=\"https://www.nsf.gov/crssprgm/reu/reu_search.cfm\" target=\"_blank\">https://www.nsf.gov/crssprgm/reu/reu_search.cfm</a>.",
+          "responseDate": "Aug 19, 2026 12:00:00 AM EDT",
+          "fundingDescLinkUrl": "http://www.nsf.gov/publications/pub_summ.jsp?ods_key=nsf23601",
+          "fundingDescLinkDesc": "NSF Publication 23-601",
+          "postingDate": "Jun 29, 2023 12:00:00 AM EDT",
+          "archiveDate": "Sep 15, 2028 12:00:00 AM EDT",
+          "costSharing": false,
+          "numberOfAwards": "1350",
+          "estimatedFunding": "84800000",
+          "estimatedFundingFormatted": "84,800,000",
+          "awardCeiling": "500000",
+          "awardCeilingFormatted": "500,000",
+          "awardFloor": "5000",
+          "awardFloorFormatted": "5,000",
+          "applicantEligibilityDesc": "*Who May Serve as PI:For REU Site proposals, a single individual maybe designated as the Principal Investigator. This individual will be responsible for overseeing all aspects of the award. However, one additional person may be designated as Co-Principal Investigator if developing and operating the REU Site would involve such shared responsibility.After a proposal is awarded,some NSF units may allow the addition of more Co-PIs if an exceptional case can be made for why the management of the REU Site must be distributed.",
+          "createTimeStamp": "Aug 20, 2026 05:01:03 AM EDT",
+          "sendEmail": "Y",
+          "modComments": "Updated Synopsis via NSF Grants Opportunity Sync",
+          "actionType": "U",
+          "actionDate": "Aug 20, 2026 05:01:03 AM EDT",
+          "createdDate": "Jun 29, 2023 01:00:18 AM EDT",
+          "lastUpdatedDate": "Aug 20, 2026 05:01:03 AM EDT",
+          "applicantTypes": [
+            {
+              "id": "25",
+              "description": "Others (see text field entitled \"Additional Information on Eligibility\" for clarification)"
+            }
+          ],
+          "fundingInstruments": [
+            {
+              "id": "G",
+              "description": "Grant"
+            }
+          ],
+          "fundingActivityCategories": [
+            {
+              "id": "ST",
+              "description": "Science and Technology and other Research and Development"
+            }
+          ],
+          "responseDateStr": "2026-08-19-00-00-00",
+          "postingDateStr": "2023-06-29-00-00-00",
+          "archiveDateStr": "2028-09-15-00-00-00",
+          "createTimeStampStr": "2026-08-20-05-01-03"
+        },
+        "cfdas": [
+          {
+            "id": 412251,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.041",
+            "programTitle": "Engineering"
+          },
+          {
+            "id": 412252,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.049",
+            "programTitle": "Mathematical and Physical Sciences"
+          },
+          {
+            "id": 412254,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.050",
+            "programTitle": "Geosciences"
+          },
+          {
+            "id": 412250,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.070",
+            "programTitle": "Computer and Information Science and Engineering"
+          },
+          {
+            "id": 412255,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.074",
+            "programTitle": "Biological Sciences"
+          },
+          {
+            "id": 412257,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.075",
+            "programTitle": "Social, Behavioral, and Economic Sciences"
+          },
+          {
+            "id": 412259,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.076",
+            "programTitle": "STEM Education (formerly Education and Human Resources)"
+          },
+          {
+            "id": 412256,
+            "opportunityId": 348985,
+            "revision": 5,
+            "cfdaNumber": "47.084",
+            "programTitle": "NSF Technology, Innovation, and Partnerships"
+          },
+          {
+            "id": 412261,
+            "opportunityId": 348985,
+            "revision": 5
+          }
+        ],
+        "synopsisModifiedFields": [
+          "revision",
+          "version",
+          "opportunityTitle",
+          "cfdas",
+          "synopsisDesc",
+          "applicantEligibilityDesc",
+          "createTimeStamp"
+        ],
+        "forecastModifiedFields": []
+      }
+    ],
+    "opportunityPkgs": [
+      {
+        "id": 282363,
+        "topportunityId": 348985,
+        "familyId": 14,
+        "dialect": "XFDL2.2",
+        "opportunityNumber": "23-601",
+        "opportunityTitle": "Research Experiences for Undergraduates (REU)",
+        "openingDate": "2023-06-29",
+        "closingDate": "2027-08-18",
+        "owningAgencyCode": "NSF",
+        "agencyDetails": {
+          "code": "NSF",
+          "seed": "NSF",
+          "agencyName": "U.S. National Science Foundation",
+          "agencyCode": "NSF",
+          "topAgencyCode": "NSF"
+        },
+        "topAgencyDetails": {
+          "code": "NSF",
+          "seed": "NSF",
+          "agencyName": "U.S. National Science Foundation",
+          "agencyCode": "NSF",
+          "topAgencyCode": "NSF"
+        },
+        "contactInfo": "NSF REU Site Contacts: https://www.nsf.gov/crssprgm/reu/reu_contacts.jsp",
+        "gracePeriod": 7,
+        "electronicRequired": "N",
+        "expectedApplicationCount": 600,
+        "expectedApplicationSize": 50,
+        "openToApplicantType": 3,
+        "listed": "L",
+        "isMultiProject": "N",
+        "extension": "pdf",
+        "mimetype": "application/pdf",
+        "lastUpdate": "Aug 20, 2026 05:01:04 AM EDT",
+        "workspaceCompatibleFlag": "Y",
+        "packageId": "PKG00282363",
+        "openingDateStr": "2023-06-29-00-00-00",
+        "closingDateStr": "2027-08-18-00-00-00"
+      }
+    ],
+    "closedOpportunityPkgs": [],
+    "originalDueDate": "Sep 27, 2023 12:00:00 AM EDT",
+    "synopsisModifiedFields": [
+      "revision",
+      "version",
+      "synopsisDesc",
+      "responseDate",
+      "archiveDate",
+      "applicantEligibilityDesc"
+    ],
+    "forecastModifiedFields": [],
+    "errorMessages": [],
+    "synPostDateInPast": true,
+    "docType": "synopsis",
+    "forecastHistCount": 0,
+    "synopsisHistCount": 6,
+    "assistCompatible": false,
+    "assistURL": "",
+    "relatedOpps": [],
+    "draftMode": "N",
+    "ost": "POSTED"
+  }
+}

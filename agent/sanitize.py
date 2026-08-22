@@ -17,6 +17,7 @@ successful injection cannot change a deterministic Python comparison.
 
 from __future__ import annotations
 
+import html
 import re
 import unicodedata
 
@@ -42,6 +43,28 @@ _BLANK_LINES = re.compile(r"\n{3,}")
 _FENCE = re.compile(r"(?m)^\s*(?:`{3,}|~{3,}|-{3,}\s*$)")
 
 
+#: Bounded because unescaping is only safe if it terminates. Three passes
+#: clears every real double-encoding seen in Grants.gov payloads.
+_MAX_UNESCAPE_PASSES = 3
+
+
+def _unescape_fully(text: str) -> str:
+    """Decode HTML entities to a fixpoint, before tags are stripped.
+
+    Grants.gov returns HTML-escaped HTML, so `&amp;lt;script&amp;gt;` needs
+    two passes before it looks like a tag at all. Decoding to a fixpoint and
+    *then* stripping is strictly safer than one pass: anything that could
+    ever decode into markup is markup by the time the stripper runs. Doing it
+    the other way round leaves a second decode as a smuggling channel.
+    """
+    for _ in range(_MAX_UNESCAPE_PASSES):
+        decoded = html.unescape(text)
+        if decoded == text:
+            break
+        text = decoded
+    return text
+
+
 def strip_control_chars(text: str) -> str:
     """Remove control and zero-width characters, keeping newline and tab."""
     text = text.translate(_ZERO_WIDTH)
@@ -61,6 +84,7 @@ def clean(text: str) -> str:
     """
     if not text:
         return ""
+    text = _unescape_fully(text)
     text = unicodedata.normalize("NFKC", text)
     text = _SCRIPT_STYLE.sub(" ", text)
     text = _HTML_COMMENT.sub(" ", text)
