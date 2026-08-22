@@ -46,6 +46,21 @@ def build_sources(demo: bool, grants_gov: bool):
     return sources
 
 
+def _dry_run_settings():
+    """Settings without real Bedrock model IDs.
+
+    `agent/config.py` refuses to start with empty model IDs, which is correct
+    for a real run and wrong for a dry run that never calls a model. The IDs
+    are stamped as obviously-fake strings rather than the check being relaxed.
+    """
+    import os
+
+    os.environ.setdefault("BEDROCK_MODEL_REASONING", "[DRY-RUN]no-model")
+    os.environ.setdefault("BEDROCK_MODEL_CLASSIFY", "[DRY-RUN]no-model")
+    settings.cache_clear()
+    return settings()
+
+
 def load_forms() -> dict[str, ApplicationForm]:
     directory = REPO_ROOT / "data" / "forms"
     return {
@@ -55,7 +70,7 @@ def load_forms() -> dict[str, ApplicationForm]:
 
 
 async def one_run(args) -> int:
-    config = settings()
+    config = settings() if not args.dry_run else _dry_run_settings()
     repo = SqliteRepository(config.db_url)
 
     profile = repo.get_profile(args.founder)
@@ -71,9 +86,16 @@ async def one_run(args) -> int:
         profile=profile,
         repo=repo,
         budget=RunBudget.from_settings(config),
-        agents=SubAgents.build(),
     )
     ctx.forms = load_forms()
+
+    if args.dry_run:
+        from agent.dryrun import BANNER, build_stub_agents
+
+        print(BANNER, flush=True)
+        ctx.agents = build_stub_agents(ctx)
+    else:
+        ctx.agents = SubAgents.build()
 
     report = await run_once(ctx, build_sources(args.demo, not args.no_grants_gov))
 
@@ -96,6 +118,12 @@ def main() -> int:
     parser.add_argument("--founder", default="founder_demo")
     parser.add_argument("--demo", action="store_true", help="use the synthetic catalog")
     parser.add_argument("--no-grants-gov", action="store_true", help="skip the live source")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="run the pipeline with stub judgment and no AWS account. Never "
+             "falls back to this automatically; output is labelled [DRY RUN].",
+    )
     parser.add_argument("--schedule", action="store_true", help="run on a local cron loop")
     parser.add_argument("--hour", type=int, default=6, help="local schedule hour")
     parser.add_argument("-v", "--verbose", action="store_true")

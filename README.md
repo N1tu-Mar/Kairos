@@ -37,6 +37,24 @@ in a week that already has a problem set due.
 Scanned 214. Discarded 198. Judged 16. Surfaced 3.
 ```
 
+Every one of those 198 discards has a reason you can read. From an actual
+`--dry-run` against the synthetic catalog:
+
+```
+REJECTED by the deterministic filter (no model involved):
+  [DEMO] Doctoral Commercialization Award
+    DEGREE_LEVEL: open to phd, postdoc only — you: undergrad / needs: phd/postdoc
+  [DEMO] Campus Accelerator Cohort
+    EQUITY: this funder takes equity — you: non-dilutive only / needs: equity accepted
+
+JUDGED then held back:
+  [DEMO] Student Venture Prize — needs ~12h, founder's ceiling is 8h
+  [DEMO] Undergraduate Research Grant — award $1,500 is below your floor $2,000
+
+SURFACED:
+  (APPLY) [DEMO] Campus Innovation Fund · up to $10,000 · 54 days left · ~5h of work
+```
+
 Those four counters are the product. **The agent's judgment is measured by
 what it throws away silently**, so the number that matters most is the second
 one. Every discard is recorded with the exact check that fired, and one
@@ -168,6 +186,11 @@ instead.
 ```bash
 # the full test suite — no AWS account, no network, ~1 second
 uv run pytest
+
+# the whole pipeline with no AWS account at all: discovery, the deterministic
+# filter, ranking, the escalation policy, idempotency and the ship gate all
+# run for real; only the judgment is stubbed, and every line it prints says so
+uv run python scripts/run_scout.py --dry-run --demo --no-grants-gov
 
 # one run against the synthetic catalog (needs Bedrock)
 uv run python scripts/run_scout.py --demo --no-grants-gov
