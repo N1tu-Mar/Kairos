@@ -13,6 +13,7 @@ shells out or requires a git checkout.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 from dataclasses import dataclass
 from functools import lru_cache
@@ -76,6 +77,21 @@ class Abstention(Exception):
 MAX_STRUCTURED_RETRIES = 2
 
 
+def _never_retry() -> tuple[type[BaseException], ...]:
+    """Exceptions that must escape the retry loop untouched.
+
+    The retry loop exists to give a model a second chance at a schema. It is
+    not a general error handler, and treating it as one is actively harmful:
+    a budget cap that fires inside a model call would be caught, retried
+    twice, and end up spending three times the ceiling it was supposed to
+    enforce — turning the wallet guard into a wallet amplifier. Control-flow
+    signals propagate.
+    """
+    from agent.budget import BudgetExceeded
+
+    return (BudgetExceeded, Abstention, asyncio.CancelledError, KeyboardInterrupt)
+
+
 async def structured_call(
     agent,
     output_model: type[T],
@@ -109,6 +125,8 @@ async def structured_call(
                 f"{attempt + 1}. Fix exactly these problems and return valid "
                 f"output:\n{last_error}"
             )
+        except _never_retry():
+            raise
         except Exception as exc:  # noqa: BLE001
             # Transport, throttling, or a provider-side parse failure. Same
             # policy: retry with the error visible, then abstain. Never
