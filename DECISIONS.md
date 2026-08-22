@@ -216,7 +216,7 @@ under the cap.
 
 ### D12 — Bedrock prices default to zero
 
-`.env.example` ships `PROVISION_PRICE_*_PER_MTOK=0`, so `usd_estimate` reads
+`.env.example` ships `KAIROS_PRICE_*_PER_MTOK=0`, so `usd_estimate` reads
 `0.0` until someone confirms live pricing for the region. Visibly wrong beats
 quietly wrong, and the per-run token ceiling still enforces regardless.
 
@@ -256,6 +256,33 @@ Fixed by excluding control-flow signals (`BudgetExceeded`, `Abstention`,
 `CancelledError`, `KeyboardInterrupt`) from the retry loop. The general
 lesson: a retry loop is not an error handler, and a catch-all inside one
 turns every guard it wraps into its opposite.
+
+---
+
+## Naming
+
+### 2026-08-22 — Provision -> Kairos
+
+`prompt.md` shipped "Provision" as an explicit working name ("swap it
+everywhere if you pick something better; nothing depends on it"). Renamed to
+**Kairos**.
+
+*Kairos* is the Greek word for the opportune moment, as opposed to *chronos*,
+clock time. The classical figure — winged feet, a forelock in front and bald
+behind, scales balanced on a razor's edge — is a deadline and a judgment
+call in one image, which is what this system is.
+
+Mechanical scope: package name, `KAIROS_*` environment prefix, logger
+namespace, SQLite filename, state directory, CORS origins and the Vercel
+preview regex, plus doc references. 16 files.
+
+One rename hazard worth recording: the string `provisional` appears in the
+Section 10.2 forbidden-claims regex and in the Drafter prompt, where it means
+a provisional patent. A naive find-and-replace would have quietly turned that
+into `kairosal` and broken an IP-invention check without failing a test —
+none of the grounding tests happen to exercise the word. The rename used a
+negative lookahead, and the three occurrences were verified intact
+afterwards.
 
 ---
 

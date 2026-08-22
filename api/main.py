@@ -29,13 +29,13 @@ from agent.scout import new_run_context, run_once
 from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
 from api.repository import SqliteRepository
 
-log = logging.getLogger("provision.api")
+log = logging.getLogger("kairos.api")
 
 #: Vercel gives every preview deploy a generated subdomain, so the regex
 #: matters as much as the literal origins. Without it, dashboard calls fail
 #: silently in the browser while curl keeps working.
-ALLOWED_ORIGINS = ["http://localhost:3000", "https://provision.vercel.app"]
-ALLOWED_ORIGIN_REGEX = r"https://provision-[a-z0-9-]+\.vercel\.app"
+ALLOWED_ORIGINS = ["http://localhost:3000", "https://kairos.vercel.app"]
+ALLOWED_ORIGIN_REGEX = r"https://kairos-[a-z0-9-]+\.vercel\.app"
 
 
 class RunTrigger(BaseModel):
@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Provision", lifespan=lifespan)
+app = FastAPI(title="Kairos", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

@@ -33,7 +33,7 @@ from agent.runtime import RunContext
 from agent.tools.discovery import Source, discover_opportunities
 from agent.tools.eligibility import hard_eligibility_filter
 
-log = logging.getLogger("provision.tools")
+log = logging.getLogger("kairos.tools")
 
 
 def build_toolset(ctx: RunContext, sources: list[Source]) -> list:

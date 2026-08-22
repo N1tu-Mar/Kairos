@@ -38,7 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CANDIDATES = REPO_ROOT / "data" / "opportunities.candidates.json"
 SEED = REPO_ROOT / "data" / "opportunities.seed.json"
 
-UA = "Mozilla/5.0 (compatible; provision-seed-verifier/1.0)"
+UA = "Mozilla/5.0 (compatible; kairos-seed-verifier/1.0)"
 
 
 def page_mentions(html: str, phrase: str) -> bool:

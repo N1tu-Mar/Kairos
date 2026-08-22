@@ -1,4 +1,4 @@
-"""Core data models for Provision.
+"""Core data models for Kairos.
 
 Every model here is a Pydantic v2 model, and every sub-agent returns one of
 them validated against its schema (Section 9, rule 9). Nothing in this file

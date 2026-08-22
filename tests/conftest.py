@@ -18,8 +18,8 @@ from agent import config
 def fake_env(monkeypatch, tmp_path):
     monkeypatch.setenv("BEDROCK_MODEL_REASONING", "[DEMO]reasoning-model")
     monkeypatch.setenv("BEDROCK_MODEL_CLASSIFY", "[DEMO]classify-model")
-    monkeypatch.setenv("PROVISION_STATE_DIR", str(tmp_path / "state"))
-    monkeypatch.setenv("PROVISION_DAILY_USD_CAP", "0")
+    monkeypatch.setenv("KAIROS_STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("KAIROS_DAILY_USD_CAP", "0")
     config.settings.cache_clear()
     yield
     config.settings.cache_clear()

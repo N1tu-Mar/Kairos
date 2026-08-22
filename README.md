@@ -1,6 +1,12 @@
-# Provision
+# Kairos
 
 **Tell us about your startup once. We watch for the money and handle the paperwork.**
+
+> *καιρός* — the opportune moment. Greek separated **chronos**, clock time
+> that just elapses, from **kairos**, the window that opens and shuts. Lysippos
+> sculpted him with winged feet, a forelock in front and bald behind — you can
+> catch him coming toward you, and there is nothing to grab once he has passed.
+> A funding deadline behaves exactly that way.
 
 An agent that watches for non-dilutive funding a student founder is actually
 eligible for, decides which ones are worth their time, drafts most of the
@@ -161,7 +167,7 @@ third party, register an account, upload a document, or accept terms.
 Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-git clone <this repo> && cd provision
+git clone <this repo> && cd kairos
 uv sync
 
 cp .env.example .env

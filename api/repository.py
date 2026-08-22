@@ -132,7 +132,7 @@ def question_key(question: str) -> str:
 class SqliteRepository:
     """Local implementation. Interchangeable with the DynamoDB one."""
 
-    def __init__(self, url: str = "sqlite:///./provision.db", echo: bool = False) -> None:
+    def __init__(self, url: str = "sqlite:///./kairos.db", echo: bool = False) -> None:
         self.engine = create_engine(url, echo=echo)
         SQLModel.metadata.create_all(self.engine)
 

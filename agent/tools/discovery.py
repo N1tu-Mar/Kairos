@@ -58,7 +58,7 @@ from agent.models import (
 )
 from agent.sanitize import ingest
 
-log = logging.getLogger("provision.discovery")
+log = logging.getLogger("kairos.discovery")
 
 GRANTS_GOV_DETAIL_URL = "https://www.grants.gov/search-results-detail/{id}"
 

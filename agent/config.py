@@ -129,38 +129,38 @@ def settings() -> Settings:
         "--region $AWS_REGION --query "
         "'modelSummaries[?contains(modelId, `anthropic`)].modelId'"
     )
-    state_dir = Path(os.getenv("PROVISION_STATE_DIR", ".provision")).expanduser()
+    state_dir = Path(os.getenv("KAIROS_STATE_DIR", ".kairos")).expanduser()
 
     return Settings(
         region=os.getenv("AWS_REGION", "us-east-1").strip(),
         reasoning=ModelTier(
             model_id=_require("BEDROCK_MODEL_REASONING", hint_models),
             temperature=0.0,
-            max_tokens=_int("PROVISION_REASONING_MAX_TOKENS", 2048),
+            max_tokens=_int("KAIROS_REASONING_MAX_TOKENS", 2048),
         ),
         classify=ModelTier(
             model_id=_require("BEDROCK_MODEL_CLASSIFY", hint_models),
             temperature=0.0,
-            max_tokens=_int("PROVISION_CLASSIFY_MAX_TOKENS", 1024),
+            max_tokens=_int("KAIROS_CLASSIFY_MAX_TOKENS", 1024),
         ),
         # The one place above zero. Prose only, and still grounding-checked.
-        drafting_temperature=_float("PROVISION_DRAFTING_TEMPERATURE", 0.4),
+        drafting_temperature=_float("KAIROS_DRAFTING_TEMPERATURE", 0.4),
         prices=Prices(
-            reasoning_in=_float("PROVISION_PRICE_REASONING_IN_PER_MTOK", 0.0),
-            reasoning_out=_float("PROVISION_PRICE_REASONING_OUT_PER_MTOK", 0.0),
-            classify_in=_float("PROVISION_PRICE_CLASSIFY_IN_PER_MTOK", 0.0),
-            classify_out=_float("PROVISION_PRICE_CLASSIFY_OUT_PER_MTOK", 0.0),
+            reasoning_in=_float("KAIROS_PRICE_REASONING_IN_PER_MTOK", 0.0),
+            reasoning_out=_float("KAIROS_PRICE_REASONING_OUT_PER_MTOK", 0.0),
+            classify_in=_float("KAIROS_PRICE_CLASSIFY_IN_PER_MTOK", 0.0),
+            classify_out=_float("KAIROS_PRICE_CLASSIFY_OUT_PER_MTOK", 0.0),
         ),
-        max_run_tokens=_int("PROVISION_MAX_RUN_TOKENS", 250_000),
-        max_assessments=_int("PROVISION_MAX_ASSESSMENTS", 25),
-        daily_usd_cap=_float("PROVISION_DAILY_USD_CAP", 3.0),
+        max_run_tokens=_int("KAIROS_MAX_RUN_TOKENS", 250_000),
+        max_assessments=_int("KAIROS_MAX_ASSESSMENTS", 25),
+        daily_usd_cap=_float("KAIROS_DAILY_USD_CAP", 3.0),
         grants_gov_base_url=os.getenv(
             "GRANTS_GOV_BASE_URL", "https://api.grants.gov/v1/api"
         ).rstrip("/"),
-        http_timeout_s=_float("PROVISION_HTTP_TIMEOUT_S", 15.0),
-        enable_browser=_bool("PROVISION_ENABLE_BROWSER", False),
-        allow_unverified_seed=_bool("PROVISION_ALLOW_UNVERIFIED_SEED", False),
-        db_url=os.getenv("PROVISION_DB_URL", "sqlite:///./provision.db"),
+        http_timeout_s=_float("KAIROS_HTTP_TIMEOUT_S", 15.0),
+        enable_browser=_bool("KAIROS_ENABLE_BROWSER", False),
+        allow_unverified_seed=_bool("KAIROS_ALLOW_UNVERIFIED_SEED", False),
+        db_url=os.getenv("KAIROS_DB_URL", "sqlite:///./kairos.db"),
         state_dir=state_dir,
-        enable_otel=_bool("PROVISION_ENABLE_OTEL", False),
+        enable_otel=_bool("KAIROS_ENABLE_OTEL", False),
     )

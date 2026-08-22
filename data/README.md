@@ -18,7 +18,7 @@ So the catalog is generated, not written:
    it returns 200 and actually mentions the program, and writes
    `opportunities.seed.json` with an honest `verified` flag and timestamp.
 3. `SeedCatalog` excludes `verified: false` rows from runs unless
-   `PROVISION_ALLOW_UNVERIFIED_SEED=true`.
+   `KAIROS_ALLOW_UNVERIFIED_SEED=true`.
 
 The verifier checks **reachability, not correctness**. A 200 means the page
 exists. It does not mean the award range on the row is right — a human still

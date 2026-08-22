@@ -13,7 +13,7 @@ from tests.factories import profile
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
-    monkeypatch.setenv("PROVISION_DB_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/test.db")
     from agent import config
 
     config.settings.cache_clear()
@@ -130,9 +130,9 @@ def test_no_runs_yet_is_404_not_an_empty_success(client):
 
 def test_cors_allows_a_vercel_preview_origin(client):
     response = client.get(
-        "/health", headers={"Origin": "https://provision-git-abc123.vercel.app"}
+        "/health", headers={"Origin": "https://kairos-git-abc123.vercel.app"}
     )
     assert (
         response.headers.get("access-control-allow-origin")
-        == "https://provision-git-abc123.vercel.app"
+        == "https://kairos-git-abc123.vercel.app"
     )

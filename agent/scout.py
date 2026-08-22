@@ -43,7 +43,7 @@ from agent.runtime import RunContext, SubAgents
 from agent.toolset import build_toolset
 from agent.tools.discovery import Source
 
-log = logging.getLogger("provision.scout")
+log = logging.getLogger("kairos.scout")
 
 
 def new_run_context(

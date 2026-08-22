@@ -15,7 +15,7 @@ __pycache__/
 # Local state
 *.db
 *.sqlite3
-.provision/
+.kairos/
 runs/
 
 # Node / Next.js
