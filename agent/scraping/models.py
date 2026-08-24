@@ -187,13 +187,38 @@ class ScrapedOpportunity(BaseModel):
 
     @property
     def dedupe_key(self) -> str:
-        """Same program, however the URL was spelled.
+        """Normalised title. The coarse half of the duplicate test.
 
-        Title and organisation, normalised. Two pages describing the same
-        competition under different URLs collapse to one row; a reviewer sees
-        both source URLs on the surviving record.
+        Deliberately *not* title-plus-organisation. The organisation is
+        extracted from the page, so a rich parse and a thin parse of the same
+        program disagree about it — and a duplicate test that keys on a field
+        the parser might miss stops detecting exactly the duplicates it
+        exists to catch. `same_program` supplies the discriminator.
         """
-        return f"{_slug(self.organization)}::{_slug(self.title)}"
+        return _slug(self.title)
+
+    @property
+    def host(self) -> str:
+        from urllib.parse import urlsplit
+
+        return urlsplit(self.source_url).netloc.lower().removeprefix("www.")
+
+    def same_program(self, other: "ScrapedOpportunity") -> bool:
+        """Do these two rows describe the same funding opportunity?
+
+        Any one of three signals is enough, because each fails differently:
+        an identical page hash catches the same URL reached twice, a shared
+        host catches one program with two paths, and a shared organisation
+        catches the same program hosted in two places.
+        """
+        digest = self.fetch.content_hash
+        if digest and digest == other.fetch.content_hash:
+            return True
+        if self.dedupe_key != other.dedupe_key:
+            return False
+        if self.host and self.host == other.host:
+            return True
+        return _slug(self.organization) == _slug(other.organization)
 
 
 def _slug(value: str) -> str:

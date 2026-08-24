@@ -216,30 +216,25 @@ def discover_links(html: str, base_url: str, limit: int = MAX_DISCOVERED_LINKS) 
 def deduplicate(records: list[ScrapedOpportunity]) -> tuple[list[ScrapedOpportunity], int]:
     """Collapse rows describing the same program.
 
-    Keyed on normalised organisation + title, and then on page content hash,
-    so the same competition reached by two URLs becomes one row. The survivor
-    is the one with the most evidence — a thinner duplicate never overwrites
-    a richer record — and the loser's URL is kept as a caveat so nothing is
-    silently discarded.
+    Matching is `ScrapedOpportunity.same_program`: identical page content, or
+    the same title reached on the same host or under the same organisation.
+    The survivor is the one with the most evidence — a thinner duplicate never
+    overwrites a richer record — and the loser's URL is kept as a caveat so
+    nothing is silently discarded.
     """
-    kept: dict[str, ScrapedOpportunity] = {}
-    by_hash: dict[str, str] = {}
+    kept: list[ScrapedOpportunity] = []
     merged = 0
 
     for record in records:
-        key = record.dedupe_key
-        digest = record.fetch.content_hash
-        if digest and digest in by_hash:
-            key = by_hash[digest]
-
-        existing = kept.get(key)
-        if existing is None:
-            kept[key] = record
-            if digest:
-                by_hash.setdefault(digest, key)
+        match_index = next(
+            (i for i, existing in enumerate(kept) if existing.same_program(record)), None
+        )
+        if match_index is None:
+            kept.append(record)
             continue
 
         merged += 1
+        existing = kept[match_index]
         winner, loser = (
             (record, existing)
             if len(record.evidence) > len(existing.evidence)
@@ -250,9 +245,9 @@ def deduplicate(records: list[ScrapedOpportunity]) -> tuple[list[ScrapedOpportun
                 f"[duplicate merged] The same program was also found at "
                 f"{loser.source_url} (scraped {loser.scraped_at.isoformat()})."
             )
-        kept[key] = winner
+        kept[match_index] = winner
 
-    return list(kept.values()), merged
+    return kept, merged
 
 
 # ── The sweep ────────────────────────────────────────────────────────────────
