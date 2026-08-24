@@ -26,3 +26,13 @@ web/out/
 
 # OS
 .DS_Store
+
+# Raw scraped pages. Regenerable, large, and owned by the sites they came
+# from. The audit trail that matters is committed: each page's .meta.json
+# (URL, timestamp, status, robots decision, content hash) and the cached
+# robots.txt the fetch decision was made against.
+data/raw/pages/**/*.html
+data/raw/scrape_runs.jsonl
+
+# Not part of this work.
+frontend/
