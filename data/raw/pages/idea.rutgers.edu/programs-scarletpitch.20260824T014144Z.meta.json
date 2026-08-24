@@ -5,9 +5,9 @@
   "robots_allowed": true,
   "robots_url": "https://idea.rutgers.edu/robots.txt",
   "crawl_delay_s": 2.0,
-  "fetched_at": "2026-08-24T01:39:36.015366Z",
+  "fetched_at": "2026-08-24T01:41:44.951838Z",
   "content_hash": "a58121ba6115d3ace0d77b6ce46d3f92261358ff856ce91b72c934cd5fdafc1f",
-  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/idea.rutgers.edu/programs-scarletpitch.20260824T013936Z.html",
+  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/idea.rutgers.edu/programs-scarletpitch.20260824T014144Z.html",
   "renderer": "httpx",
   "failure": null,
   "bytes": 50176

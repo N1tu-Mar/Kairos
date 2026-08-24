@@ -91,14 +91,14 @@
       "robots_allowed": true,
       "robots_url": "https://idea.rutgers.edu/robots.txt",
       "crawl_delay_s": 2.0,
-      "fetched_at": "2026-08-24T01:39:36.015366Z",
+      "fetched_at": "2026-08-24T01:41:44.951838Z",
       "content_hash": "a58121ba6115d3ace0d77b6ce46d3f92261358ff856ce91b72c934cd5fdafc1f",
-      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/idea.rutgers.edu/programs-scarletpitch.20260824T013936Z.html",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/idea.rutgers.edu/programs-scarletpitch.20260824T014144Z.html",
       "renderer": "httpx",
       "failure": null,
       "bytes": 50176
     },
-    "scraped_at": "2026-08-24T01:39:36.015366Z",
+    "scraped_at": "2026-08-24T01:41:44.951838Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   },
   {
@@ -178,6 +178,7 @@
     "caveats": [
       "The page also states $50,000 as a combined or total figure, which is larger than the largest individual award found ($15,000). Confirm which number applies to one team.",
       "The page lists more than one date in a deadline context (December 12, 2025, January 15 2026, December 12, January 15, February 15, 2026, March 1, 2026, April 3, 2026, February 15). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.",
+      "[stale deadline] The date on this page, 2025-12-12, passed 255 days ago. The page is showing a previous cycle. Treat the award figures and rules as last cycle's too until the next cycle is posted.",
       "[conditional eligibility] \"Eligibility Open to all RBS students. Some restrictions apply for team leadership roles. Location Newark Campus, 1 Washington Park Participation 50 to 100 students and alumni Sponsored by Sales Executive Club of Northern New Jersey Foundation Contact Professor Doug Brownstone\"",
       "[operator note] The conditional-eligibility case. Open to Rutgers students generally, but the venture's leadership roles carry a separate RBS senior / MBA / recent alumni requirement. Read the caveats before deciding this is applicable.",
       "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
@@ -190,14 +191,14 @@
       "robots_allowed": true,
       "robots_url": "https://myrbs.business.rutgers.edu/robots.txt",
       "crawl_delay_s": 2.0,
-      "fetched_at": "2026-08-24T01:39:36.233139Z",
+      "fetched_at": "2026-08-24T01:41:45.173465Z",
       "content_hash": "a27a3ed72cb3d995c81796ae044b758444d20b62bf55d640b599221b9f3c21b3",
-      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/myrbs.business.rutgers.edu/case-competitions-business-plan.20260824T013936Z.html",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/myrbs.business.rutgers.edu/case-competitions-business-plan.20260824T014145Z.html",
       "renderer": "httpx",
       "failure": null,
       "bytes": 85720
     },
-    "scraped_at": "2026-08-24T01:39:36.233139Z",
+    "scraped_at": "2026-08-24T01:41:45.173465Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   },
   {
@@ -260,14 +261,14 @@
       "robots_allowed": true,
       "robots_url": "https://innovate.njaes.rutgers.edu/robots.txt",
       "crawl_delay_s": 2.0,
-      "fetched_at": "2026-08-24T01:39:36.470703Z",
+      "fetched_at": "2026-08-24T01:41:45.328416Z",
       "content_hash": "8d3a307dd9d2245857112790f8b863f6c9fbbfd82a4b002a355a0c87aacc51e3",
-      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/innovate.njaes.rutgers.edu/upitchnj-ru-2021.20260824T013936Z.html",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/innovate.njaes.rutgers.edu/upitchnj-ru-2021.20260824T014145Z.html",
       "renderer": "httpx",
       "failure": null,
       "bytes": 74233
     },
-    "scraped_at": "2026-08-24T01:39:36.470703Z",
+    "scraped_at": "2026-08-24T01:41:45.328416Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   },
   {
@@ -311,14 +312,14 @@
       "robots_allowed": true,
       "robots_url": "",
       "crawl_delay_s": null,
-      "fetched_at": "2026-08-24T01:39:36.838424Z",
+      "fetched_at": "2026-08-24T01:41:45.719792Z",
       "content_hash": "",
       "raw_path": "",
       "renderer": "httpx",
       "failure": "NO_STABLE_URL: no application page was found for this program",
       "bytes": 0
     },
-    "scraped_at": "2026-08-24T01:39:36.838424Z",
+    "scraped_at": "2026-08-24T01:41:45.719792Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   },
   {
@@ -387,6 +388,7 @@
     ],
     "caveats": [
       "The page lists more than one date in a deadline context (November 4, 2025, November 18, 2025, November 4, November 18). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.",
+      "[stale deadline] The date on this page, 2025-11-04, passed 293 days ago. The page is showing a previous cycle. Treat the award figures and rules as last cycle's too until the next cycle is posted.",
       "[indirect access route] \"The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a new business in NJ. Those submitting as community members cannot be full-time students. NJIT student teams will automatically be co\"",
       "[operator note] Off-domain but genuinely open to a Rutgers founder: the competition takes current students at Northern NJ colleges and universities, not only NJIT students. Verify the current year's scope in the evidence spans.",
       "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
@@ -400,14 +402,14 @@
       "robots_allowed": true,
       "robots_url": "https://research.njit.edu/robots.txt",
       "crawl_delay_s": 2.0,
-      "fetched_at": "2026-08-24T01:39:36.998670Z",
+      "fetched_at": "2026-08-24T01:41:45.824722Z",
       "content_hash": "33f971ab49d8aaf6423c3a400f4510d034a78cef7e019715ec36e1b5f65aab4a",
-      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/research.njit.edu/njiac-new-business-model-competition.20260824T013936Z.html",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/research.njit.edu/njiac-new-business-model-competition.20260824T014145Z.html",
       "renderer": "httpx",
       "failure": null,
       "bytes": 39481
     },
-    "scraped_at": "2026-08-24T01:39:36.998670Z",
+    "scraped_at": "2026-08-24T01:41:45.824722Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   },
   {
@@ -476,14 +478,14 @@
       "robots_allowed": true,
       "robots_url": "https://mtc-code-for-impact-hackathon.devpost.com/robots.txt",
       "crawl_delay_s": 2.0,
-      "fetched_at": "2026-08-24T01:39:37.268063Z",
+      "fetched_at": "2026-08-24T01:41:46.180088Z",
       "content_hash": "d498919c574b3089f0cfc8b88592ed29361589b6117d52442c264c8edd478060",
-      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/mtc-code-for-impact-hackathon.devpost.com/index.20260824T013937Z.html",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/mtc-code-for-impact-hackathon.devpost.com/index.20260824T014146Z.html",
       "renderer": "httpx",
       "failure": null,
       "bytes": 87465
     },
-    "scraped_at": "2026-08-24T01:39:37.268063Z",
+    "scraped_at": "2026-08-24T01:41:46.180088Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   },
   {
@@ -549,14 +551,14 @@
       "robots_allowed": true,
       "robots_url": "https://www.stevens.edu/robots.txt",
       "crawl_delay_s": 2.0,
-      "fetched_at": "2026-08-24T01:39:37.767111Z",
+      "fetched_at": "2026-08-24T01:41:46.689249Z",
       "content_hash": "74395568a4fb84180779119a19eaa0dacb4addfa3d225fd74ceb596f313cfbdb",
-      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/www.stevens.edu/ansary-entrepreneurship-competition.20260824T013937Z.html",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/www.stevens.edu/ansary-entrepreneurship-competition.20260824T014146Z.html",
       "renderer": "httpx",
       "failure": null,
       "bytes": 194483
     },
-    "scraped_at": "2026-08-24T01:39:37.767111Z",
+    "scraped_at": "2026-08-24T01:41:46.689249Z",
     "review_status": "NEEDS_HUMAN_REVIEW"
   }
 ]

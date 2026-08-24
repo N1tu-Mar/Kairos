@@ -481,3 +481,25 @@ def test_a_target_without_a_url_is_marked_as_such():
 def test_only_pages_proven_to_need_javascript_are_flagged_for_it():
     flagged = [t.key for t in TARGETS if t.requires_js]
     assert flagged == ["rutgers_entrepreneurial_society"]
+
+
+def test_a_past_deadline_is_flagged_as_a_previous_cycle():
+    """"Deadline: November 4, 2025" read in August 2026 is technically
+    accurate and practically a lie about when the next one is."""
+    from agent.scraping.pipeline import stale_deadline_caveat
+
+    result = build_record(
+        target(), page("rbs_business_plan"), record(), today=date(2026, 8, 23)
+    )
+
+    assert result.deadline_iso == date(2025, 12, 12)
+    assert any("stale deadline" in c for c in result.caveats)
+    assert stale_deadline_caveat(result, date(2025, 1, 1)) is None
+
+
+def test_a_future_deadline_is_not_flagged():
+    result = build_record(
+        target(), page("rbs_business_plan"), record(), today=date(2025, 1, 1)
+    )
+
+    assert not any("stale deadline" in c for c in result.caveats)

@@ -7,7 +7,7 @@ nothing will be until someone reads the evidence and says so.
 
 Attempted 8. Fetched 6. Extracted 7. Merged 0. Failed 1.
 
-Run `scrape_c428896eda6d`, finished 2026-08-24T01:39:37.907670+00:00.
+Run `scrape_e15e30e85942`, finished 2026-08-24T01:41:46.898705+00:00.
 
 ---
 
@@ -55,7 +55,7 @@ Three things are worth knowing before you trust a single number here.
 
 **Run by:** Stevens Institute of Technology
 **Source:** <https://www.stevens.edu/ansary-entrepreneurship-competition>
-**Scraped:** 2026-08-24T01:39:37.767111+00:00
+**Scraped:** 2026-08-24T01:41:46.689249+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it
@@ -112,7 +112,7 @@ competition prize
 
 **Run by:** New Jersey Innovation Acceleration Center (NJIT)
 **Source:** <https://research.njit.edu/njiac/new-business-model-competition>
-**Scraped:** 2026-08-24T01:39:36.998670+00:00
+**Scraped:** 2026-08-24T01:41:45.824722+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it
@@ -144,6 +144,7 @@ fellowship
 ### Read this before applying
 
 - The page lists more than one date in a deadline context (November 4, 2025, November 18, 2025, November 4, November 18). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.
+- [stale deadline] The date on this page, 2025-11-04, passed 293 days ago. The page is showing a previous cycle. Treat the award figures and rules as last cycle's too until the next cycle is posted.
 - [indirect access route] "The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a new business in NJ. Those submitting as community members cannot be full-time students. NJIT student teams will automatically be co"
 - [operator note] Off-domain but genuinely open to a Rutgers founder: the competition takes current students at Northern NJ colleges and universities, not only NJIT students. Verify the current year's scope in the evidence spans.
 - [off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.
@@ -171,7 +172,7 @@ fellowship
 
 **Run by:** Rutgers Business School
 **Source:** <https://myrbs.business.rutgers.edu/case-competitions/business-plan>
-**Scraped:** 2026-08-24T01:39:36.233139+00:00
+**Scraped:** 2026-08-24T01:41:45.173465+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it
@@ -204,6 +205,7 @@ cash prize
 
 - The page also states $50,000 as a combined or total figure, which is larger than the largest individual award found ($15,000). Confirm which number applies to one team.
 - The page lists more than one date in a deadline context (December 12, 2025, January 15 2026, December 12, January 15, February 15, 2026, March 1, 2026, April 3, 2026, February 15). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.
+- [stale deadline] The date on this page, 2025-12-12, passed 255 days ago. The page is showing a previous cycle. Treat the award figures and rules as last cycle's too until the next cycle is posted.
 - [conditional eligibility] "Eligibility Open to all RBS students. Some restrictions apply for team leadership roles. Location Newark Campus, 1 Washington Park Participation 50 to 100 students and alumni Sponsored by Sales Executive Club of Northern New Jersey Foundation Contact Professor Doug Brownstone"
 - [operator note] The conditional-eligibility case. Open to Rutgers students generally, but the venture's leadership roles carry a separate RBS senior / MBA / recent alumni requirement. Read the caveats before deciding this is applicable.
 - [founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.
@@ -231,7 +233,7 @@ cash prize
 
 **Run by:** Rutgers Muslim Tech Collaborative
 **Source:** <https://mtc-code-for-impact-hackathon.devpost.com/>
-**Scraped:** 2026-08-24T01:39:37.268063+00:00
+**Scraped:** 2026-08-24T01:41:46.180088+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it
@@ -286,7 +288,7 @@ non-cash prize
 
 **Run by:** Rutgers Business School
 **Source:** <_no source URL — see caveats_>
-**Scraped:** 2026-08-24T01:39:36.838424+00:00
+**Scraped:** 2026-08-24T01:41:45.719792+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it
@@ -334,7 +336,7 @@ _No evidence spans were captured for this row._
 
 **Run by:** Innovation, Design, and Entrepreneurship Academy
 **Source:** <https://idea.rutgers.edu/programs/scarletpitch>
-**Scraped:** 2026-08-24T01:39:36.015366+00:00
+**Scraped:** 2026-08-24T01:41:44.951838+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it
@@ -395,7 +397,7 @@ cash prize
 
 **Run by:** New Jersey Collegiate Entrepreneurship Consortium
 **Source:** <https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/>
-**Scraped:** 2026-08-24T01:39:36.470703+00:00
+**Scraped:** 2026-08-24T01:41:45.328416+00:00
 **Review status:** `NEEDS_HUMAN_REVIEW`
 
 ### What kind of application is it

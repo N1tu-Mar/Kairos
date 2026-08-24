@@ -24,7 +24,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
@@ -61,8 +61,38 @@ MAX_DISCOVERED_LINKS = 12
 # ── One target -> one record ─────────────────────────────────────────────────
 
 
+def stale_deadline_caveat(
+    opportunity: ScrapedOpportunity, today: date | None
+) -> str | None:
+    """Flag a deadline that has already passed.
+
+    Program pages routinely sit on last cycle's dates for months. Reporting
+    "deadline: November 4, 2025" in August 2026 without saying so is
+    technically accurate and practically a lie — the reader takes it as the
+    next deadline. The date stays exactly as the page wrote it; the caveat
+    says what it means.
+    """
+    if opportunity.deadline_iso is None:
+        return None
+    today = today or datetime.now(timezone.utc).date()
+    if opportunity.deadline_iso >= today:
+        return None
+    days = (today - opportunity.deadline_iso).days
+    return (
+        f"[stale deadline] The date on this page, "
+        f"{opportunity.deadline_iso.isoformat()}, passed {days} days ago. The page is "
+        f"showing a previous cycle. Treat the award figures and rules as last "
+        f"cycle's too until the next cycle is posted."
+    )
+
+
 def build_record(
-    target: Target, text: str, record: FetchRecord, *, source_url: str | None = None
+    target: Target,
+    text: str,
+    record: FetchRecord,
+    *,
+    source_url: str | None = None,
+    today: date | None = None,
 ) -> ScrapedOpportunity:
     """Turn page text into a `ScrapedOpportunity`.
 
@@ -102,6 +132,10 @@ def build_record(
     ambiguity = extract.deadline_is_ambiguous(blocks)
     if ambiguity:
         opportunity.caveats.append(ambiguity)
+
+    stale = stale_deadline_caveat(opportunity, today)
+    if stale:
+        opportunity.caveats.append(stale)
 
     opportunity.set_field("degree_levels", *_pair(extract.find_degree_levels(blocks, url)))
     opportunity.set_field("institution", *_pair(extract.find_institutions(blocks, url)))
