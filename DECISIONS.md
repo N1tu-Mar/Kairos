@@ -236,6 +236,71 @@ construction: `[DEMO]` in every title and funder, every `source_url` on
 **TODO:** curate the real rows. Budget one sitting. Section 13 is right that
 this is grinding work.
 
+### D14 — A scraping pipeline, and the four rules that shape it
+
+**Spec (Section 5, Tier 3):** AgentCore Browser navigates 3-5 known
+university pages, behind a feature flag, week 3 only, "do not architect
+around this".
+
+**What was built instead:** `agent/scraping/`, a deterministic collection
+pipeline over a curated target registry. Static `httpx` + BeautifulSoup by
+default; a headless browser only where a static fetch has already proved the
+page returns a JavaScript shell, and only when explicitly asked for. Of eight
+targets, exactly one qualifies.
+
+Four rules, each enforced in code rather than in a docstring:
+
+1.  **Never infer a missing field.** `ScrapedOpportunity.set_field` refuses to
+    populate a field without an `Evidence`, so an unstated rule lands in
+    `unknown_fields` and nowhere else. This is the same three-valued logic as
+    `agent/tools/eligibility.py`, one layer earlier: silence about equity
+    stays UNKNOWN even where "no equity" would almost certainly be right.
+2.  **Every populated field carries the verbatim sentence and its URL.**
+3.  **robots.txt fails closed.** Fetched once per host, cached to
+    `data/raw/robots/` so the decision is auditable later, and an unreachable
+    robots.txt is a refusal rather than permission.
+4.  **Nothing is promoted.** Output is
+    `data/opportunities.rutgers.candidates.json`, every row
+    `NEEDS_HUMAN_REVIEW`. No code path writes `opportunities.seed.json`.
+
+There is no login, form-submission, or CAPTCHA code path.
+
+### D15 — Two domain tiers, so "Rutgers-owned only" stays true
+
+The brief says Rutgers-owned domains only. The supplied target list also
+contains four off-domain pages, each for a reason: NJIT's competition is open
+to Northern NJ students generally, Stevens' is the instructive negative,
+Devpost hosts a Rutgers event, and Rutgers' own student organisation
+directory is hosted on campuslabs.com.
+
+Rather than quietly widening the rule, `registry.Target.tier` splits them.
+`RUTGERS` rows are the only ones link discovery may expand into, and
+`is_rutgers_domain` is checked inside `discover_links` rather than trusted to
+a caller. `PROVIDED_EXTERNAL` rows are fetched once at exactly the URL the
+operator supplied, never crawled, and flagged `[off-domain]` in the output so
+a reviewer sees it without reading the registry.
+
+### D16 — Founder reviews are never written by the scraper
+
+The requested output schema includes reviews from past student founders. No
+page in the target set publishes any, and the field is the single most
+damaging one to fill speculatively: it is what someone reads when deciding
+whether a program is worth two weeks.
+
+`FounderReview` therefore requires an `added_by`, the scraper has no code path
+that appends to the list, and every record carries a caveat saying the
+emptiness is by construction rather than by omission. `write_candidates`
+preserves hand-typed reviews and `review_status` across re-scrapes, so a
+human's work is never overwritten by the next run.
+
+### D17 — beautifulsoup4 as a direct dependency
+
+Section 3 does not list an HTML parser; Section 0.5 rule 5 requires a dated
+line for anything outside it. `beautifulsoup4` was already present
+transitively via `strands-agents-tools`; it is now declared directly because
+`agent/scraping/` imports it. `playwright` is an **optional** extra
+(`uv sync --extra js`) and is never installed or invoked by default.
+
 ---
 
 ## Bugs found by tests, worth remembering

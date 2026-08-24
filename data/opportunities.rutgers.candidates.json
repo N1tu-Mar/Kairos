@@ -1,0 +1,562 @@
+[
+  {
+    "scrape_id": "rutgers_scarletpitch:a58121ba6115",
+    "title": "ScarletPitch",
+    "organization": "Innovation, Design, and Entrepreneurship Academy",
+    "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+    "award_type": "cash prize",
+    "award_min": 250,
+    "award_max": 3000,
+    "institution": [
+      "Rutgers University"
+    ],
+    "degree_levels": [
+      "undergraduate",
+      "graduate"
+    ],
+    "applicant_type": [
+      "student"
+    ],
+    "equity_required": null,
+    "team_size_min": 1,
+    "team_size_max": 5,
+    "deadline": "Dec. 21st",
+    "deadline_iso": null,
+    "evidence": {
+      "organization": {
+        "text": "Hosted by the Innovation, Design, and Entrepreneurship Academy (IDEA), ScarletPitch is a campus-wide pitch competition that celebrates student entrepreneurship. It brings together students from all disciplines and backgrounds to create businesses designed to be a force for good. Compete for cash and prizes, gain mentorship and visibility, and advance to UPitchNJ or the Hult Prize, all while connecting to Rutgers' vibrant entrepreneurial ecosystem. All ideas welcome!",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:hosted_by"
+      },
+      "award_min": {
+        "text": "2027 Competition Prizes 1st Place $3000 2nd Place $2000 3rd Place $1000 Superlatives $250 Johnson & Johnson MENA Middlesex County, NJ IDEA",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:award_block"
+      },
+      "award_max": {
+        "text": "2027 Competition Prizes 1st Place $3000 2nd Place $2000 3rd Place $1000 Superlatives $250 Johnson & Johnson MENA Middlesex County, NJ IDEA",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:award_block"
+      },
+      "award_type": {
+        "text": "Hosted by the Innovation, Design, and Entrepreneurship Academy (IDEA), ScarletPitch is a campus-wide pitch competition that celebrates student entrepreneurship. It brings together students from all disciplines and backgrounds to create businesses designed to be a force for good. Compete for cash and prizes, gain mentorship and visibility, and advance to UPitchNJ or the Hult Prize, all while connecting to Rutgers' vibrant entrepreneurial ecosystem. All ideas welcome!",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:award_type:cash prize"
+      },
+      "deadline": {
+        "text": "Apply Now! 2027 Competition Timeline Nov. 1st Application Opens Dec. 21st Priority Deadline Jan. 29th Final Deadline Feb. 9th Development Round Feb. 25th ScarletPitch Finals",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:deadline_no_year:closing(unresolved)"
+      },
+      "degree_levels": {
+        "text": "Undergraduate and Graduate students enrolled at Rutgers-New Brunswick (part-time or full-time)",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:eligibility_block"
+      },
+      "institution": {
+        "text": "Rutgers Bonner Leaders Who can participate?",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:eligibility_block"
+      },
+      "applicant_type": {
+        "text": "Undergraduate and Graduate students enrolled at Rutgers-New Brunswick (part-time or full-time)",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:eligibility_block"
+      },
+      "team_size_min": {
+        "text": "How many people can be on a team? Teams can consist of 1 to 5 members What is the format for the pitch? Each pitch is 5 minutes , followed by a 3-minute Q&A session. Your pitch should address: The problem you're solving The proposed solution",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:team_range"
+      },
+      "team_size_max": {
+        "text": "How many people can be on a team? Teams can consist of 1 to 5 members What is the format for the pitch? Each pitch is 5 minutes , followed by a 3-minute Q&A session. Your pitch should address: The problem you're solving The proposed solution",
+        "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+        "method": "regex:team_range"
+      }
+    },
+    "unknown_fields": [
+      "equity_required"
+    ],
+    "caveats": [
+      "The page lists more than one date in a deadline context (Nov. 1st, Dec. 21st, Jan. 29th, Feb. 9th, Feb. 25th). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.",
+      "[indirect access route] \"Hosted by the Innovation, Design, and Entrepreneurship Academy (IDEA), ScarletPitch is a campus-wide pitch competition that celebrates student entrepreneurship. It brings together students from all disciplines and backgrounds to create businesses designed to be a force for good. Compete for cash and\"",
+      "[operator note] The reference example. Rutgers-New Brunswick undergraduate and graduate students, teams of 1-5. Also the qualifying route into UPitchNJ and the Hult Prize, so it is worth more than its own prize money.",
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "https://idea.rutgers.edu/programs/scarletpitch",
+      "final_url": "https://idea.rutgers.edu/programs/scarletpitch",
+      "status_code": 200,
+      "robots_allowed": true,
+      "robots_url": "https://idea.rutgers.edu/robots.txt",
+      "crawl_delay_s": 2.0,
+      "fetched_at": "2026-08-24T01:39:36.015366Z",
+      "content_hash": "a58121ba6115d3ace0d77b6ce46d3f92261358ff856ce91b72c934cd5fdafc1f",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/idea.rutgers.edu/programs-scarletpitch.20260824T013936Z.html",
+      "renderer": "httpx",
+      "failure": null,
+      "bytes": 50176
+    },
+    "scraped_at": "2026-08-24T01:39:36.015366Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  },
+  {
+    "scrape_id": "rutgers_rbs_business_plan:a27a3ed72cb3",
+    "title": "RBS Business Plan Competition",
+    "organization": "Rutgers Business School",
+    "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+    "award_type": "cash prize",
+    "award_min": 15000,
+    "award_max": 15000,
+    "institution": [
+      "Rutgers University"
+    ],
+    "degree_levels": [
+      "alumni",
+      "undergraduate",
+      "mba"
+    ],
+    "applicant_type": [
+      "student team",
+      "student",
+      "alumni",
+      "student founder"
+    ],
+    "equity_required": null,
+    "team_size_min": null,
+    "team_size_max": null,
+    "deadline": "December 12, 2025",
+    "deadline_iso": "2025-12-12",
+    "evidence": {
+      "organization": {
+        "text": "Not stated in a parseable form on the page; taken from the target registry: Rutgers Business School",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "registry_fallback"
+      },
+      "award_min": {
+        "text": ": Company Name Business Owner Award Amount Let\u2019s Move US Hannah Aura Shoval $15,000 DeLintt Frontier Robert DeLintt $15,000 CJPS (Central Jersey Process Service) Dana Chernin and Max Hayden",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:award_block"
+      },
+      "award_max": {
+        "text": ": Company Name Business Owner Award Amount Let\u2019s Move US Hannah Aura Shoval $15,000 DeLintt Frontier Robert DeLintt $15,000 CJPS (Central Jersey Process Service) Dana Chernin and Max Hayden",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:award_block"
+      },
+      "award_type": {
+        "text": "The competition is supported by the Sales Executives Club of Northern New Jersey Foundation, which will provide total cash prizes of $50,000. Judges will be selected from Rutgers Business School MBA Alumni who have succeeded in entrepreneurial endeavors.",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:award_type:cash prize"
+      },
+      "deadline": {
+        "text": "Who is Eligible? Competition Deliverables Judging & Prizes Past Winners Important dates Milestone Due Date Executive Summary (1 page) of Business Plan due December 12, 2025 Top 10 Summaries are selected by Judges January 15 2026",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:deadline_with_year:closing"
+      },
+      "degree_levels": {
+        "text": "The objective of the annual Business Plan Competition is to encourage student entrepreneurs and support the growth of jobs in New Jersey. In order to compete for the business competition prizes, there must be a serious intent to launch the proposed business. While the competition is open to current Rutgers University students, the leadership roles in the business venture must be filled by one of the three eligible categories: Rutgers Business School senior undergraduate students, current MBA students, recent graduates, and recent MBA alumni. For those current Rutgers University students who ar",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:eligibility_block"
+      },
+      "institution": {
+        "text": "The objective of the annual Business Plan Competition is to encourage student entrepreneurs and support the growth of jobs in New Jersey. In order to compete for the business competition prizes, there must be a serious intent to launch the proposed business. While the competition is open to current Rutgers University students, the leadership roles in the business venture must be filled by one of the three eligible categories: Rutgers Business School senior undergraduate students, current MBA students, recent graduates, and recent MBA alumni. For those current Rutgers University students who ar",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:eligibility_block"
+      },
+      "applicant_type": {
+        "text": "Eligibility Open to all RBS students. Some restrictions apply for team leadership roles. Location Newark Campus, 1 Washington Park Participation 50 to 100 students and alumni Sponsored by Sales Executive Club of Northern New Jersey Foundation Contact Professor Doug Brownstone",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "regex:eligibility_block"
+      }
+    },
+    "unknown_fields": [
+      "equity_required",
+      "team_size_min",
+      "team_size_max"
+    ],
+    "caveats": [
+      "The page also states $50,000 as a combined or total figure, which is larger than the largest individual award found ($15,000). Confirm which number applies to one team.",
+      "The page lists more than one date in a deadline context (December 12, 2025, January 15 2026, December 12, January 15, February 15, 2026, March 1, 2026, April 3, 2026, February 15). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.",
+      "[conditional eligibility] \"Eligibility Open to all RBS students. Some restrictions apply for team leadership roles. Location Newark Campus, 1 Washington Park Participation 50 to 100 students and alumni Sponsored by Sales Executive Club of Northern New Jersey Foundation Contact Professor Doug Brownstone\"",
+      "[operator note] The conditional-eligibility case. Open to Rutgers students generally, but the venture's leadership roles carry a separate RBS senior / MBA / recent alumni requirement. Read the caveats before deciding this is applicable.",
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+      "final_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+      "status_code": 200,
+      "robots_allowed": true,
+      "robots_url": "https://myrbs.business.rutgers.edu/robots.txt",
+      "crawl_delay_s": 2.0,
+      "fetched_at": "2026-08-24T01:39:36.233139Z",
+      "content_hash": "a27a3ed72cb3d995c81796ae044b758444d20b62bf55d640b599221b9f3c21b3",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/myrbs.business.rutgers.edu/case-competitions-business-plan.20260824T013936Z.html",
+      "renderer": "httpx",
+      "failure": null,
+      "bytes": 85720
+    },
+    "scraped_at": "2026-08-24T01:39:36.233139Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  },
+  {
+    "scrape_id": "rutgers_upitchnj:8d3a307dd9d2",
+    "title": "UPitchNJ",
+    "organization": "New Jersey Collegiate Entrepreneurship Consortium",
+    "source_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+    "award_type": "competition prize",
+    "award_min": 500,
+    "award_max": 500,
+    "institution": null,
+    "degree_levels": null,
+    "applicant_type": null,
+    "equity_required": null,
+    "team_size_min": null,
+    "team_size_max": null,
+    "deadline": null,
+    "deadline_iso": null,
+    "evidence": {
+      "organization": {
+        "text": "May 1 from 2:00 p.m. to 4:30 in a livestreamed, virtual format together with Nokia Bell Labs . The competition was organized by the New Jersey Collegiate Entrepreneurship Consortium,",
+        "source_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+        "method": "regex:hosted_by"
+      },
+      "award_min": {
+        "text": "The winning team will receive $500.",
+        "source_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+        "method": "regex:award_block"
+      },
+      "award_max": {
+        "text": "The winning team will receive $500.",
+        "source_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+        "method": "regex:award_block"
+      },
+      "award_type": {
+        "text": "Those watching can participate by helping select the \u201cAudience Choice\u201d award.",
+        "source_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+        "method": "regex:award_type:competition prize"
+      }
+    },
+    "unknown_fields": [
+      "deadline",
+      "degree_levels",
+      "institution",
+      "applicant_type",
+      "equity_required",
+      "team_size_min",
+      "team_size_max"
+    ],
+    "caveats": [
+      "[indirect access route] \"The Scarlet Pitch Winner (if an undergraduate team) will represent Rutgers at the annual\"",
+      "[operator note] Statewide, and NOT directly applicable. A Rutgers undergraduate reaches UPitchNJ by winning ScarletPitch, not by applying. Treated as an indirect opportunity so it is never surfaced as something to go and apply for.",
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+      "final_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+      "status_code": 200,
+      "robots_allowed": true,
+      "robots_url": "https://innovate.njaes.rutgers.edu/robots.txt",
+      "crawl_delay_s": 2.0,
+      "fetched_at": "2026-08-24T01:39:36.470703Z",
+      "content_hash": "8d3a307dd9d2245857112790f8b863f6c9fbbfd82a4b002a355a0c87aacc51e3",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/innovate.njaes.rutgers.edu/upitchnj-ru-2021.20260824T013936Z.html",
+      "renderer": "httpx",
+      "failure": null,
+      "bytes": 74233
+    },
+    "scraped_at": "2026-08-24T01:39:36.470703Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  },
+  {
+    "scrape_id": "rutgers_techstart:no-url",
+    "title": "Rutgers TechStart Innovation Challenge",
+    "organization": "Rutgers Business School",
+    "source_url": "",
+    "award_type": null,
+    "award_min": null,
+    "award_max": null,
+    "institution": null,
+    "degree_levels": null,
+    "applicant_type": null,
+    "equity_required": null,
+    "team_size_min": null,
+    "team_size_max": null,
+    "deadline": null,
+    "deadline_iso": null,
+    "evidence": {},
+    "unknown_fields": [
+      "award_type",
+      "award_min",
+      "award_max",
+      "institution",
+      "degree_levels",
+      "applicant_type",
+      "equity_required",
+      "team_size_min",
+      "team_size_max",
+      "deadline"
+    ],
+    "caveats": [
+      "[operator note] Documented by Rutgers Business School as a real initiative, but with no stable standalone application page found at the time of writing. Recorded here with every field UNKNOWN rather than populated from secondhand descriptions. A human must find and add the application URL.",
+      "[no source url] Nothing on this row was extracted from a page. Every field is UNKNOWN until someone finds the application URL and re-runs the scraper."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "",
+      "final_url": "",
+      "status_code": null,
+      "robots_allowed": true,
+      "robots_url": "",
+      "crawl_delay_s": null,
+      "fetched_at": "2026-08-24T01:39:36.838424Z",
+      "content_hash": "",
+      "raw_path": "",
+      "renderer": "httpx",
+      "failure": "NO_STABLE_URL: no application page was found for this program",
+      "bytes": 0
+    },
+    "scraped_at": "2026-08-24T01:39:36.838424Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  },
+  {
+    "scrape_id": "njit_new_business_model:33f971ab49d8",
+    "title": "New Business Model Competition",
+    "organization": "New Jersey Innovation Acceleration Center (NJIT)",
+    "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+    "award_type": "fellowship",
+    "award_min": 3000,
+    "award_max": 3000,
+    "institution": [
+      "New Jersey Institute of Technology"
+    ],
+    "degree_levels": null,
+    "applicant_type": [
+      "student team",
+      "student"
+    ],
+    "equity_required": null,
+    "team_size_min": null,
+    "team_size_max": null,
+    "deadline": "November 4, 2025",
+    "deadline_iso": "2025-11-04",
+    "evidence": {
+      "organization": {
+        "text": "Not stated in a parseable form on the page; taken from the target registry: New Jersey Innovation Acceleration Center (NJIT)",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "registry_fallback"
+      },
+      "award_min": {
+        "text": "Hosted annually during the fall semester, the Center runs the New Business Model Competition. Many entrepreneurs submit practical innovative ideas for review by a panel of judges for a chance to win a $3,000 summer fellowship to pay them to work on their idea. Although submission is free, each submission must follow the guidelines of the NAVC program. This year's finals on December 2nd will open with a Celebration of the NJIT Center for Student Entrepreneurship!",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "regex:award_block"
+      },
+      "award_max": {
+        "text": "Hosted annually during the fall semester, the Center runs the New Business Model Competition. Many entrepreneurs submit practical innovative ideas for review by a panel of judges for a chance to win a $3,000 summer fellowship to pay them to work on their idea. Although submission is free, each submission must follow the guidelines of the NAVC program. This year's finals on December 2nd will open with a Celebration of the NJIT Center for Student Entrepreneurship!",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "regex:award_block"
+      },
+      "award_type": {
+        "text": "Hosted annually during the fall semester, the Center runs the New Business Model Competition. Many entrepreneurs submit practical innovative ideas for review by a panel of judges for a chance to win a $3,000 summer fellowship to pay them to work on their idea. Although submission is free, each submission must follow the guidelines of the NAVC program. This year's finals on December 2nd will open with a Celebration of the NJIT Center for Student Entrepreneurship!",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "regex:award_type:fellowship"
+      },
+      "deadline": {
+        "text": "Deadline for Submissions: Tuesday, November 4, 2025 Date for Notification of Finalists: Tuesday, November 18, 2025 Presentations by Finalists:",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "regex:deadline_with_year:closing"
+      },
+      "institution": {
+        "text": "The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a new business in NJ. Those submitting as community members cannot be full-time students. NJIT student teams will automatically be competing to represent NJIT at Hult Prize National Competition.",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "regex:eligibility_block"
+      },
+      "applicant_type": {
+        "text": "The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a new business in NJ. Those submitting as community members cannot be full-time students. NJIT student teams will automatically be competing to represent NJIT at Hult Prize National Competition.",
+        "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+        "method": "regex:eligibility_block"
+      }
+    },
+    "unknown_fields": [
+      "degree_levels",
+      "equity_required",
+      "team_size_min",
+      "team_size_max"
+    ],
+    "caveats": [
+      "The page lists more than one date in a deadline context (November 4, 2025, November 18, 2025, November 4, November 18). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.",
+      "[indirect access route] \"The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a new business in NJ. Those submitting as community members cannot be full-time students. NJIT student teams will automatically be co\"",
+      "[operator note] Off-domain but genuinely open to a Rutgers founder: the competition takes current students at Northern NJ colleges and universities, not only NJIT students. Verify the current year's scope in the evidence spans.",
+      "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "https://research.njit.edu/njiac/new-business-model-competition",
+      "final_url": "https://research.njit.edu/njiac/new-business-model-competition",
+      "status_code": 200,
+      "robots_allowed": true,
+      "robots_url": "https://research.njit.edu/robots.txt",
+      "crawl_delay_s": 2.0,
+      "fetched_at": "2026-08-24T01:39:36.998670Z",
+      "content_hash": "33f971ab49d8aaf6423c3a400f4510d034a78cef7e019715ec36e1b5f65aab4a",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/research.njit.edu/njiac-new-business-model-competition.20260824T013936Z.html",
+      "renderer": "httpx",
+      "failure": null,
+      "bytes": 39481
+    },
+    "scraped_at": "2026-08-24T01:39:36.998670Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  },
+  {
+    "scrape_id": "rutgers_mtc_code_for_impact:d498919c574b",
+    "title": "Rutgers MTC Code for Impact Hackathon",
+    "organization": "Rutgers Muslim Tech Collaborative",
+    "source_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+    "award_type": "non-cash prize",
+    "award_min": null,
+    "award_max": null,
+    "institution": [
+      "Rutgers University"
+    ],
+    "degree_levels": null,
+    "applicant_type": [
+      "student",
+      "student team"
+    ],
+    "equity_required": null,
+    "team_size_min": null,
+    "team_size_max": null,
+    "deadline": null,
+    "deadline_iso": null,
+    "evidence": {
+      "organization": {
+        "text": "Public 4 non-cash prizes 34 participants Muslim Tech Collaborative Health Machine Learning/AI Social Good Code for Impact is a mission-driven hackathon hosted by Rutgers Muslim Tech Collaborative",
+        "source_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+        "method": "regex:hosted_by"
+      },
+      "award_type": {
+        "text": "Public 4 non-cash prizes 34 participants Muslim Tech Collaborative Health Machine Learning/AI Social Good Code for Impact is a mission-driven hackathon hosted by Rutgers Muslim Tech Collaborative",
+        "source_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+        "method": "regex:award_type:non-cash prize"
+      },
+      "institution": {
+        "text": "Public 4 non-cash prizes 34 participants Muslim Tech Collaborative Health Machine Learning/AI Social Good Code for Impact is a mission-driven hackathon hosted by Rutgers Muslim Tech Collaborative",
+        "source_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+        "method": "regex:eligibility_block"
+      },
+      "applicant_type": {
+        "text": "Start late project Find more hackathons View the winners Who can participate Above legal age of majority in country of residence College students only All countries/territories, excluding standard exceptions View full rules View schedule Apr 4, 2026 College Ave Gym",
+        "source_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+        "method": "regex:eligibility_block"
+      }
+    },
+    "unknown_fields": [
+      "award_min",
+      "award_max",
+      "deadline",
+      "degree_levels",
+      "equity_required",
+      "team_size_min",
+      "team_size_max"
+    ],
+    "caveats": [
+      "[non-cash award] \"Public 4 non-cash prizes 34 participants Muslim Tech Collaborative Health Machine Learning/AI Social Good Code for Impact is a mission-driven hackathon hosted by Rutgers Muslim Tech Collaborative\"",
+      "[operator note] A Rutgers-hosted event on a third-party host. Included as the case where discovery should find something and funding triage should probably reject it: the listed prizes were non-cash. Confirm against the award evidence.",
+      "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+      "final_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+      "status_code": 200,
+      "robots_allowed": true,
+      "robots_url": "https://mtc-code-for-impact-hackathon.devpost.com/robots.txt",
+      "crawl_delay_s": 2.0,
+      "fetched_at": "2026-08-24T01:39:37.268063Z",
+      "content_hash": "d498919c574b3089f0cfc8b88592ed29361589b6117d52442c264c8edd478060",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/mtc-code-for-impact-hackathon.devpost.com/index.20260824T013937Z.html",
+      "renderer": "httpx",
+      "failure": null,
+      "bytes": 87465
+    },
+    "scraped_at": "2026-08-24T01:39:37.268063Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  },
+  {
+    "scrape_id": "stevens_ansary:74395568a4fb",
+    "title": "Ansary Entrepreneurship Competition",
+    "organization": "Stevens Institute of Technology",
+    "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+    "award_type": "competition prize",
+    "award_min": 2500,
+    "award_max": 17500,
+    "institution": null,
+    "degree_levels": null,
+    "applicant_type": null,
+    "equity_required": null,
+    "team_size_min": null,
+    "team_size_max": null,
+    "deadline": null,
+    "deadline_iso": null,
+    "evidence": {
+      "organization": {
+        "text": "Not stated in a parseable form on the page; taken from the target registry: Stevens Institute of Technology",
+        "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+        "method": "registry_fallback"
+      },
+      "award_min": {
+        "text": "Third Prize ($2,500)",
+        "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+        "method": "regex:award_block"
+      },
+      "award_max": {
+        "text": "Ansary Prizes for Entrepreneurship , totaling $17,500. Ansary Foundation Prizes for the competition are provided by the Cy and Jan Ansary Foundation",
+        "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+        "method": "regex:award_block"
+      },
+      "award_type": {
+        "text": "Ansary Prizes for Entrepreneurship , totaling $17,500. Ansary Foundation Prizes for the competition are provided by the Cy and Jan Ansary Foundation",
+        "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+        "method": "regex:award_type:competition prize"
+      }
+    },
+    "unknown_fields": [
+      "deadline",
+      "degree_levels",
+      "institution",
+      "applicant_type",
+      "equity_required",
+      "team_size_min",
+      "team_size_max"
+    ],
+    "caveats": [
+      "[conditional eligibility] \"Before founding XtremeLabs, Abbas held senior leadership roles across the technology and IT services industry. He was Vice President of Global Services at Digital Intelligence Systems (DISYS), where he drove new service offerings and global delivery strategy. He also served as Senior Vice President \"",
+      "[indirect access route] \"A live quarter-final that takes place within each participating academic department. Course instructors choose top teams, which then advance to the next round.\"",
+      "[host-institution scope] \"features student teams in a high-stakes contest to persuade prospective investors to help them turn their Senior Design Projects into effective businesses. Students deliver elevator pitches as they compete for the\"",
+      "[operator note] The hard negative. Real money, but the competition is built around Stevens senior design teams. Kept in the review file precisely so the reasoning for rejecting it is visible rather than assumed.",
+      "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+    ],
+    "founder_reviews": [],
+    "fetch": {
+      "url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+      "final_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+      "status_code": 200,
+      "robots_allowed": true,
+      "robots_url": "https://www.stevens.edu/robots.txt",
+      "crawl_delay_s": 2.0,
+      "fetched_at": "2026-08-24T01:39:37.767111Z",
+      "content_hash": "74395568a4fb84180779119a19eaa0dacb4addfa3d225fd74ceb596f313cfbdb",
+      "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/www.stevens.edu/ansary-entrepreneurship-competition.20260824T013937Z.html",
+      "renderer": "httpx",
+      "failure": null,
+      "bytes": 194483
+    },
+    "scraped_at": "2026-08-24T01:39:37.767111Z",
+    "review_status": "NEEDS_HUMAN_REVIEW"
+  }
+]

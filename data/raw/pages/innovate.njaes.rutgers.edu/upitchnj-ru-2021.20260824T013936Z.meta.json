@@ -1,0 +1,14 @@
+{
+  "url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+  "final_url": "https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/",
+  "status_code": 200,
+  "robots_allowed": true,
+  "robots_url": "https://innovate.njaes.rutgers.edu/robots.txt",
+  "crawl_delay_s": 2.0,
+  "fetched_at": "2026-08-24T01:39:36.470703Z",
+  "content_hash": "8d3a307dd9d2245857112790f8b863f6c9fbbfd82a4b002a355a0c87aacc51e3",
+  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/innovate.njaes.rutgers.edu/upitchnj-ru-2021.20260824T013936Z.html",
+  "renderer": "httpx",
+  "failure": null,
+  "bytes": 74233
+}

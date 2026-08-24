@@ -1,0 +1,14 @@
+{
+  "url": "https://rutgers.campuslabs.com/engage/organization/RES",
+  "final_url": "https://rutgers.campuslabs.com/engage/organization/RES",
+  "status_code": 200,
+  "robots_allowed": true,
+  "robots_url": "https://rutgers.campuslabs.com/robots.txt",
+  "crawl_delay_s": 2.0,
+  "fetched_at": "2026-08-24T01:39:36.726646Z",
+  "content_hash": "ad3184d9774e0cc960f1df5ae41019d2558cfbb16d1b87d806a537e594c72df7",
+  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/rutgers.campuslabs.com/engage-organization-RES.20260824T013936Z.html",
+  "renderer": "httpx",
+  "failure": "NEEDS_JS: page renders its content with JavaScript",
+  "bytes": 12749
+}

@@ -57,3 +57,8 @@ Real application forms modelled as structured JSON. Field labels are copied
 verbatim from the source form, because the Section 10.1 blocklist matches on
 label text — paraphrasing a label is how a certification field stops looking
 like one.
+
+**Current state: the only form here is `demo_campus_innovation_fund.json`**,
+the synthetic form for the `[DEMO]` catalog row. No real form has been
+transcribed yet. The verbatim-label rule above is how they must be added, not
+a description of what is already in this directory.

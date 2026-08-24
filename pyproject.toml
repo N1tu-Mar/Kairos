@@ -4,6 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "apscheduler>=3.11.3",
+    "beautifulsoup4>=4.13.0",
     "fastapi[standard]>=0.141.1",
     "httpx>=0.28.1",
     "pydantic>=2.13.4",
@@ -12,6 +13,12 @@ dependencies = [
     "strands-agents>=1.53.0",
     "strands-agents-tools>=0.8.6",
 ]
+
+[project.optional-dependencies]
+# Only for the one target page in the scraping registry that returns a
+# JavaScript shell. Never installed by default and never used speculatively —
+# see agent/scraping/fetch.py.
+js = ["playwright>=1.49.0"]
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,11 @@
+Sitemap: https://rutgers.campuslabs.com/sitemap.xml
+
+User-agent: *
+Disallow: /engage/notfound
+Disallow: /engage/forbidden
+Disallow: /engage/error
+Disallow: /engage/api/
+Disallow: /notfound
+Disallow: /forbidden
+Disallow: /error
+Disallow: /api/

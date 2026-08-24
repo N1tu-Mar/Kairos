@@ -1,0 +1,14 @@
+{
+  "url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+  "final_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
+  "status_code": 200,
+  "robots_allowed": true,
+  "robots_url": "https://www.stevens.edu/robots.txt",
+  "crawl_delay_s": 2.0,
+  "fetched_at": "2026-08-24T01:39:37.767111Z",
+  "content_hash": "74395568a4fb84180779119a19eaa0dacb4addfa3d225fd74ceb596f313cfbdb",
+  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/www.stevens.edu/ansary-entrepreneurship-competition.20260824T013937Z.html",
+  "renderer": "httpx",
+  "failure": null,
+  "bytes": 194483
+}

@@ -1,0 +1,14 @@
+{
+  "url": "https://research.njit.edu/njiac/new-business-model-competition",
+  "final_url": "https://research.njit.edu/njiac/new-business-model-competition",
+  "status_code": 200,
+  "robots_allowed": true,
+  "robots_url": "https://research.njit.edu/robots.txt",
+  "crawl_delay_s": 2.0,
+  "fetched_at": "2026-08-24T01:39:36.998670Z",
+  "content_hash": "33f971ab49d8aaf6423c3a400f4510d034a78cef7e019715ec36e1b5f65aab4a",
+  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/research.njit.edu/njiac-new-business-model-competition.20260824T013936Z.html",
+  "renderer": "httpx",
+  "failure": null,
+  "bytes": 39481
+}

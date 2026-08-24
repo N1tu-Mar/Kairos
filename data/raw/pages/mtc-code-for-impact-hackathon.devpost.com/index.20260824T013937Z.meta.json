@@ -1,0 +1,14 @@
+{
+  "url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+  "final_url": "https://mtc-code-for-impact-hackathon.devpost.com/",
+  "status_code": 200,
+  "robots_allowed": true,
+  "robots_url": "https://mtc-code-for-impact-hackathon.devpost.com/robots.txt",
+  "crawl_delay_s": 2.0,
+  "fetched_at": "2026-08-24T01:39:37.268063Z",
+  "content_hash": "d498919c574b3089f0cfc8b88592ed29361589b6117d52442c264c8edd478060",
+  "raw_path": "/Users/nityanthmaramreddy/Downloads/humanhack/data/raw/pages/mtc-code-for-impact-hackathon.devpost.com/index.20260824T013937Z.html",
+  "renderer": "httpx",
+  "failure": null,
+  "bytes": 87465
+}

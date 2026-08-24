@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://www.stevens.edu/
+
+# Sitemaps
+Sitemap: https://www.stevens.edu/sitemap.xml
