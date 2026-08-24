@@ -1,0 +1,884 @@
+<title>Rutgers Funding Candidates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────────
+   Tokens. Light is the base; dark redefines only these values.
+   Scarlet is Rutgers' own; ochre carries UNKNOWN, which is a
+   legitimate value here and not an error state.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --scarlet:      #C4002E;
+  --scarlet-soft: #F3DCE1;
+  --ink:          #1A1316;
+  --ink-2:        #493A3E;
+  --muted:        #75646A;
+  --paper:        #F4F1F1;
+  --surface:      #FFFFFF;
+  --surface-2:    #FAF7F7;
+  --line:         #E0D8DA;
+  --line-strong:  #C9BDC0;
+  --ochre:        #7E6416;
+  --ochre-bg:     #F6EFD9;
+  --known:        #2A5A4C;
+  --known-bg:     #E1EDE8;
+  --shadow:       0 1px 2px rgba(26, 19, 22, .05), 0 8px 24px -16px rgba(26, 19, 22, .22);
+
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body:    "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --measure: 68ch;
+  --rail:    15rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --scarlet:      #FF5C79;
+    --scarlet-soft: #43181F;
+    --ink:          #EFE7E9;
+    --ink-2:        #C4B4B8;
+    --muted:        #9A878C;
+    --paper:        #141012;
+    --surface:      #1C1719;
+    --surface-2:    #221C1E;
+    --line:         #322A2D;
+    --line-strong:  #4A3E42;
+    --ochre:        #D6B458;
+    --ochre-bg:     #302713;
+    --known:        #74C4A8;
+    --known-bg:     #142A24;
+    --shadow:       0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+  }
+}
+
+:root[data-theme="dark"] {
+  --scarlet:      #FF5C79;
+  --scarlet-soft: #43181F;
+  --ink:          #EFE7E9;
+  --ink-2:        #C4B4B8;
+  --muted:        #9A878C;
+  --paper:        #141012;
+  --surface:      #1C1719;
+  --surface-2:    #221C1E;
+  --line:         #322A2D;
+  --line-strong:  #4A3E42;
+  --ochre:        #D6B458;
+  --ochre-bg:     #302713;
+  --known:        #74C4A8;
+  --known-bg:     #142A24;
+  --shadow:       0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -16px rgba(0, 0, 0, .8);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 1.0625rem;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--scarlet); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible,
+summary:focus-visible { outline: 2px solid var(--scarlet); outline-offset: 3px; border-radius: 2px; }
+
+h1, h2, h3, h4 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.15; }
+
+.wrap {
+  max-width: 78rem;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 4vw, 3rem);
+}
+
+/* ── Masthead ─────────────────────────────────────────────────── */
+
+.masthead {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.masthead .wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  padding-top: clamp(2.5rem, 6vw, 4rem);
+  padding-bottom: 2rem;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.masthead h1 {
+  font-size: clamp(2rem, 5.5vw, 3.25rem);
+  font-weight: 700;
+  letter-spacing: -.022em;
+  max-width: 20ch;
+}
+.masthead h1 em {
+  font-style: normal;
+  color: var(--scarlet);
+}
+.standfirst {
+  max-width: var(--measure);
+  font-size: 1.1875rem;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+/* ── Counters ─────────────────────────────────────────────────── */
+
+.counters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.counter {
+  background: var(--surface);
+  padding: .875rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+}
+.counter b {
+  font-family: var(--display);
+  font-size: 1.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+.counter span {
+  font-family: var(--mono);
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.counter.is-flag b { color: var(--scarlet); }
+
+/* ── Body layout ──────────────────────────────────────────────── */
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 3rem;
+  padding-top: 3rem;
+  padding-bottom: 5rem;
+  align-items: start;
+}
+@media (min-width: 62rem) {
+  .layout { grid-template-columns: var(--rail) minmax(0, 1fr); gap: 4rem; }
+  .rail { position: sticky; top: 2rem; }
+}
+
+.rail nav { display: flex; flex-direction: column; gap: .1rem; }
+.rail h2 {
+  font-family: var(--mono);
+  font-size: .68rem;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: .85rem;
+}
+.rail a {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: .5rem;
+  padding: .4rem 0;
+  font-family: var(--display);
+  font-size: .875rem;
+  font-weight: 500;
+  color: var(--ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+.rail a:hover { color: var(--scarlet); }
+.rail a u {
+  font-family: var(--mono);
+  font-size: .66rem;
+  text-decoration: none;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.main { min-width: 0; display: flex; flex-direction: column; gap: 3.5rem; }
+
+/* ── Callout ──────────────────────────────────────────────────── */
+
+.callout {
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--scarlet);
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.callout h3 {
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.callout p { margin: 0; color: var(--ink-2); max-width: var(--measure); }
+.callout p + p { margin-top: -.1rem; }
+
+/* ── Group headings encode the decision, not a sequence ───────── */
+
+.group { display: flex; flex-direction: column; gap: 1.5rem; }
+.group > header {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  padding-bottom: .75rem;
+  border-bottom: 2px solid var(--ink);
+}
+.group > header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -.015em;
+}
+.group > header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: .95rem;
+  max-width: var(--measure);
+}
+
+/* ── Entry ────────────────────────────────────────────────────── */
+
+.entry {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.entry > header {
+  padding: 1.4rem 1.5rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  border-bottom: 1px solid var(--line);
+}
+.entry h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -.012em;
+}
+.entry .org {
+  font-family: var(--mono);
+  font-size: .74rem;
+  color: var(--muted);
+  letter-spacing: .01em;
+}
+.entry .src {
+  font-family: var(--mono);
+  font-size: .72rem;
+  word-break: break-all;
+  margin-top: .35rem;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.fact {
+  background: var(--surface-2);
+  padding: .8rem 1rem .9rem;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  min-width: 0;
+}
+.fact dt {
+  font-family: var(--mono);
+  font-size: .64rem;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.fact dd {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* UNKNOWN is a value, so it gets a treatment rather than a blank. */
+.unknown {
+  font-family: var(--mono);
+  font-size: .78rem;
+  font-weight: 500;
+  color: var(--ochre);
+  background: var(--ochre-bg);
+  border: 1px dashed var(--ochre);
+  border-radius: 2px;
+  padding: .05rem .4rem;
+  display: inline-block;
+}
+.stale {
+  display: inline-block;
+  margin-top: .3rem;
+  font-family: var(--mono);
+  font-size: .64rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--scarlet);
+  background: var(--scarlet-soft);
+  border-radius: 2px;
+  padding: .1rem .38rem;
+}
+
+.notes {
+  padding: 1.2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+}
+.notes h4 {
+  font-family: var(--mono);
+  font-size: .64rem;
+  font-weight: 500;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.notes ul { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: .5rem; }
+.notes li { max-width: var(--measure); color: var(--ink-2); }
+.notes li b { color: var(--ink); font-weight: 600; }
+.notes blockquote {
+  margin: .35rem 0 0;
+  padding-left: .85rem;
+  border-left: 2px solid var(--line-strong);
+  color: var(--muted);
+  font-size: .95rem;
+}
+
+details {
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+}
+summary {
+  cursor: pointer;
+  padding: .85rem 1.5rem;
+  font-family: var(--mono);
+  font-size: .7rem;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+summary:hover { color: var(--scarlet); }
+details[open] summary { color: var(--ink); border-bottom: 1px solid var(--line); }
+.tablewrap { overflow-x: auto; padding: 0 1.5rem 1.25rem; }
+table { border-collapse: collapse; width: 100%; font-size: .875rem; margin-top: 1rem; }
+th, td { text-align: left; padding: .55rem .8rem .55rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th {
+  font-family: var(--mono);
+  font-size: .64rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+td.field { font-family: var(--mono); font-size: .78rem; color: var(--known); white-space: nowrap; }
+td.quote { color: var(--ink-2); min-width: 22rem; }
+td.method { font-family: var(--mono); font-size: .7rem; color: var(--muted); white-space: nowrap; }
+
+.review-empty {
+  font-family: var(--body);
+  color: var(--ink-2);
+  background: var(--ochre-bg);
+  border: 1px solid var(--ochre);
+  border-radius: 3px;
+  padding: .75rem .95rem;
+  font-size: .95rem;
+  max-width: var(--measure);
+}
+
+/* ── Closing ──────────────────────────────────────────────────── */
+
+.closing {
+  border-top: 2px solid var(--ink);
+  padding-top: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.closing h2 { font-size: 1.35rem; font-weight: 600; }
+.closing ol { margin: 0; padding-left: 1.3rem; display: flex; flex-direction: column; gap: .55rem; }
+.closing li { max-width: var(--measure); color: var(--ink-2); }
+.closing code {
+  font-family: var(--mono);
+  font-size: .82em;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: .05rem .3rem;
+}
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Scraped 24 August 2026 · run scrape_c4a6 · nothing here is production data</p>
+    <h1>Eight Rutgers funding pages, read literally and <em>nothing filled in</em></h1>
+    <p class="standfirst">
+      A deterministic scraper visited eight program pages and wrote down only what
+      each one actually says. Where a page is silent, the field below reads
+      <span class="unknown">UNKNOWN</span> — which means the page did not state it,
+      not that there is no restriction. Every value that <em>is</em> filled in carries
+      the sentence it was read from. Nothing has been promoted into the live
+      opportunity catalog, and nothing will be until you say so.
+    </p>
+    <div class="counters">
+      <div class="counter"><b>8</b><span>Targets</span></div>
+      <div class="counter"><b>6</b><span>Pages fetched</span></div>
+      <div class="counter"><b>7</b><span>Rows extracted</span></div>
+      <div class="counter is-flag"><b>1</b><span>Fetch failed</span></div>
+      <div class="counter is-flag"><b>2</b><span>Stale deadlines</span></div>
+      <div class="counter is-flag"><b>0</b><span>Founder reviews</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <aside class="rail">
+    <h2>The eight</h2>
+    <nav>
+      <a href="#scarletpitch">ScarletPitch <u>$250–3k</u></a>
+      <a href="#rbs">RBS Business Plan <u>$15k</u></a>
+      <a href="#njit">NJIT New Business Model <u>$3k</u></a>
+      <a href="#upitch">UPitchNJ <u>indirect</u></a>
+      <a href="#mtc">MTC Hackathon <u>non-cash</u></a>
+      <a href="#ansary">Ansary (Stevens) <u>$2.5–17.5k</u></a>
+      <a href="#techstart">TechStart <u>no page</u></a>
+      <a href="#res">Entrepreneurial Society <u>not fetched</u></a>
+    </nav>
+  </aside>
+
+  <main class="main">
+
+    <section class="callout">
+      <h3>Three things to know before you trust a number on this page</h3>
+      <p>
+        <b>UNKNOWN is a finding, not a gap.</b> The scraper cannot write a field
+        without a supporting sentence. When a pitch competition's page never
+        mentions equity, the equity row says UNKNOWN — not “no equity” — even
+        though “no equity” is almost certainly right. Almost certainly right is
+        how a wrong fact ends up on a real application.
+      </p>
+      <p>
+        <b>Two of these pages are showing last year's cycle.</b> RBS says
+        December 12, 2025 and NJIT says November 4, 2025. Those dates passed 255
+        and 293 days ago. Read the award figures beside them as last cycle's too.
+      </p>
+      <p>
+        <b>There are no founder reviews anywhere in here, and that is not a
+        verdict on any program.</b> None of these eight pages publishes them.
+        The scraper has no code path that writes that field — it comes from
+        people you talk to, or it stays empty.
+      </p>
+    </section>
+
+    <!-- ── Group 1 ─────────────────────────────────────────────── -->
+    <section class="group">
+      <header>
+        <h2>Apply directly</h2>
+        <p>The page states rules you meet, and applying is the whole process.</p>
+      </header>
+
+      <article class="entry" id="scarletpitch">
+        <header>
+          <h3>ScarletPitch</h3>
+          <div class="org">Innovation, Design, and Entrepreneurship Academy (IDEA) · Rutgers</div>
+          <div class="src"><a href="https://idea.rutgers.edu/programs/scarletpitch">idea.rutgers.edu/programs/scarletpitch</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd>Cash prize — campus pitch competition</dd></div>
+          <div class="fact"><dt>Award range</dt><dd>$250 – $3,000</dd></div>
+          <div class="fact"><dt>Closing date</dt><dd>Dec. 21st<span class="stale">no year on page</span></dd></div>
+          <div class="fact"><dt>Degree levels</dt><dd>Undergraduate, graduate</dd></div>
+          <div class="fact"><dt>Team size</dt><dd>1 – 5 members</dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>What it funds, and what to check</h4>
+          <ul>
+            <li>
+              A campus-wide pitch competition for Rutgers–New Brunswick students,
+              part-time or full-time, across all disciplines. Prizes run
+              $3,000 / $2,000 / $1,000 with $250 superlatives.
+            </li>
+            <li>
+              <b>Worth more than its prize money.</b> Winning is the qualifying
+              route into UPitchNJ and the Hult Prize semi-finals. Neither of
+              those takes direct applications from Rutgers students.
+            </li>
+            <li>
+              <b>Five dates sit in the timeline</b> — Nov. 1st (opens), Dec. 21st
+              (priority), Jan. 29th (final), Feb. 9th, Feb. 25th. The scraper took
+              the earliest labelled closing date. None carries a year, so no
+              calendar date was derived. Confirm which one applies to you.
+            </li>
+          </ul>
+          <h4>What past student founders said</h4>
+          <p class="review-empty">Nothing collected. The page publishes no applicant accounts.</p>
+        </div>
+        <details>
+          <summary>Evidence — every field above, quoted from the page</summary>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Field</th><th>Quoted from the page</th><th>Found by</th></tr></thead>
+              <tbody>
+                <tr><td class="field">award_min / award_max</td><td class="quote">2027 Competition Prizes 1st Place $3000 2nd Place $2000 3rd Place $1000 Superlatives $250</td><td class="method">regex:award_block</td></tr>
+                <tr><td class="field">degree_levels</td><td class="quote">Undergraduate and Graduate students enrolled at Rutgers-New Brunswick (part-time or full-time)</td><td class="method">regex:eligibility_block</td></tr>
+                <tr><td class="field">team_size</td><td class="quote">How many people can be on a team? Teams can consist of 1 to 5 members</td><td class="method">regex:team_range</td></tr>
+                <tr><td class="field">deadline</td><td class="quote">2027 Competition Timeline Nov. 1st Application Opens Dec. 21st Priority Deadline Jan. 29th Final Deadline</td><td class="method">regex:deadline_no_year:closing</td></tr>
+                <tr><td class="field">organization</td><td class="quote">Hosted by the Innovation, Design, and Entrepreneurship Academy (IDEA), ScarletPitch is a campus-wide pitch competition…</td><td class="method">regex:hosted_by</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+    </section>
+
+    <!-- ── Group 2 ─────────────────────────────────────────────── -->
+    <section class="group">
+      <header>
+        <h2>Eligible, with a condition attached</h2>
+        <p>You can enter. Something in the fine print decides whether it is worth the afternoon.</p>
+      </header>
+
+      <article class="entry" id="rbs">
+        <header>
+          <h3>RBS Business Plan Competition</h3>
+          <div class="org">Rutgers Business School · Newark</div>
+          <div class="src"><a href="https://myrbs.business.rutgers.edu/case-competitions/business-plan">myrbs.business.rutgers.edu/case-competitions/business-plan</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd>Cash prize — full business plan</dd></div>
+          <div class="fact"><dt>Largest single award</dt><dd>$15,000</dd></div>
+          <div class="fact"><dt>Closing date</dt><dd>December 12, 2025<span class="stale">passed 255 days ago</span></dd></div>
+          <div class="fact"><dt>Degree levels</dt><dd>Undergraduate, MBA, alumni</dd></div>
+          <div class="fact"><dt>Team size</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>What it funds, and what to check</h4>
+          <ul>
+            <li>
+              <b>The $50,000 you will see quoted is a pool, not an award.</b> The
+              page advertises “$50,000 in prizes” and then lists the 2026 winners
+              receiving $15,000, $15,000, $10,000, $10,000, $5,000 and $5,000. The
+              award figure above is the largest amount one team actually received.
+            </li>
+            <li>
+              <b>You can compete without being able to lead.</b> The competition is
+              open to current Rutgers students, but the venture's leadership roles
+              must be filled by an RBS senior undergraduate, a current MBA student,
+              or a recent MBA graduate. If you are not in one of those categories,
+              the page offers to match you onto a team rather than let you enter
+              as the lead.
+              <blockquote>“Eligibility: Open to all RBS students. Some restrictions apply for team leadership roles.”</blockquote>
+            </li>
+            <li>
+              <b>The page is on last cycle.</b> Its first step — a one-page
+              executive summary — was due December 12, 2025, and pitch day was
+              April 3, 2026. Both have passed. Treat every figure here as the
+              previous cycle's until the next one is posted.
+            </li>
+          </ul>
+          <h4>What past student founders said</h4>
+          <p class="review-empty">Nothing collected. The page publishes no applicant accounts.</p>
+        </div>
+        <details>
+          <summary>Evidence — every field above, quoted from the page</summary>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Field</th><th>Quoted from the page</th><th>Found by</th></tr></thead>
+              <tbody>
+                <tr><td class="field">award_max</td><td class="quote">Company Name Business Owner Award Amount Let's Move US Hannah Aura Shoval $15,000 DeLintt Frontier Robert DeLintt $15,000 CJPS $10,000…</td><td class="method">regex:award_block</td></tr>
+                <tr><td class="field">degree_levels</td><td class="quote">…the leadership roles in the business venture must be filled by one of the three eligible categories: Rutgers Business School senior undergraduate students, current MBA students, recent graduates, and recent MBA alumni.</td><td class="method">regex:eligibility_block</td></tr>
+                <tr><td class="field">deadline</td><td class="quote">Important dates Milestone Due Date Executive Summary (1 page) of Business Plan due December 12, 2025</td><td class="method">regex:deadline_with_year:closing</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+
+      <article class="entry" id="njit">
+        <header>
+          <h3>New Business Model Competition</h3>
+          <div class="org">New Jersey Innovation Acceleration Center, NJIT — not a Rutgers domain</div>
+          <div class="src"><a href="https://research.njit.edu/njiac/new-business-model-competition">research.njit.edu/njiac/new-business-model-competition</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd>Fellowship award</dd></div>
+          <div class="fact"><dt>Award</dt><dd>$3,000</dd></div>
+          <div class="fact"><dt>Closing date</dt><dd>November 4, 2025<span class="stale">passed 293 days ago</span></dd></div>
+          <div class="fact"><dt>Degree levels</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Team size</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>What it funds, and what to check</h4>
+          <ul>
+            <li>
+              <b>Open past its host.</b> This is the one off-Rutgers page here that
+              a Rutgers founder can enter on the same footing as anybody else — the
+              contest takes any current student of a Northern New Jersey college or
+              university, not only NJIT students.
+              <blockquote>“The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a business…”</blockquote>
+            </li>
+            <li>
+              <b>The page did not state a degree requirement</b>, so the degree row
+              is UNKNOWN rather than “open to everyone”. If your eligibility turns
+              on it, that is a two-minute email before you spend hours.
+            </li>
+            <li><b>Dated.</b> Submissions closed November 4, 2025; finalists were notified November 18, 2025.</li>
+          </ul>
+          <h4>What past student founders said</h4>
+          <p class="review-empty">Nothing collected. The page publishes no applicant accounts.</p>
+        </div>
+        <details>
+          <summary>Evidence — every field above, quoted from the page</summary>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Field</th><th>Quoted from the page</th><th>Found by</th></tr></thead>
+              <tbody>
+                <tr><td class="field">award_min / award_max</td><td class="quote">…the Center runs the New Business Model Competition. Many entrepreneurs submit practical innovative ideas for a chance at $3,000 fellowships…</td><td class="method">regex:award_block</td></tr>
+                <tr><td class="field">institution</td><td class="quote">The contest is open to (1) any current student of a Northern NJ area college or university…</td><td class="method">regex:eligibility_block</td></tr>
+                <tr><td class="field">deadline</td><td class="quote">Deadline for Submissions: Tuesday, November 4, 2025 Date for Notification of Finalists: Tuesday, November 18, 2025</td><td class="method">regex:deadline_with_year:closing</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </article>
+    </section>
+
+    <!-- ── Group 3 ─────────────────────────────────────────────── -->
+    <section class="group">
+      <header>
+        <h2>You don't apply — you qualify</h2>
+        <p>Real money, no application form. The route in is winning something else first.</p>
+      </header>
+
+      <article class="entry" id="upitch">
+        <header>
+          <h3>UPitchNJ</h3>
+          <div class="org">New Jersey Collegiate Entrepreneurship Consortium</div>
+          <div class="src"><a href="https://innovate.njaes.rutgers.edu/upitchnj-ru-2021/">innovate.njaes.rutgers.edu/upitchnj-ru-2021/</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd>Statewide competition prize</dd></div>
+          <div class="fact"><dt>Award found on page</dt><dd>$500</dd></div>
+          <div class="fact"><dt>Closing date</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Degree levels</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Institutions</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>What it funds, and what to check</h4>
+          <ul>
+            <li>
+              <b>There is nothing here to apply to.</b> Rutgers sends one
+              undergraduate team, and that team is chosen at ScarletPitch.
+              <blockquote>“The Scarlet Pitch Winner (if an undergraduate team) will represent Rutgers at the annual UPitchNJ Competition.”</blockquote>
+            </li>
+            <li>
+              This row exists so the opportunity is never surfaced as something to
+              go and fill in a form for. The action it implies is entering
+              ScarletPitch.
+            </li>
+            <li>
+              <b>Seven of ten fields are UNKNOWN</b> because the page is a history
+              write-up rather than a program page. The $500 figure was read off
+              that history and may not describe the current competition at all.
+            </li>
+          </ul>
+          <h4>What past student founders said</h4>
+          <p class="review-empty">Nothing collected. The page publishes no applicant accounts.</p>
+        </div>
+      </article>
+    </section>
+
+    <!-- ── Group 4 ─────────────────────────────────────────────── -->
+    <section class="group">
+      <header>
+        <h2>Found, and probably not funding for you</h2>
+        <p>Kept in the file so the reason for passing is written down rather than assumed.</p>
+      </header>
+
+      <article class="entry" id="mtc">
+        <header>
+          <h3>MTC Code for Impact Hackathon</h3>
+          <div class="org">Rutgers Muslim Tech Collaborative · hosted on Devpost, not a Rutgers domain</div>
+          <div class="src"><a href="https://mtc-code-for-impact-hackathon.devpost.com/">mtc-code-for-impact-hackathon.devpost.com</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd>Non-cash prize</dd></div>
+          <div class="fact"><dt>Award range</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Closing date</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Applicant type</dt><dd>Students, teams</dd></div>
+          <div class="fact"><dt>Institutions</dt><dd>Rutgers University</dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>What it funds, and what to check</h4>
+          <ul>
+            <li>
+              <b>The award type and the award range disagree on purpose.</b> The
+              page states “4 non-cash prizes”, so the type resolved and the dollar
+              range stayed UNKNOWN — which is the correct pair of answers for a
+              hackathon whose prizes are not money.
+            </li>
+            <li>
+              Worth entering for other reasons. It is not non-dilutive funding, and
+              a funding triage should say so rather than surface it as a grant.
+            </li>
+          </ul>
+          <h4>What past student founders said</h4>
+          <p class="review-empty">Nothing collected. The page publishes no applicant accounts.</p>
+        </div>
+      </article>
+
+      <article class="entry" id="ansary">
+        <header>
+          <h3>Ansary Entrepreneurship Competition</h3>
+          <div class="org">Stevens Institute of Technology — not a Rutgers domain</div>
+          <div class="src"><a href="https://www.stevens.edu/ansary-entrepreneurship-competition">stevens.edu/ansary-entrepreneurship-competition</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd>Competition prize</dd></div>
+          <div class="fact"><dt>Award range</dt><dd>$2,500 – $17,500</dd></div>
+          <div class="fact"><dt>Closing date</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Degree levels</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Institutions</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>What it funds, and what to check</h4>
+          <ul>
+            <li>
+              Real money, and built around Stevens senior design teams. The page
+              never states an eligibility rule in a form the scraper could quote,
+              so degree levels and institutions are UNKNOWN rather than “Stevens
+              only” — the restriction is known from context, not from a sentence
+              on the page, and context is not evidence.
+            </li>
+            <li>
+              <b>That distinction is the point of keeping this row.</b> If you want
+              it recorded as ineligible for a Rutgers founder, that is a human
+              writing it down after reading the page, not a parser inferring it.
+            </li>
+          </ul>
+          <h4>What past student founders said</h4>
+          <p class="review-empty">Nothing collected. The page publishes no applicant accounts.</p>
+        </div>
+      </article>
+    </section>
+
+    <!-- ── Group 5 ─────────────────────────────────────────────── -->
+    <section class="group">
+      <header>
+        <h2>Nothing collected, and why</h2>
+        <p>Two targets produced no facts. Both are recorded rather than dropped, because a missing row looks the same as a program that does not exist.</p>
+      </header>
+
+      <article class="entry" id="techstart">
+        <header>
+          <h3>TechStart Innovation Challenge</h3>
+          <div class="org">Rutgers Business School</div>
+          <div class="src">No stable application page found</div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Application type</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Award range</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Closing date</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Degree levels</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Institutions</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+          <div class="fact"><dt>Equity taken</dt><dd><span class="unknown">UNKNOWN</span></dd></div>
+        </dl>
+        <div class="notes">
+          <h4>Why every field is empty</h4>
+          <ul>
+            <li>
+              Rutgers Business School documents TechStart as a real initiative, with
+              figures circulating secondhand — 100+ students, 13 startup ideas,
+              $5,000 in prizes. None of that came off an application page, so none
+              of it is written down here.
+            </li>
+            <li>
+              <b>The row exists so the program is not lost.</b> Someone needs to
+              find the application URL and add it to the registry; the next run
+              will fill this in.
+            </li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="entry" id="res">
+        <header>
+          <h3>Rutgers Shark Tank — Entrepreneurial Society</h3>
+          <div class="org">Rutgers Entrepreneurial Society · directory hosted on campuslabs.com</div>
+          <div class="src"><a href="https://rutgers.campuslabs.com/engage/organization/RES">rutgers.campuslabs.com/engage/organization/RES</a></div>
+        </header>
+        <dl class="facts">
+          <div class="fact"><dt>Fetch result</dt><dd>Page returned a JavaScript shell</dd></div>
+          <div class="fact"><dt>Robots.txt</dt><dd>Allowed</dd></div>
+          <div class="fact"><dt>Extracted</dt><dd>Nothing</dd></div>
+        </dl>
+        <div class="notes">
+          <h4>Why nothing came back</h4>
+          <ul>
+            <li>
+              The page renders its content in the browser, so a static fetch
+              returns a shell reading “This application requires JavaScript to be
+              enabled.” The failure is recorded on the run rather than silently
+              becoming an empty result.
+            </li>
+            <li>
+              <b>It is the only one of the eight that needs a browser</b>, which is
+              why the pipeline has a headless renderer at all. It stays off by
+              default; run the scraper with <code>--allow-js</code> after installing
+              the optional extra to pick this one up.
+            </li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="closing">
+      <h2>What happens next, and who does it</h2>
+      <ol>
+        <li>Open each source link and check the quoted evidence still matches the page. The parse is a convenience; the quote is the source.</li>
+        <li>Resolve the UNKNOWN fields that matter for your situation — usually degree level, which year a deadline belongs to, and whether an award is per team.</li>
+        <li>Fill in founder reviews from people who actually competed. Nothing else can produce that field.</li>
+        <li>Set each row's <code>review_status</code> to <code>ACCEPTED</code> or <code>REJECTED</code> in <code>data/opportunities.rutgers.candidates.json</code>. Re-running the scraper preserves your decision and your reviews.</li>
+        <li>Move accepted rows into <code>data/opportunities.candidates.json</code> and run <code>scripts/verify_seed.py</code>. That is the only path into the live catalog, and it is a person's job.</li>
+      </ol>
+      <p class="eyebrow" style="margin-top:.5rem">
+        Collected with robots.txt honoured on every host · no login, no forms, no CAPTCHAs · raw pages archived under data/raw/
+      </p>
+    </section>
+
+  </main>
+</div>
