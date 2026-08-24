@@ -211,6 +211,25 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
         log.exception("run_failed", extra={"run_id": report.run_id})
 
     # 7. Persist. Only now — a halted run surfaces nothing.
+    #
+    # Opportunities are written even on a halted run. They are not a digest,
+    # they are the rows the rejections and skips were written *about*, and a
+    # rejection you cannot resolve back to what was rejected is not much of an
+    # audit trail. A failure here must not turn a completed run into a halted
+    # one, so it is recorded as a note rather than raised.
+    for opportunity in ctx.retrieved.values():
+        try:
+            ctx.repo.save_opportunity(opportunity)
+        except Exception as exc:  # noqa: BLE001
+            report.notes.append(
+                f"could not persist opportunity {opportunity.id}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            log.warning(
+                "opportunity_persist_failed",
+                extra={"run_id": report.run_id, "opportunity_id": opportunity.id},
+            )
+
     for item in ctx.pending_inbox:
         if ctx.repo.save_inbox_item(item) and not item.passive:
             report.surfaced += 1

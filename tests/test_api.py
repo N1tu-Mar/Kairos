@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 from agent.models import Assessment, InboxItem, Rejection, RunReport, SkipRecord
 from api.main import app
 from api.repository import SqliteRepository
-from tests.factories import profile
+from tests.factories import draft, generated, opportunity, profile
 
 
 @pytest.fixture
@@ -136,3 +138,135 @@ def test_cors_allows_a_vercel_preview_origin(client):
         response.headers.get("access-control-allow-origin")
         == "https://kairos-git-abc123.vercel.app"
     )
+
+
+# ── The write and lookup surface added for the dashboard ─────────────────────
+
+
+def test_a_run_is_reachable_by_id_after_it_falls_out_of_the_recent_list(client):
+    seed_run(app.state.repo)
+
+    body = client.get("/founders/founder_demo/runs/run_1").json()
+
+    assert body["run_id"] == "run_1"
+    assert body["scanned"] == 214
+
+
+def test_a_run_belonging_to_another_founder_is_404(client):
+    seed_run(app.state.repo)
+
+    assert client.get("/founders/somebody_else/runs/run_1").status_code == 404
+
+
+def test_the_silent_path_is_available_for_a_specific_run(client):
+    seed_run(app.state.repo)
+
+    latest = client.get("/founders/founder_demo/runs/latest/skips").json()
+    by_id = client.get("/founders/founder_demo/runs/run_1/skips").json()
+
+    # One shape, one story. The two routes must not drift.
+    assert latest == by_id
+    assert by_id["rejections"][0]["check"] == "DEGREE_LEVEL"
+
+
+def test_an_opportunity_carries_structured_award_and_deadline(client):
+    app.state.repo.save_opportunity(opportunity(id="opp_1"))
+
+    body = client.get("/opportunities/opp_1").json()
+
+    assert body["id"] == "opp_1"
+    # Structured fields, not a sentence to be parsed.
+    assert isinstance(body["award_max"], int)
+    assert body["deadline"]
+    assert "[DEMO]" in body["title"]
+
+
+def test_an_unknown_opportunity_is_404(client):
+    assert client.get("/opportunities/nothing").status_code == 404
+
+
+def test_a_founder_can_record_what_they_did_with_an_item(client):
+    seed_run(app.state.repo)
+
+    body = client.patch("/inbox/item_1", json={"state": "applied"}).json()
+
+    assert body["state"] == "applied"
+    assert app.state.repo.get_inbox_item("item_1").state == "applied"
+
+
+def test_patching_an_item_cannot_rewrite_what_the_run_decided(client):
+    seed_run(app.state.repo)
+
+    before = app.state.repo.get_inbox_item("item_1")
+    client.patch("/inbox/item_1", json={"state": "dismissed"})
+    after = app.state.repo.get_inbox_item("item_1")
+
+    assert after.kind == before.kind
+    assert after.headline == before.headline
+    assert after.assessment == before.assessment
+
+
+def test_an_invalid_inbox_state_is_rejected(client):
+    seed_run(app.state.repo)
+
+    assert client.patch("/inbox/item_1", json={"state": "approved"}).status_code == 422
+
+
+def test_patching_an_unknown_item_is_404(client):
+    assert client.patch("/inbox/nothing", json={"state": "opened"}).status_code == 404
+
+
+def test_drafts_are_listable_without_going_through_the_inbox(client):
+    repo = app.state.repo
+    repo.save_profile(profile())
+    repo.save_draft(
+        draft(
+            generated("traction", "[DEMO] 40 students used the pilot."),
+            draft_id="draft_1",
+            opportunity_id="opp_1",
+        )
+    )
+    repo.save_draft(
+        draft(
+            generated("traction", "[DEMO] 40 students used the pilot."),
+            draft_id="draft_2",
+            opportunity_id="opp_2",
+        )
+    )
+
+    everything = client.get("/founders/founder_demo/drafts").json()
+    one = client.get("/founders/founder_demo/drafts?opportunity_id=opp_2").json()
+
+    assert len(everything) == 2
+    assert len(one) == 1
+    assert one[0]["draft"]["draft_id"] == "draft_2"
+    # Counts are computed in Python, never by a model.
+    assert one[0]["counts"]["GENERATED"] == 1
+
+
+def test_a_profile_can_be_replaced(client):
+    updated = profile(institution="Rutgers University", has_faculty_advisor=True)
+
+    body = client.put("/founders/founder_demo", json=json.loads(updated.model_dump_json())).json()
+
+    assert body["institution"] == "Rutgers University"
+    assert app.state.repo.get_profile("founder_demo").has_faculty_advisor is True
+
+
+def test_a_profile_write_must_agree_with_the_path(client):
+    mismatched = profile(founder_id="someone_else")
+
+    response = client.put(
+        "/founders/founder_demo", json=json.loads(mismatched.model_dump_json())
+    )
+
+    assert response.status_code == 400
+    assert "does not match" in response.json()["detail"]
+
+
+def test_a_partial_profile_write_is_rejected_rather_than_merged(client):
+    # These fields are what the eligibility filter compares against. A
+    # half-applied update is the one outcome worth ruling out entirely.
+    response = client.put("/founders/founder_demo", json={"founder_id": "founder_demo"})
+
+    assert response.status_code == 422

@@ -25,6 +25,8 @@ from agent.models import (
     DraftField,
     FounderProfile,
     InboxItem,
+    InboxState,
+    Opportunity,
     RunReport,
 )
 from agent.sanitize import redact
@@ -66,6 +68,26 @@ class InboxRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class OpportunityRow(SQLModel, table=True):
+    """The opportunities a run actually looked at.
+
+    Written so a `Rejection` or `SkipRecord` can be resolved back to the row
+    it was made about. Without this, award, deadline and eligibility exist
+    only inside the headline string the run happened to compose, and nothing
+    downstream can sort or filter on them.
+
+    Keyed by opportunity id and upserted, so re-seeing an opportunity in a
+    later run refreshes it rather than duplicating it.
+    """
+
+    __tablename__ = "opportunities"
+    opportunity_id: str = Field(primary_key=True)
+    source: str = Field(index=True)
+    first_seen_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now, index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
 class DraftRow(SQLModel, table=True):
     __tablename__ = "drafts"
     draft_id: str = Field(primary_key=True)
@@ -99,14 +121,23 @@ class Repository(Protocol):
 
     def save_run(self, report: RunReport) -> None: ...
     def latest_run(self, founder_id: str) -> RunReport | None: ...
+    def get_run(self, run_id: str) -> RunReport | None: ...
     def list_runs(self, founder_id: str, limit: int = 20) -> list[RunReport]: ...
+
+    def save_opportunity(self, opportunity: Opportunity) -> None: ...
+    def get_opportunity(self, opportunity_id: str) -> Opportunity | None: ...
 
     def has_surfaced(self, founder_id: str, opportunity_id: str) -> bool: ...
     def save_inbox_item(self, item: InboxItem) -> bool: ...
     def list_inbox(self, founder_id: str, limit: int = 50) -> list[InboxItem]: ...
+    def get_inbox_item(self, item_id: str) -> InboxItem | None: ...
+    def set_inbox_state(self, item_id: str, state: InboxState) -> InboxItem | None: ...
 
     def save_draft(self, draft: Draft) -> None: ...
     def get_draft(self, draft_id: str) -> Draft | None: ...
+    def list_drafts(
+        self, founder_id: str, opportunity_id: str | None = None
+    ) -> list[Draft]: ...
 
     def remember_answer(self, founder_id: str, field: DraftField) -> None: ...
     def recall(self, founder_id: str, question: str) -> DraftField | None: ...
@@ -183,6 +214,42 @@ class SqliteRepository:
         runs = self.list_runs(founder_id, limit=1)
         return runs[0] if runs else None
 
+    def get_run(self, run_id: str) -> RunReport | None:
+        """One run by id, however old.
+
+        `list_runs` is capped, so a link to a run from six months ago has to
+        resolve through the primary key or not at all.
+        """
+        with Session(self.engine) as session:
+            row = session.get(RunRow, run_id)
+            return RunReport.model_validate_json(row.payload) if row else None
+
+    # -- opportunities --
+
+    def save_opportunity(self, opportunity: Opportunity) -> None:
+        """Upsert. `first_seen_at` is written once and never moved."""
+        with Session(self.engine) as session:
+            row = session.get(OpportunityRow, opportunity.id)
+            if row is None:
+                row = OpportunityRow(
+                    opportunity_id=opportunity.id,
+                    source=opportunity.source,
+                    payload="",
+                )
+            # `description_excerpt` is untrusted text from the open web. It was
+            # sanitised at ingestion; redact again here because this is the
+            # persistence boundary and the boundary is where it belongs.
+            row.payload = redact(opportunity.model_dump_json())
+            row.source = opportunity.source
+            row.updated_at = _now()
+            session.add(row)
+            session.commit()
+
+    def get_opportunity(self, opportunity_id: str) -> Opportunity | None:
+        with Session(self.engine) as session:
+            row = session.get(OpportunityRow, opportunity_id)
+            return Opportunity.model_validate_json(row.payload) if row else None
+
     # -- inbox --
 
     def has_surfaced(self, founder_id: str, opportunity_id: str) -> bool:
@@ -231,6 +298,29 @@ class SqliteRepository:
             ).all()
             return [InboxItem.model_validate_json(r.payload) for r in rows]
 
+    def get_inbox_item(self, item_id: str) -> InboxItem | None:
+        with Session(self.engine) as session:
+            row = session.get(InboxRow, item_id)
+            return InboxItem.model_validate_json(row.payload) if row else None
+
+    def set_inbox_state(self, item_id: str, state: InboxState) -> InboxItem | None:
+        """Record what the founder did with an item.
+
+        The only field a person is allowed to change. Everything else about an
+        inbox item is what the run decided, and rewriting that would make the
+        audit trail a record of the last edit rather than of the decision.
+        """
+        with Session(self.engine) as session:
+            row = session.get(InboxRow, item_id)
+            if row is None:
+                return None
+            item = InboxItem.model_validate_json(row.payload)
+            item.state = state
+            row.payload = item.model_dump_json()
+            session.add(row)
+            session.commit()
+            return item
+
     # -- drafts --
 
     def save_draft(self, draft: Draft) -> None:
@@ -249,6 +339,24 @@ class SqliteRepository:
         with Session(self.engine) as session:
             row = session.get(DraftRow, draft_id)
             return Draft.model_validate_json(row.payload) if row else None
+
+    def list_drafts(
+        self, founder_id: str, opportunity_id: str | None = None
+    ) -> list[Draft]:
+        """Every draft for a founder, optionally narrowed to one opportunity.
+
+        Without this a draft is reachable only through the inbox item that
+        happened to link it, so a draft whose item was never created is
+        invisible.
+        """
+        with Session(self.engine) as session:
+            statement = select(DraftRow).where(DraftRow.founder_id == founder_id)
+            if opportunity_id is not None:
+                statement = statement.where(
+                    DraftRow.opportunity_id == opportunity_id
+                )
+            rows = session.exec(statement.order_by(DraftRow.draft_id)).all()
+            return [Draft.model_validate_json(r.payload) for r in rows]
 
     # -- recall --
 

@@ -345,3 +345,54 @@ async def test_seed_catalog_feeds_a_real_run(tmp_path):
     item = ctx.repo.list_inbox("founder_demo")[0]
     assert "40 days left" in item.headline
     assert "$15,000" in item.headline
+
+
+async def test_every_opportunity_a_run_saw_is_persisted(tmp_path):
+    # A rejection you cannot resolve back to the row it was written about is
+    # not much of an audit trail.
+    opps = [
+        opportunity(id="fit", eligibility=OPEN_RULES, award_max=20_000),
+        opportunity(id="wrong_degree", eligibility=EligibilityRules(degree_levels=["phd"])),
+    ]
+    ctx = new_run_context(
+        profile=profile(), repo=repo(), budget=budget(tmp_path),
+        agents=agents(assessment()), today=TODAY,
+    )
+
+    report = await run_once(ctx, [ListSource(opps)])
+
+    assert [r.opportunity_id for r in report.rejections] == ["wrong_degree"]
+    for stored_id in ("fit", "wrong_degree"):
+        stored = ctx.repo.get_opportunity(stored_id)
+        assert stored is not None, stored_id
+        # Structured, not a sentence: this is what makes the award and the
+        # deadline sortable downstream.
+        assert stored.id == stored_id
+
+
+async def test_a_failing_opportunity_write_does_not_halt_a_completed_run(tmp_path):
+    class BrokenOnOpportunities:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+        def save_opportunity(self, opportunity):
+            raise RuntimeError("disk full")
+
+    ctx = new_run_context(
+        profile=profile(),
+        repo=BrokenOnOpportunities(repo()),
+        budget=budget(tmp_path),
+        agents=agents(assessment()),
+        today=TODAY,
+    )
+
+    report = await run_once(
+        ctx, [ListSource([opportunity(id="fit", eligibility=OPEN_RULES, award_max=20_000)])]
+    )
+
+    assert report.halted_reason is None
+    assert report.surfaced == 1
+    assert any("could not persist opportunity fit" in note for note in report.notes)

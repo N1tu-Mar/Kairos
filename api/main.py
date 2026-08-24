@@ -5,6 +5,12 @@ a user (Section 2), so almost everything here is a GET. The one POST exists
 to trigger a run manually during a demo, and it does exactly what the
 scheduler does.
 
+The three writes are narrow on purpose. `PUT /founders/{id}` replaces a
+profile wholesale, `PATCH /inbox/{item_id}` sets the one field a person owns,
+and neither can touch a recorded verdict. Nothing here edits a RunReport, a
+Rejection, a SkipRecord or a Draft after the fact — those are what the run
+decided, and an audit trail you can edit is not one.
+
 The endpoint that matters most to a sceptical judge is
 `GET /runs/{run_id}/skips`. "How do I know it isn't just hiding things?"
 should have a one-click answer (Section 9, rule 5).
@@ -23,7 +29,13 @@ from pydantic import BaseModel
 
 from agent.budget import RunBudget
 from agent.config import REPO_ROOT, settings
-from agent.models import ApplicationForm, FounderProfile, RunReport
+from agent.models import (
+    ApplicationForm,
+    FounderProfile,
+    InboxState,
+    Opportunity,
+    RunReport,
+)
 from agent.runtime import SubAgents
 from agent.scout import new_run_context, run_once
 from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
@@ -43,6 +55,12 @@ class RunTrigger(BaseModel):
 
     use_demo_catalog: bool = False
     include_grants_gov: bool = True
+
+
+class InboxStateUpdate(BaseModel):
+    """The one thing a person may change about a surfaced item."""
+
+    state: InboxState
 
 
 @asynccontextmanager
@@ -102,6 +120,35 @@ def _sources(trigger: RunTrigger):
     return sources
 
 
+def _skips_payload(report: RunReport) -> dict:
+    """Everything a run threw away, in one shape.
+
+    Shared by the `latest` and by-id routes so the two can never drift into
+    telling different stories about the same run.
+    """
+    return {
+        "run_id": report.run_id,
+        "headline": report.headline(),
+        "rejections": report.rejections,
+        "skips": report.skips,
+        "sources_failed": report.sources_failed,
+        "notes": report.notes,
+    }
+
+
+def _run_for_founder(founder_id: str, run_id: str) -> RunReport:
+    """One run, scoped to the founder in the path.
+
+    There is no auth in this repository, so scoping is not a security control
+    — it is here so a mistyped id 404s instead of quietly returning somebody
+    else's run.
+    """
+    report = app.state.repo.get_run(run_id)
+    if report is None or report.founder_id != founder_id:
+        raise HTTPException(404, f"no run {run_id} for {founder_id}")
+    return report
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -113,6 +160,31 @@ def get_founder(founder_id: str) -> FounderProfile:
     if profile is None:
         raise HTTPException(404, f"no profile for {founder_id}")
     return profile
+
+
+@app.put("/founders/{founder_id}")
+def put_founder(founder_id: str, profile: FounderProfile) -> FounderProfile:
+    """Create or replace a founder profile.
+
+    A full replace, not a patch. These fields are what the deterministic
+    eligibility filter compares against, so a half-applied update is the one
+    outcome worth ruling out entirely — `citizenship` set without
+    `degree_level` is how a founder gets told they are eligible for something
+    they are not.
+    """
+    if profile.founder_id != founder_id:
+        raise HTTPException(
+            400,
+            f"founder_id in the body ({profile.founder_id!r}) does not match "
+            f"the path ({founder_id!r})",
+        )
+    app.state.repo.save_profile(profile)
+    # Read back rather than echoing the request: what is stored has been
+    # through redaction, and that is what every other endpoint will serve.
+    stored = app.state.repo.get_profile(founder_id)
+    if stored is None:  # pragma: no cover - only reachable if the write vanished
+        raise HTTPException(500, "profile was not persisted")
+    return stored
 
 
 @app.get("/founders/{founder_id}/inbox")
@@ -144,14 +216,62 @@ def latest_skips(founder_id: str) -> dict:
     report = app.state.repo.latest_run(founder_id)
     if report is None:
         raise HTTPException(404, f"no runs recorded for {founder_id}")
-    return {
-        "run_id": report.run_id,
-        "headline": report.headline(),
-        "rejections": report.rejections,
-        "skips": report.skips,
-        "sources_failed": report.sources_failed,
-        "notes": report.notes,
-    }
+    return _skips_payload(report)
+
+
+@app.get("/founders/{founder_id}/runs/{run_id}")
+def get_run(founder_id: str, run_id: str) -> RunReport:
+    """One run by id, however old.
+
+    `list_runs` is capped, so without this a link to an older run resolves to
+    nothing and the transparency trail has a horizon.
+    """
+    return _run_for_founder(founder_id, run_id)
+
+
+@app.get("/founders/{founder_id}/runs/{run_id}/skips")
+def get_run_skips(founder_id: str, run_id: str) -> dict:
+    """The silent path for one specific run."""
+    return _skips_payload(_run_for_founder(founder_id, run_id))
+
+
+@app.get("/opportunities/{opportunity_id}")
+def get_opportunity(opportunity_id: str) -> Opportunity:
+    """The row a verdict was made about.
+
+    Award range, deadline and the extracted eligibility rules live here as
+    structured fields. Anything that wants to sort or filter on them reads
+    this rather than parsing the headline a run happened to compose.
+    """
+    opportunity = app.state.repo.get_opportunity(opportunity_id)
+    if opportunity is None:
+        raise HTTPException(404, f"no opportunity {opportunity_id}")
+    return opportunity
+
+
+@app.patch("/inbox/{item_id}")
+def patch_inbox_item(item_id: str, update: InboxStateUpdate):
+    """Record what the founder did with an item: opened, dismissed, applied.
+
+    `state` is the only mutable field. Everything else on an inbox item is
+    what the run decided, and letting a later edit rewrite it would turn the
+    audit trail into a record of the most recent opinion.
+    """
+    item = app.state.repo.set_inbox_state(item_id, update.state)
+    if item is None:
+        raise HTTPException(404, f"no inbox item {item_id}")
+    return item
+
+
+@app.get("/founders/{founder_id}/drafts")
+def list_drafts(founder_id: str, opportunity_id: str | None = None) -> list[dict]:
+    """Every draft for a founder, newest form first.
+
+    Counts come from `Draft.counts()` — computed in Python, never by a model
+    (Section 9, rule 8).
+    """
+    drafts = app.state.repo.list_drafts(founder_id, opportunity_id)
+    return [{"draft": d, "counts": d.counts()} for d in drafts]
 
 
 @app.get("/drafts/{draft_id}")

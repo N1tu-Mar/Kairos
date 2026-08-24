@@ -37,36 +37,57 @@ The browser must not own this responsibility: Kairos must continue searching whe
 
 ## Backend gaps the frontend ran into
 
-Found while building `frontend/`. Each one is a missing read or write on the
-FastAPI surface, not a frontend defect, and none of them were worked around by
-inventing data in the browser.
+Found while building `frontend/`. Items 1–5 are now closed; the endpoints
+exist and are covered by `tests/test_api.py`. Item 6 is open and is a
+deliberate decision, not an oversight.
 
-1. **No opportunity read endpoint.** `Opportunity` is never returned by the API
-   and is not persisted by `SqliteRepository`, so award range, deadline and
-   effort reach the dashboard only as the pre-rendered text inside
-   `InboxItem.headline` (composed in `agent/scout.py::_headline`). The inbox
-   therefore cannot sort or filter by deadline, and cannot show a countdown
-   that updates after the run that produced it. Fixing this means persisting
-   the opportunity rows a run surfaced, or adding
-   `GET /opportunities/{opportunity_id}`.
-2. **No `GET /runs/{run_id}`.** The run-detail page finds its run inside
-   `GET /founders/{id}/runs?limit=50`, because that response already carries
-   the complete `RunReport` — rejections, skips, source failures and notes.
-   A direct link to a run older than the 50 most recent will 404.
-3. **Inbox item state is write-only from the pipeline's side.**
-   `InboxItem.state` (`new` / `opened` / `dismissed` / `applied`) is stored and
-   served, but no endpoint updates it, so the dashboard cannot let a founder
-   mark something read, dismissed or applied. Every item renders as it was
-   written.
-4. **Drafts are reachable only through the inbox.** `GET /drafts/{draft_id}`
-   exists, but nothing maps a founder or an opportunity to their drafts, so a
-   draft whose inbox item was never created is unreachable.
-5. **Profiles are read-only.** There is no profile write endpoint, so
-   `/profile` presents the founder's structured facts and knowledge base as a
-   summary and does not offer editing it would have to fake.
-6. **No authentication anywhere in the repository.** The dashboard reads one
-   founder, named by the server-side `KAIROS_FOUNDER_ID` environment variable.
-   It is not multi-tenant and must not be deployed as if it were.
+1. ~~**No opportunity read endpoint.**~~ Closed. Runs now persist every
+   opportunity they retrieved (`agent/scout.py` step 7,
+   `SqliteRepository.save_opportunity`), and `GET /opportunities/{id}` serves
+   the row. Award range, deadline and the extracted eligibility rules are
+   structured fields, so anything downstream can sort or filter on them
+   instead of parsing the headline a run happened to compose. A rejected
+   opportunity is resolvable too, which is what makes a `Rejection` traceable
+   back to the row it was written about.
+2. ~~**No `GET /runs/{run_id}`.**~~ Closed as
+   `GET /founders/{founder_id}/runs/{run_id}` and
+   `GET /founders/{founder_id}/runs/{run_id}/skips`. Scoped to the founder in
+   the path so a mistyped id 404s rather than quietly returning another
+   founder's run. `list_runs` is still capped; older runs now resolve through
+   the primary key.
+3. ~~**Inbox item state is write-only from the pipeline's side.**~~ Closed as
+   `PATCH /inbox/{item_id}`, which sets `state` and nothing else. `kind`,
+   `headline`, `summary` and `assessment` are what the run decided and stay
+   immutable — an audit trail you can edit is not one.
+4. ~~**Drafts are reachable only through the inbox.**~~ Closed as
+   `GET /founders/{founder_id}/drafts`, optionally filtered by
+   `opportunity_id`. Counts still come from `Draft.counts()` in Python.
+5. ~~**Profiles are read-only.**~~ Closed as `PUT /founders/{founder_id}`,
+   a whole-object replace rather than a patch. These fields are what the
+   deterministic eligibility filter compares against, so a half-applied
+   update is the one outcome worth ruling out entirely — `citizenship`
+   changed without `degree_level` is how a founder gets told they are
+   eligible for something they are not. The body's `founder_id` must match
+   the path.
+6. **No authentication anywhere in the repository.** Still open, and now it
+   matters more: the API has writes. `PUT /founders/{id}` will replace any
+   founder's profile and `PATCH /inbox/{item_id}` will mutate any item, for
+   anyone who can reach the port. This is acceptable for a local
+   single-founder demo and is **not** acceptable on a public host. Before
+   deploying anywhere reachable, decide who authenticates, how the frontend
+   carries that identity, and whether founder scoping becomes a real
+   authorisation check rather than the 404-on-mismatch convenience it is
+   today.
+
+### Still not exposed, on purpose
+
+- **Nothing edits a recorded verdict.** There is no endpoint that mutates a
+  `RunReport`, a `Rejection`, a `SkipRecord`, an `Assessment` or a `Draft`
+  after the run wrote it. Corrections belong in a new run, not in a rewrite
+  of the old one.
+- **The frontend does not consume the new endpoints yet.** It still reads
+  deadlines out of the headline string, has no way to mark an item applied,
+  and presents the profile as read-only. Wiring it up is follow-on work.
 
 The "Run Kairos now" control in the frontend is a manual trigger against the
 existing `POST /founders/{id}/runs`, and its copy says so. It is not a

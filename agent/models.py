@@ -40,6 +40,10 @@ Eligibility = Literal["ELIGIBLE", "INELIGIBLE", "UNKNOWN"]
 Verdict = Literal["APPLY", "MAYBE", "SKIP", "INSUFFICIENT_INFO"]
 
 FieldStatus = Literal["KNOWN", "GENERATED", "NEEDS_FOUNDER", "REUSED"]
+
+#: What the founder has done with a surfaced item. The pipeline only ever
+#: writes `new`; every later value comes from a person.
+InboxState = Literal["new", "opened", "dismissed", "applied"]
 AuditVerdict = Literal["SUPPORTED", "UNSUPPORTED", "UNVERIFIABLE"]
 DraftStatus = Literal["DRAFT", "READY", "BLOCKED"]
 SourceName = Literal["seed", "grants_gov", "browser"]
@@ -456,7 +460,7 @@ class InboxItem(Mutable):
     #: True for overflow past MAX_SURFACED_PER_RUN — visible in the "also
     #: found" list, but it does not generate a notification.
     passive: bool = False
-    state: Literal["new", "opened", "dismissed", "applied"] = "new"
+    state: InboxState = "new"
     created_at: datetime = Field(default_factory=_now)
 
     @property
