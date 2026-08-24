@@ -62,3 +62,43 @@ like one.
 the synthetic form for the `[DEMO]` catalog row. No real form has been
 transcribed yet. The verbatim-label rule above is how they must be added, not
 a description of what is already in this directory.
+
+## `opportunities.rutgers.candidates.json`
+
+Output of `scripts/scrape_rutgers.py`. **Not production data, and not on the
+path to becoming it by accident.** Every row carries
+`review_status: NEEDS_HUMAN_REVIEW`, and no code writes from here into
+`opportunities.candidates.json` or `opportunities.seed.json` — promotion is a
+person copying a row across after reading it.
+
+The schema is deliberately different from `Opportunity`. It carries two
+things the production model does not:
+
+- `evidence` — the verbatim sentence behind every populated field, with the
+  URL it was on. A value with no evidence is not a fact.
+- `unknown_fields` — every field the page did not state. `UNKNOWN` here means
+  the page was silent, not that there is no restriction. The scraper cannot
+  populate a field without evidence: `ScrapedOpportunity.set_field` refuses.
+
+`founder_reviews` is always empty when the scraper writes it. No target page
+publishes reviews from past applicants, and that field is the one a founder
+leans on hardest when deciding whether a program is worth two weeks. It is
+filled by a human or not at all. Re-running the scraper preserves both it and
+`review_status`.
+
+## `raw/`
+
+The scrape archive, kept apart from everything above.
+
+- `raw/pages/<host>/<path>.<timestamp>.html` — the exact bytes received, with
+  a `.meta.json` sidecar recording URL, timestamp, HTTP status, the robots
+  decision and a content hash. Extraction reads the archive, so a
+  disagreement about what a page said is settled by opening a file rather
+  than by asking a university web server the same question twice.
+- `raw/robots/<host>.robots.txt` — the robots.txt each fetch decision was
+  made against, cached so the decision is checkable later against what the
+  host actually said at the time.
+- `raw/scrape_runs.jsonl` — one line per sweep: counters, failures, notes.
+
+The HTML and the run log are gitignored; the sidecars and robots.txt are
+committed, because they are the audit trail.
