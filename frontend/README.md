@@ -6,7 +6,10 @@ Tailwind. It reads the FastAPI backend and re-implements none of it.
 ## What this app is, and is not
 
 **It is** a read surface over decisions the Python pipeline already made, plus
-one manual write: a button that starts a run.
+three narrow writes: a button that starts a run, an inbox-state patch (what
+*you* did with an item — opened, dismissed, applied — and nothing else), and a
+whole-object profile replace. Nothing can edit a recorded verdict — the
+backend exposes no such endpoint, so this app cannot either.
 
 **It is not** a second copy of the system. In particular the browser never:
 
@@ -26,17 +29,20 @@ action and its copy says so.
 ```
 browser ──▶ Next.js (server) ──▶ FastAPI ──▶ SQLite
              │
-             └── Route Handlers (thin proxy, POST /api/runs only)
+             └── Route Handlers (thin proxy: runs, inbox state, profile)
 ```
 
 - **Server Components** fetch every page's initial data. `KAIROS_API_URL` is a
   server-only variable — deliberately *not* `NEXT_PUBLIC_*` — so the backend
   address never ships to the browser.
 - **Client Components** exist only where there is interaction or browser state:
-  the nav's active link, and the manual run control.
+  the nav's active link, the manual run control, the inbox state control, and
+  the profile editor.
 - **Route Handlers** (`src/app/api/`) are a backend-for-frontend proxy and
   nothing more. They forward one request and translate an error into a status
-  code. No logic, no state, no persistence.
+  code. No logic, no state, no persistence. There are three:
+  `POST /api/runs`, `PATCH /api/inbox/[itemId]` (the `state` field only), and
+  `PUT /api/profile` (whole-object, founder id pinned to this dashboard's).
 - **`src/lib/api.ts`** is the only module that talks to FastAPI. Everything
   else imports from it.
 - **`src/lib/types.ts`** mirrors `agent/models.py` field for field. No field is
@@ -97,11 +103,12 @@ npm run test        # vitest
 | Route | What it shows |
 |---|---|
 | `/` | The briefing: latest run counters, duration, tokens, spend, halted reason, source failures, and what surfaced. |
-| `/inbox` | Surfaced opportunities, split into active recommendations and the passive "also found" list. |
+| `/inbox` | Surfaced opportunities, split into active recommendations and the passive "also found" list. Cards show the structured award range, deadline and the funder's page link from `GET /opportunities/{id}`, and let you mark an item opened, dismissed or applied. |
 | `/runs` | Every recorded run. |
-| `/runs/[runId]` | Run transparency: deterministic rejections grouped by the check that fired, skips grouped by the stage that made the call, source failures, notes. |
+| `/runs/[runId]` | Run transparency: deterministic rejections grouped by the check that fired, skips grouped by the stage that made the call, source failures, notes. Reads `GET /founders/{id}/runs/{run_id}`, so a link to a run older than the list cap still resolves. |
+| `/drafts` | Every draft, including one whose inbox item was dismissed or never created. |
 | `/drafts/[draftId]` | Draft review: READY/BLOCKED, the gate check that failed, KNOWN/REUSED/GENERATED/NEEDS_FOUNDER counts, every question and answer with its provenance and audit verdict. |
-| `/profile` | The founder's structured facts and knowledge base. Read-only — the API has no profile write endpoint. |
+| `/profile` | The founder's structured facts and knowledge base. The structured facts are editable; saving replaces the whole profile (`PUT /founders/{id}`) because a half-applied update is the failure the backend refuses to allow. Traction and the knowledge base stay read-only here — they are evidence. |
 
 ## Conventions worth keeping
 
@@ -114,9 +121,11 @@ npm run test        # vitest
   every view that renders one keeps the marker and adds a badge.
 - **Kairos prepares; it never submits.** No screen offers, implies or animates
   submitting an application. The final action is always review.
-- **No invented data.** Where the API does not expose something — a structured
-  deadline, an editable profile, an inbox item's read state — the UI says so
-  rather than faking it. The specific gaps are listed in
+- **No invented data.** Facts render from the structured fields the API
+  serves — award range and deadline from the persisted `Opportunity` row, not
+  parsed back out of a composed headline. When a row cannot be resolved, the
+  card falls back to the headline the backend wrote, verbatim. Where the API
+  still exposes nothing, the UI says so rather than faking it — see
   [`../incomplete.md`](../incomplete.md).
 - **Every data-backed view has loading, empty and error states**, and "nothing
   recorded yet" is visually distinct from "the backend is down".
@@ -125,5 +134,8 @@ npm run test        # vitest
 
 `npm run test` runs Vitest with Testing Library against the states that are
 easy to get wrong: quiet results, halted runs, missing gate results, the
-`[DEMO]` marker surviving into every view, and the manual run button refusing
-a second click while a request is in flight.
+`[DEMO]` marker surviving into every view, buttons refusing a second click
+while a request is in flight, the card falling back to the composed headline
+when an opportunity row cannot be resolved, a passed deadline being flagged,
+and the profile editor sending the whole object with traction and the
+knowledge base untouched.

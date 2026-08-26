@@ -85,9 +85,17 @@ deliberate decision, not an oversight.
   `RunReport`, a `Rejection`, a `SkipRecord`, an `Assessment` or a `Draft`
   after the run wrote it. Corrections belong in a new run, not in a rewrite
   of the old one.
-- **The frontend does not consume the new endpoints yet.** It still reads
-  deadlines out of the headline string, has no way to mark an item applied,
-  and presents the profile as read-only. Wiring it up is follow-on work.
+- ~~**The frontend does not consume the new endpoints yet.**~~ Closed. The
+  inbox and briefing cards render award range, deadline and the funder's
+  page link from `GET /opportunities/{id}` (falling back to the composed
+  headline when a row cannot be resolved), run detail reads
+  `GET /founders/{id}/runs/{run_id}` so links older than the list cap
+  resolve, `/drafts` lists every draft whether or not an inbox item points
+  at it, inbox items can be marked opened/dismissed/applied through
+  `PATCH /inbox/{item_id}`, and the profile's structured facts are editable
+  through `PUT /founders/{id}` — sent as a whole object, with traction and
+  the knowledge base passed through untouched. This raises the stakes on the
+  auth gap above: both writes are now one click away in a browser.
 
 The "Run Kairos now" control in the frontend is a manual trigger against the
 existing `POST /founders/{id}/runs`, and its copy says so. It is not a
