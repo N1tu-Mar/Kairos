@@ -10,6 +10,8 @@ import type {
   DraftResponse,
   FounderProfile,
   InboxItem,
+  InboxState,
+  Opportunity,
   RunReport,
   RunTrigger,
 } from "@/lib/types";
@@ -19,8 +21,10 @@ import type {
  *
  * FastAPI stays the source of truth. Nothing here re-implements eligibility,
  * assessment, drafting, gating or persistence — it reads what the Python
- * pipeline already decided and wrote, and offers exactly one write: the
- * manual run trigger that already exists as `POST /founders/{id}/runs`.
+ * pipeline already decided and wrote. Three writes exist, each a thin call to
+ * an endpoint the backend deliberately shaped: the manual run trigger, the
+ * inbox-state patch (state and nothing else), and the whole-object profile
+ * replace. Nothing here can edit a recorded verdict — no such endpoint exists.
  */
 
 export type ApiErrorKind =
@@ -65,8 +69,22 @@ export class ApiError extends Error {
   }
 }
 
+/** Maps an ApiError onto the status a route handler should forward. */
+export function httpStatusFor(error: ApiError): number {
+  switch (error.kind) {
+    case "not_found":
+      return 404;
+    case "timeout":
+      return 504;
+    case "unreachable":
+      return 502;
+    default:
+      return error.status ?? 502;
+  }
+}
+
 interface RequestOptions {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH" | "PUT";
   body?: unknown;
   timeoutMs?: number;
 }
@@ -166,18 +184,60 @@ export function getLatestRun(id = founderId()): Promise<RunReport | null> {
 }
 
 /**
- * A single historical run. The backend has no `/runs/{run_id}` endpoint, and
- * `list_runs` already returns the complete RunReport — rejections, skips,
- * source failures and notes included — so the detail view selects from the
- * list rather than inventing an endpoint.
+ * A single historical run, however old. `list_runs` is capped, so this reads
+ * `GET /founders/{id}/runs/{run_id}` — scoped to the founder so a mistyped id
+ * 404s instead of quietly resolving to someone else's run.
  */
-export async function getRun(
+export function getRun(
   runId: string,
   id = founderId(),
-  limit = 50,
 ): Promise<RunReport | null> {
-  const runs = await listRuns(id, limit);
-  return runs.find((run) => run.run_id === runId) ?? null;
+  return optional(
+    request<RunReport>(
+      `/founders/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}`,
+    ),
+  );
+}
+
+/**
+ * The structured row a verdict was made about: award range, deadline,
+ * eligibility rules and the funder's URL as fields, not as text buried in a
+ * composed headline.
+ */
+export function getOpportunity(opportunityId: string): Promise<Opportunity> {
+  return request(`/opportunities/${encodeURIComponent(opportunityId)}`);
+}
+
+/**
+ * Opportunities for a set of ids, keyed by id. An id that fails to resolve —
+ * missing row, backend hiccup — is simply absent, so a view can fall back to
+ * the headline the run composed rather than failing the whole page.
+ */
+export async function getOpportunities(
+  ids: string[],
+): Promise<Map<string, Opportunity>> {
+  const unique = [...new Set(ids)];
+  const settled = await Promise.allSettled(unique.map((id) => getOpportunity(id)));
+  const map = new Map<string, Opportunity>();
+  settled.forEach((result, index) => {
+    if (result.status === "fulfilled") map.set(unique[index], result.value);
+  });
+  return map;
+}
+
+/**
+ * Every draft for a founder, newest first — including one whose inbox item
+ * was never created or has since been dismissed. Counts come from
+ * `Draft.counts()` in Python.
+ */
+export function listDrafts(
+  id = founderId(),
+  opportunityId?: string,
+): Promise<DraftResponse[]> {
+  const query = opportunityId
+    ? `?opportunity_id=${encodeURIComponent(opportunityId)}`
+    : "";
+  return request(`/founders/${encodeURIComponent(id)}/drafts${query}`);
 }
 
 export function getDraft(draftId: string): Promise<DraftResponse> {
@@ -188,7 +248,7 @@ export function getDraftOrNull(draftId: string): Promise<DraftResponse | null> {
   return optional(getDraft(draftId));
 }
 
-// ── The one write ────────────────────────────────────────────────────────────
+// ── Writes ───────────────────────────────────────────────────────────────────
 
 /**
  * Starts a run now, by hand. This is not a schedule and the UI must not
@@ -202,5 +262,36 @@ export function triggerRun(
     method: "POST",
     body: trigger,
     timeoutMs: runTimeoutMs(),
+  });
+}
+
+/**
+ * Records what the founder did with an inbox item: opened, dismissed,
+ * applied. `state` is the only field the backend lets anyone change — the
+ * kind, headline, summary and assessment are what the run decided and an
+ * audit trail you can edit is not one.
+ */
+export function setInboxState(
+  itemId: string,
+  state: InboxState,
+): Promise<InboxItem> {
+  return request(`/inbox/${encodeURIComponent(itemId)}`, {
+    method: "PATCH",
+    body: { state },
+  });
+}
+
+/**
+ * Replaces a founder profile wholesale — the backend deliberately has no
+ * patch. These fields feed the deterministic eligibility filter, and a
+ * half-applied update (citizenship changed, degree level not) is how a
+ * founder gets told they are eligible for something they are not. The
+ * backend returns what it stored, which is what every other endpoint will
+ * serve from now on.
+ */
+export function putProfile(profile: FounderProfile): Promise<FounderProfile> {
+  return request(`/founders/${encodeURIComponent(profile.founder_id)}`, {
+    method: "PUT",
+    body: profile,
   });
 }

@@ -49,6 +49,42 @@ export function formatRelative(iso: string | null): string {
   return formatter.format(Math.round(deltaMinutes / (60 * 24)), "day");
 }
 
+/** Date-only ISO string ("2026-10-15") to "Oct 15, 2026". */
+export function formatDate(isoDate: string | null): string {
+  if (!isoDate) return "—";
+  const date = new Date(`${isoDate}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(date);
+}
+
+/** Whole days from today until a date-only ISO string. Negative = past. */
+export function daysUntil(isoDate: string | null): number | null {
+  if (!isoDate) return null;
+  const then = new Date(`${isoDate}T00:00:00`).getTime();
+  if (Number.isNaN(then)) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((then - today.getTime()) / 86_400_000);
+}
+
+/**
+ * "$2,500 – $10,000", "up to $10,000", "$2,500+", or null when the source
+ * stated no award at all. Null stays null — this app does not invent a range.
+ */
+export function formatAwardRange(
+  min: number | null,
+  max: number | null,
+): string | null {
+  if (min != null && max != null) {
+    return min === max
+      ? `$${formatInt(max)}`
+      : `$${formatInt(min)} – $${formatInt(max)}`;
+  }
+  if (max != null) return `up to $${formatInt(max)}`;
+  if (min != null) return `$${formatInt(min)}+`;
+  return null;
+}
+
 /**
  * The backend composes the headline in Python as
  * `title · up to $X · N days left · ~Yh of work` (agent/scout.py::_headline).

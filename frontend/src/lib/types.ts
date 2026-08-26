@@ -2,11 +2,10 @@
  * TypeScript mirrors of the Pydantic v2 models in `agent/models.py`.
  *
  * Every field here exists on the wire. Nothing is invented, and nothing the
- * API does not currently expose is declared as if it did — notably
- * `Opportunity` itself is never returned by any endpoint, so award ranges and
- * deadlines are only available as the pre-rendered text inside
- * `InboxItem.headline`, which the backend composes deterministically in
- * Python (`agent/scout.py::_headline`).
+ * API does not currently expose is declared as if it did. `Opportunity` is
+ * served by `GET /opportunities/{id}` — runs persist every opportunity they
+ * retrieved — so award ranges, deadlines and eligibility rules are structured
+ * fields here, not text parsed back out of a headline.
  *
  * Datetimes and dates arrive as ISO 8601 strings.
  */
@@ -36,6 +35,77 @@ export const FIELD_STATUSES: FieldStatus[] = [
   "GENERATED",
   "NEEDS_FOUNDER",
 ];
+
+/** Editable vocabularies, for the profile editor's selects. */
+export const DEGREE_LEVELS: DegreeLevel[] = [
+  "undergrad",
+  "masters",
+  "phd",
+  "postdoc",
+];
+export const ENTITY_TYPES: EntityType[] = [
+  "none",
+  "llc",
+  "c_corp",
+  "s_corp",
+  "nonprofit",
+];
+export const STAGES: Stage[] = ["idea", "prototype", "mvp", "pilot", "revenue"];
+export const INBOX_STATES: InboxState[] = [
+  "new",
+  "opened",
+  "dismissed",
+  "applied",
+];
+
+// ── Opportunity (agent/models.py) ────────────────────────────────────────────
+
+/**
+ * Machine-checkable eligibility, extracted from source text. `null` means the
+ * source did not state it — NOT "no restriction". The Python filter maps
+ * `null` to UNKNOWN, and UNKNOWN becomes a founder-facing question.
+ */
+export interface EligibilityRules {
+  degree_levels: DegreeLevel[] | null;
+  citizenships: string[] | null;
+  entity_types: EntityType[] | null;
+  min_team_size: number | null;
+  max_team_size: number | null;
+  geographies: string[] | null;
+  institutions: string[] | null;
+  requires_faculty_pi: boolean | null;
+  takes_equity: boolean | null;
+}
+
+/** A criterion lifted verbatim from a source document. */
+export interface ExtractedCriterion {
+  text: string;
+  source_doc: string;
+  char_start: number | null;
+  char_end: number | null;
+}
+
+/** One funding opportunity, as `GET /opportunities/{id}` returns it. */
+export interface Opportunity {
+  id: string;
+  title: string;
+  funder: string;
+  source: SourceName;
+  source_url: string;
+  award_min: number | null;
+  award_max: number | null;
+  /** ISO date (no time). */
+  deadline: string | null;
+  rolling: boolean;
+  effort_hours_estimate: number | null;
+  eligibility: EligibilityRules;
+  criteria: ExtractedCriterion[];
+  description_excerpt: string;
+  /** False until a human opened `source_url` and confirmed the row. */
+  verified: boolean;
+  verified_at: string | null;
+  retrieved_at: string;
+}
 
 // ── Founder ──────────────────────────────────────────────────────────────────
 
@@ -115,16 +185,6 @@ export interface RunReport {
   usage: TokenUsage;
   halted_reason: string | null;
   stateless: boolean;
-  notes: string[];
-}
-
-/** Response shape of `GET /founders/{id}/runs/latest/skips`. */
-export interface LatestSkips {
-  run_id: string;
-  headline: string;
-  rejections: Rejection[];
-  skips: SkipRecord[];
-  sources_failed: SourceFailure[];
   notes: string[];
 }
 
