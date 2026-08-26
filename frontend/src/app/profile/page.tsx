@@ -7,6 +7,7 @@ import {
   PageHeader,
   Section,
 } from "@/components/primitives";
+import { ProfileEditor } from "@/components/profile-editor";
 import { EmptyState, Note } from "@/components/states";
 import { getProfileOrNull } from "@/lib/api";
 import { formatInt, isDemo, titleCase } from "@/lib/format";
@@ -14,7 +15,6 @@ import type { FounderProfile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-/** The profile is read-only here: the backend exposes no write endpoint for it. */
 export default async function ProfilePage() {
   let profile: FounderProfile | null = null;
   let error: unknown = null;
@@ -126,6 +126,9 @@ export default async function ProfilePage() {
             </DefinitionRow>
           </dl>
         </Card>
+        <div className="mt-4">
+          <ProfileEditor profile={profile} />
+        </div>
       </Section>
 
       {tractionKeys.length > 0 ? (
@@ -185,9 +188,11 @@ export default async function ProfilePage() {
       </Section>
 
       <Note>
-        This view is read-only. The Kairos API exposes no endpoint for editing a
-        profile, so this dashboard does not pretend to offer one — profiles are
-        seeded and updated on the backend.
+        Edits here replace the profile wholesale — the backend deliberately
+        accepts no partial update, so the eligibility filter never runs on a
+        half-applied one. Traction and the knowledge base are updated on the
+        backend, not here: they are evidence, and evidence is not edited from
+        a dashboard.
       </Note>
     </Page>
   );
