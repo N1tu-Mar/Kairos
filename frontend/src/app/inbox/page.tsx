@@ -3,8 +3,8 @@ import { InboxFilter, parseInboxView } from "@/components/inbox-filter";
 import { InboxItemCard } from "@/components/inbox-item-card";
 import { Page, PageHeader } from "@/components/primitives";
 import { EmptyState } from "@/components/states";
-import { getInbox } from "@/lib/api";
-import type { InboxItem } from "@/lib/types";
+import { getInbox, getOpportunities } from "@/lib/api";
+import type { InboxItem, Opportunity } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +33,12 @@ export default async function InboxPage({
 
   let items: InboxItem[] = [];
   let error: unknown = null;
+  // Structured rows for the cards. A row that fails to resolve just falls
+  // back to the composed headline — it never fails the page.
+  let opportunities = new Map<string, Opportunity>();
   try {
     items = await getInbox();
+    opportunities = await getOpportunities(items.map((i) => i.opportunity_id));
   } catch (caught) {
     error = caught;
   }
@@ -71,7 +75,13 @@ export default async function InboxPage({
             {shown.length === 0 ? (
               <EmptyState title={empty.title}>{empty.body}</EmptyState>
             ) : (
-              shown.map((item) => <InboxItemCard key={item.item_id} item={item} />)
+              shown.map((item) => (
+                <InboxItemCard
+                  key={item.item_id}
+                  item={item}
+                  opportunity={opportunities.get(item.opportunity_id) ?? null}
+                />
+              ))
             )}
           </div>
         </>

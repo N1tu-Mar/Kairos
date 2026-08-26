@@ -6,9 +6,9 @@ import { ManualRunControl } from "@/components/manual-run";
 import { RunSummary } from "@/components/run-summary";
 import { EmptyState, Note } from "@/components/states";
 import { Page, PageHeader, Section } from "@/components/primitives";
-import { getInbox, getLatestRun } from "@/lib/api";
+import { getInbox, getLatestRun, getOpportunities } from "@/lib/api";
 import { formatRelative, runHeadline } from "@/lib/format";
-import type { InboxItem, RunReport } from "@/lib/types";
+import type { InboxItem, Opportunity, RunReport } from "@/lib/types";
 
 /**
  * The briefing.
@@ -37,6 +37,17 @@ export default async function BriefingPage() {
 
   const active = inbox.filter((item) => !item.passive);
   const passive = inbox.filter((item) => item.passive);
+
+  // Structured rows for the cards shown below. Failure to resolve one falls
+  // back to the composed headline; it never breaks the briefing.
+  let opportunities = new Map<string, Opportunity>();
+  try {
+    opportunities = await getOpportunities(
+      active.slice(0, 3).map((item) => item.opportunity_id),
+    );
+  } catch {
+    // Fall back to headlines.
+  }
 
   return (
     <Page>
@@ -102,7 +113,11 @@ export default async function BriefingPage() {
         ) : (
           <div className="space-y-4">
             {active.slice(0, 3).map((item) => (
-              <InboxItemCard key={item.item_id} item={item} />
+              <InboxItemCard
+                key={item.item_id}
+                item={item}
+                opportunity={opportunities.get(item.opportunity_id) ?? null}
+              />
             ))}
             {active.length > 3 ? (
               <Link

@@ -5,6 +5,7 @@ import type {
   DraftStatus,
   FieldStatus,
   InboxKind,
+  InboxState,
 } from "@/lib/types";
 
 /**
@@ -156,6 +157,37 @@ export function AuditBadge({ verdict }: { verdict: AuditVerdict }) {
     tone: "neutral" as Tone,
     title: verdict,
   };
+  return (
+    <Badge tone={spec.tone} title={spec.title}>
+      {spec.label}
+    </Badge>
+  );
+}
+
+const INBOX_STATE: Record<InboxState, { label: string; tone: Tone; title: string } | null> = {
+  // "new" gets no badge — it is the default and a badge for it is noise.
+  new: null,
+  opened: {
+    label: "Opened",
+    tone: "info",
+    title: "You marked this as opened.",
+  },
+  dismissed: {
+    label: "Dismissed",
+    tone: "neutral",
+    title: "You dismissed this. The run's verdict is unchanged — only your state on it.",
+  },
+  applied: {
+    label: "Applied",
+    tone: "ok",
+    title: "You marked this as applied. Kairos records that; it never submits anything itself.",
+  },
+};
+
+/** What the founder did with the item. Renders nothing for "new". */
+export function InboxStateBadge({ state }: { state: InboxState }) {
+  const spec = INBOX_STATE[state];
+  if (!spec) return null;
   return (
     <Badge tone={spec.tone} title={spec.title}>
       {spec.label}
