@@ -20,11 +20,13 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from agent.budget import RunBudget
@@ -65,18 +67,62 @@ class InboxStateUpdate(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not settings().api_token:
+        log.warning(
+            "KAIROS_API_TOKEN is not set — the API is running open. "
+            "Acceptable on localhost only; never deploy it this way."
+        )
     app.state.repo = SqliteRepository(settings().db_url)
     _seed_demo_profile(app.state.repo)
     yield
 
 
 app = FastAPI(title="Kairos", lifespan=lifespan)
+
+
+#: Paths that stay reachable without a token. /health exists so a load
+#: balancer can probe liveness without holding a credential.
+AUTH_EXEMPT_PATHS = {"/health"}
+
+
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    """Bearer-token gate over every endpoint, reads included.
+
+    Reads leak as much as writes here — a profile is citizenship, degree
+    level and traction numbers — so the gate is not writes-only. The token
+    comes from `KAIROS_API_TOKEN`. When it is unset the API runs open for
+    the local single-founder demo, and the lifespan hook logs that exposure
+    at startup. When it is set, a missing or wrong credential is a 401 with
+    no hint as to which of the two it was.
+    """
+    token = settings().api_token
+    if (
+        not token
+        or request.url.path in AUTH_EXEMPT_PATHS
+        # CORS preflights carry no Authorization header by design; the
+        # browser sends the real header only on the actual request.
+        or request.method == "OPTIONS"
+    ):
+        return await call_next(request)
+
+    supplied = request.headers.get("authorization", "")
+    expected = f"Bearer {token}"
+    if not secrets.compare_digest(supplied.encode(), expected.encode()):
+        return JSONResponse(
+            {"detail": "missing or invalid API token"},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=ALLOWED_ORIGIN_REGEX,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 

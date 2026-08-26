@@ -107,6 +107,7 @@ class Settings:
     db_url: str
     state_dir: Path
     enable_otel: bool
+    api_token: str
 
     @property
     def data_dir(self) -> Path:
@@ -163,4 +164,7 @@ def settings() -> Settings:
         db_url=os.getenv("KAIROS_DB_URL", "sqlite:///./kairos.db"),
         state_dir=state_dir,
         enable_otel=_bool("KAIROS_ENABLE_OTEL", False),
+        # Empty means the API runs open — acceptable only on localhost.
+        # api/main.py refuses nothing but logs the exposure at startup.
+        api_token=os.getenv("KAIROS_API_TOKEN", "").strip(),
     )

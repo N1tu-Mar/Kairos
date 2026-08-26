@@ -19,6 +19,8 @@ def method_suite_env(monkeypatch, tmp_path):
     monkeypatch.setenv("BEDROCK_MODEL_CLASSIFY", "[DEMO]classify-model")
     monkeypatch.setenv("KAIROS_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("KAIROS_DAILY_USD_CAP", "0")
+    # A developer .env may set a token; these suites assume the open local mode.
+    monkeypatch.delenv("KAIROS_API_TOKEN", raising=False)
     config.settings.cache_clear()
     yield
     config.settings.cache_clear()
