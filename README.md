@@ -200,6 +200,11 @@ uv run pytest
 # run for real; only the judgment is stubbed, and every line it prints says so
 uv run python scripts/run_scout.py --dry-run --demo --no-grants-gov
 
+# one real Bedrock call per tier — run this before anything else that
+# costs money. It proves the model IDs resolve in your region and that token
+# accounting is actually wired to the wallet.
+uv run python scripts/smoke_bedrock.py --tier classify
+
 # one run against the synthetic catalog (needs Bedrock)
 uv run python scripts/run_scout.py --demo --no-grants-gov
 
@@ -288,9 +293,16 @@ Written before the deadline pressure, so it stays honest.
   goes here whatever it is.
 - **The daily spend ledger is a JSON file**, correct for one process and not
   safe across several.
+- **Nothing here has run against live Bedrock yet.** Every model path is
+  exercised by fakes. The suite passing tells you the orchestration is
+  correct, not that the model IDs in your `.env` resolve or that the models
+  are enabled on your account. `scripts/smoke_bedrock.py` is the first thing
+  to run once credentials exist, and it is deliberately loud about the two
+  failures that look like a broken build: model access not enabled, and a
+  model that needs an inference profile.
 - **Bedrock prices default to zero** in `.env`, so cost estimates read
   `$0.0000` until someone fills in live pricing. Visibly wrong beats quietly
-  wrong; the token ceiling enforces regardless.
+  wrong, and the token ceiling enforces on raw counts regardless of price.
 
 Every deviation from the spec, every API fact confirmed by running code
 rather than recalling it, and every open TODO is dated in

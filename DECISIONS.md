@@ -37,9 +37,10 @@ Two behaviours confirmed by spike rather than by reading signatures:
   `.original_function`**. It stays directly callable as a plain function,
   and returns an awaitable when the underlying function is `async`. This is
   what lets `run_once` and the Scout agent share one set of tool objects.
-- `Agent.structured_output_async` takes **no `limits` argument**. Per-call
-  budget enforcement for sub-agent calls therefore happens after the fact in
-  `RunBudget.charge_agent_result`, not as a pre-declared cap.
+- `Agent.structured_output_async` takes **no `limits` argument**, and — the
+  part that mattered and was missed — returns the parsed model rather than an
+  `AgentResult`, so it exposes no metrics either. Superseded on 2026-08-26;
+  see below.
 
 ### 2026-08-22 — Grants.gov schema
 
@@ -68,6 +69,55 @@ entities to a bounded fixpoint **before** stripping tags. One pass leaves
 `&amp;lt;script&amp;gt;` looking like text; decoding first and stripping
 second means anything that could ever decode into markup is markup by the
 time the stripper runs.
+
+---
+
+### 2026-08-26 — Structured output, metrics, and throttling
+
+Read from the same installed package, after a bug made it worth re-reading.
+
+```
+Agent.structured_output_async(output_model, prompt) -> T
+  DEPRECATED in 1.53.0. Warns: "You should pass in `structured_output_model`
+  directly into the agent invocation." Returns T. No AgentResult, therefore
+  no metrics, therefore nothing to charge a budget from.
+
+Agent.invoke_async(prompt, *, invocation_state=None,
+                   structured_output_model: type[BaseModel] | None = None,
+                   structured_output_prompt: str | None = None,
+                   idempotency_token=None, limits: Limits | None = None,
+                   **kwargs) -> AgentResult
+
+AgentResult(stop_reason, message, metrics, state, interrupts=None,
+            structured_output: BaseModel | None = None, checkpoint=None)
+
+EventLoopMetrics.accumulated_usage -> Usage TypedDict
+  {inputTokens, outputTokens, totalTokens}
+  Agent.invoke_async calls event_loop_metrics.reset_usage_metrics() at the
+  top of each invocation (agent/agent.py:1233), so accumulated_usage is
+  per-invocation. That is what makes it safe to charge per call.
+
+strands.types.agent.Limits (TypedDict, total=False): turns, output_tokens,
+  total_tokens. On a trip, stop_reason is "limit_turns",
+  "limit_total_tokens" or "limit_output_tokens".
+
+strands.types.exceptions.ModelThrottledException
+  BedrockModel raises this, wrapping a botocore ClientError whose
+  Error.Code is "ThrottlingException" (models/bedrock.py:1355-1362).
+```
+
+Consequences, all now in `agent/prompting.py`:
+
+- `structured_call` uses `invoke_async`, so every model call is charged and
+  Strands' own per-call `limits` finally has somewhere to go.
+- `structured_output` coming back `None` is treated as a schema failure and
+  feeds the existing retry loop. Absence of an answer is not an answer.
+- A `stop_reason` beginning `limit_` abstains without retrying. Retrying
+  spends more against a cap that has already tripped.
+- Throttling gets a **separate** retry budget from schema validation, because
+  a busy region says nothing about whether a prompt is followable, and
+  spending a schema attempt on it would make a service incident look like a
+  broken prompt.
 
 ---
 
@@ -321,6 +371,34 @@ Fixed by excluding control-flow signals (`BudgetExceeded`, `Abstention`,
 `CancelledError`, `KeyboardInterrupt`) from the retry loop. The general
 lesson: a retry loop is not an error handler, and a catch-all inside one
 turns every guard it wraps into its opposite.
+
+---
+
+### 2026-08-26 — The token ceiling and the daily cap were never enforced
+
+`agent/budget.py` had a working `charge()`, a working ledger, a tested
+`BudgetExceeded`, and a tested halt path in `run_once`. It also had
+`charge_agent_result`, which **nothing in production ever called**. The only
+budget call on the run path was `take_assessment_slot()`. So the assessment
+cap enforced and the other two — `KAIROS_MAX_RUN_TOKENS` and
+`KAIROS_DAILY_USD_CAP` — were decoration.
+
+The cause is the deprecation above: `structured_output_async` returns the
+parsed model, so there was no `AgentResult` to charge from, and rather than
+noticing that, the docstring wrote the gap down as a design note.
+
+What let it survive a green suite is the more useful lesson. The test named
+`test_a_blown_token_ceiling_halts_and_surfaces_nothing` used a fake assessor
+that called `budget.charge(...)` by hand. It proved the halt path worked; it
+could not prove anyone reached it. **A test that simulates the thing it is
+meant to observe is not observing anything.** The fake now reports usage the
+way a real agent does and lets the orchestrator do the charging, so the same
+test would fail against the old code.
+
+Section 11.12's throttling row was missing for a related reason: it was
+covered by a generic `except Exception` that retried instantly, appended the
+throttle text to the prompt, and abstained — three wrong behaviours reading
+as one handled case.
 
 ---
 
