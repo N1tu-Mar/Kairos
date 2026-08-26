@@ -17,12 +17,15 @@ It is not a grant search engine, an AI grant writer, or a chat interface over
 Grants.gov. Those exist. The thing that doesn't is **the loop running while
 the founder is asleep**.
 
-> **Status: in progress.** The agent loop, the deterministic safety layer,
-> the API and the dashboard (`frontend/`) are built and tested, and the API
-> is gated behind a bearer token. Terraform for the AWS deployment exists
-> (`infra/`) but has not been applied against a live account; the curated
-> catalog is still a stub. See [Honest limitations](#honest-limitations) —
-> that section is accurate, not modest.
+> **Status: working locally, not production-ready.** The agent loop,
+> deterministic safety layer, SQLite persistence, FastAPI surface and Next.js
+> dashboard are implemented. The API supports a shared bearer-token gate. A
+> Rutgers-focused research scraper has produced seven evidence-backed candidate
+> rows, but none has passed human review into the runtime catalog yet. The AWS
+> deployment is defined in Terraform but has not been applied, and no model path
+> has been validated against live Bedrock. See
+> [Current implementation](#current-implementation) and
+> [Honest limitations](#honest-limitations).
 
 ---
 
@@ -36,6 +39,24 @@ The money exists. Finding it is the barrier: campus competitions, student
 innovation funds, fellowships and cash prizes have no API, no aggregator, and
 no deadline reminders. The 45-minute search and the 3-hour application happen
 in a week that already has a problem set due.
+
+---
+
+## Current implementation
+
+| Area | What exists today |
+|---|---|
+| Discovery | A verified-seed source and live Grants.gov `search2`/`fetchOpportunity` integration. The runtime seed currently contains one verified usable row. |
+| Campus research | An operator-run, robots-aware Rutgers scraper with rate limiting, raw-page archives, deterministic extraction, exact evidence spans, explicit `UNKNOWN` fields, deduplication and stale-deadline warnings. Its seven current rows all remain `NEEDS_HUMAN_REVIEW`. |
+| Decision loop | Deterministic eligibility filtering, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
+| Product surfaces | SQLite persistence, a bearer-token-capable FastAPI API, and a single-founder Next.js dashboard for briefings, inbox state, runs, drafts and profile editing. |
+| Operations | A Docker image, local APScheduler mode, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler. The Terraform is unapplied. |
+| Verification | 284 Python tests pass, with 3 planned tests marked expected-failure; 44 frontend tests, TypeScript checking and lint pass locally as of 2026-08-26. The published golden-set result is fixture-based, not a live-model score. |
+
+The research scraper and the Scout runtime are deliberately separate. A
+scraped row cannot become a recommendation merely because a parser found it:
+a person must inspect its evidence, promote it into the curated candidate
+catalog, and run the verifier first.
 
 ---
 
@@ -243,17 +264,50 @@ the program, and writes `data/opportunities.seed.json` with an honest
 [`data/README.md`](data/README.md) for why, including a worked example of a
 URL that looks exactly right and 404s.
 
+For the Rutgers target set, the repository also has a research stage that
+creates review material without touching the production seed:
+
+```bash
+# fixed targets, static HTML, plus a human-readable review document
+uv run python scripts/scrape_rutgers.py --doc
+
+# optional, bounded expansion: Rutgers-domain funding links, one level deep
+uv run python scripts/scrape_rutgers.py --discover --doc
+
+# opt into Playwright only for a target already known to return a JS shell
+uv sync --extra js
+uv run playwright install chromium
+uv run python scripts/scrape_rutgers.py --allow-js --doc
+```
+
+The output is `data/opportunities.rutgers.candidates.json`; raw fetch metadata
+is archived under `data/raw/`, and the readable artifact is
+[`docs/rutgers-funding-review.md`](docs/rutgers-funding-review.md). Every row
+starts as `NEEDS_HUMAN_REVIEW`. Promotion into
+`data/opportunities.candidates.json` is a manual decision, followed by
+`verify_seed.py`.
+
 ---
 
 ## Testing
 
 ```bash
 uv run pytest -q
+
+cd frontend
+npm test
+npm run typecheck
+npm run lint
 ```
 
 Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
+
+Current local result (2026-08-26): **284 Python tests passed, 3 planned tests
+xfail; 44 frontend tests passed; typecheck and lint passed.** The xfails cover
+planned semantic recall and two scheduler/overlap behaviours; they are not
+silently skipped production checks.
 
 The tests that matter most are the adversarial ones in
 `tests/test_grounding.py` — all six cases the spec requires, including an
@@ -317,10 +371,22 @@ at this scoreboard. Until then the number stands at 80% and says why.
 
 Written before the deadline pressure, so it stays honest.
 
-- **The curated catalog is a stub.** The schema, the verifier and the
-  exclusion behaviour work. The 60–100 real rows are not collected yet, so
-  demo runs use an obviously-synthetic catalog: `[DEMO]` in every title, and
-  every URL on `.invalid`, a TLD reserved so it can never resolve.
+- **The runtime catalog is still a stub.** Its two rows are one verified NSF
+  REU entry and one deliberately retained verification failure; this is far
+  short of the promised 60–100 programs. The Rutgers research pipeline has
+  produced seven additional candidate rows with evidence, but all seven are
+  still `NEEDS_HUMAN_REVIEW` and Scout cannot load them. Demo runs therefore
+  use an obviously-synthetic catalog: `[DEMO]` in every title, and every URL
+  on `.invalid`, a TLD reserved so it can never resolve.
+- **Campus discovery is a research tool, not a runtime source.** The scraper
+  works over a small human-maintained target registry, with optional bounded
+  Rutgers-domain link discovery. It is not scheduled and is not wired into
+  `discover_opportunities`; `KAIROS_ENABLE_BROWSER` does not currently add an
+  AgentCore Browser source to a Scout run.
+- **Real application forms are not modeled yet.** The only structured form
+  under `data/forms/` belongs to the synthetic demo opportunity. Kairos can
+  discover and assess a real opportunity without that form, but cannot draft
+  its real application questions.
 - **The AWS deployment is written, not applied.** `infra/` holds Terraform
   for ECS Fargate, EFS-backed SQLite and an EventBridge schedule that calls
   the run endpoint with the API's own bearer token — but it has never met a
@@ -383,12 +449,13 @@ agent/
   runtime.py       Per-run state.
   subagents/       Assessor, Drafter, Auditor.
   tools/           discovery.py, eligibility.py (pure Python).
+  scraping/        Evidence-first campus research; never writes runtime seed.
   prompts/         System prompts as version-controlled .md.
 api/
   main.py          FastAPI read surface.
   repository.py    Protocol + SQLite. DynamoDB is a port, not a rewrite.
-data/              Candidates, verified seed, synthetic demo catalog, forms.
-scripts/           run_scout.py, verify_seed.py
+data/              Candidates, verified seed, Rutgers review rows, demo data, forms.
+scripts/           Scout runner, seed verifier, Bedrock smoke check, eval, scraper.
 frontend/          Next.js dashboard. Reads the API; owns no business logic.
 infra/             Terraform: ECS Fargate + EFS + EventBridge schedule. Unapplied.
 tests/             Offline. Fixtures recorded from real API calls.
