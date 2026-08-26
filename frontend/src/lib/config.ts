@@ -26,6 +26,16 @@ export function founderId(): string {
   return env("KAIROS_FOUNDER_ID", "founder_demo");
 }
 
+/**
+ * Bearer token the backend expects when `KAIROS_API_TOKEN` is set there.
+ * Server-only, like everything in this module: the browser talks to the
+ * Route Handlers, never to FastAPI, so the credential never ships to it.
+ * Empty means the backend is running open (localhost demo).
+ */
+export function apiToken(): string {
+  return env("KAIROS_API_TOKEN", "");
+}
+
 export function readTimeoutMs(): number {
   return intEnv("KAIROS_API_TIMEOUT_MS", 10_000);
 }

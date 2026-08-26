@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   apiBaseUrl,
+  apiToken,
   founderId,
   readTimeoutMs,
   runTimeoutMs,
@@ -97,9 +98,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   let response: Response;
   try {
+    const headers: Record<string, string> = {};
+    if (body) headers["content-type"] = "application/json";
+    // Attached server-side only; the browser never sees this credential.
+    const token = apiToken();
+    if (token) headers.authorization = `Bearer ${token}`;
     response = await fetch(url, {
       method,
-      headers: body ? { "content-type": "application/json" } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
       // Every view reflects live pipeline state; a stale render is a lie.
