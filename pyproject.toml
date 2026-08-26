@@ -25,3 +25,8 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
 ]
+
+[tool.pytest.ini_options]
+# backend_method_suites has no __init__.py, so running it alone never puts
+# the repo root on sys.path and `import agent` fails. Pin the root here.
+pythonpath = ["."]
