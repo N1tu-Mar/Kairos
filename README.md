@@ -17,10 +17,12 @@ It is not a grant search engine, an AI grant writer, or a chat interface over
 Grants.gov. Those exist. The thing that doesn't is **the loop running while
 the founder is asleep**.
 
-> **Status: in progress.** The agent loop, the deterministic safety layer and
-> the API are built and tested. The curated catalog, the AWS deployment and
-> the frontend are not. See [Honest limitations](#honest-limitations) — that
-> section is accurate, not modest.
+> **Status: in progress.** The agent loop, the deterministic safety layer,
+> the API and the dashboard (`frontend/`) are built and tested, and the API
+> is gated behind a bearer token. Terraform for the AWS deployment exists
+> (`infra/`) but has not been applied against a live account; the curated
+> catalog is still a stub. See [Honest limitations](#honest-limitations) —
+> that section is accurate, not modest.
 
 ---
 
@@ -209,7 +211,14 @@ uv run python scripts/run_scout.py --schedule --hour 6
 
 # the API
 uv run fastapi dev api/main.py
+
+# the dashboard (see frontend/README.md; needs the API running)
+cd frontend && npm install && npm run dev
 ```
+
+`KAIROS_API_TOKEN` in `.env` is empty by default and the API runs open on
+localhost, logging that fact at startup. Set it (both sides — backend `.env`
+and `frontend/.env.local`) before exposing the API to anything.
 
 ### Curating the catalog
 
@@ -253,9 +262,16 @@ Written before the deadline pressure, so it stays honest.
   exclusion behaviour work. The 60–100 real rows are not collected yet, so
   demo runs use an obviously-synthetic catalog: `[DEMO]` in every title, and
   every URL on `.invalid`, a TLD reserved so it can never resolve.
-- **No AWS deployment yet.** No AgentCore Runtime, no EventBridge schedule,
-  no live demo link. Scheduling runs locally on APScheduler.
-- **No frontend yet.** The API is the interface.
+- **The AWS deployment is written, not applied.** `infra/` holds Terraform
+  for ECS Fargate, EFS-backed SQLite and an EventBridge schedule that calls
+  the run endpoint with the API's own bearer token — but it has never met a
+  live account, so there is no demo link and no claim that it works first
+  try. Locally, scheduling still means APScheduler or the schedule flag.
+- **Auth is one shared bearer token.** `KAIROS_API_TOKEN` gates every
+  endpoint except `/health`, which closes the "anyone on the network can
+  rewrite a profile" hole — but it is one credential for the whole API, not
+  per-founder identity. Fine single-founder; a second founder needs real
+  authorisation before founder scoping means anything.
 - **Cross-run memory is the database, not AgentCore Memory.** The session
   manager the spec calls for does not exist in the installed SDK — see
   [`DECISIONS.md`](DECISIONS.md) D1.
@@ -302,7 +318,10 @@ api/
   repository.py    Protocol + SQLite. DynamoDB is a port, not a rewrite.
 data/              Candidates, verified seed, synthetic demo catalog, forms.
 scripts/           run_scout.py, verify_seed.py
+frontend/          Next.js dashboard. Reads the API; owns no business logic.
+infra/             Terraform: ECS Fargate + EFS + EventBridge schedule. Unapplied.
 tests/             Offline. Fixtures recorded from real API calls.
+backend_method_suites/  Per-method pytest suites, including the auth gate.
 docs/              Architecture diagrams (Mermaid source).
 ```
 

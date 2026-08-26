@@ -21,19 +21,20 @@ At minimum:
 
 ## Scheduled pipeline invocation
 
-The production mechanism that periodically invokes the Kairos pipeline is not yet decided. Do not implement scheduling as part of the Next.js frontend work.
+~~The production mechanism that periodically invokes the Kairos pipeline is
+not yet decided.~~ A position is now taken in `infra/` and its README
+answers each question this section used to ask: the pipeline deploys with
+the API in one Fargate task; EventBridge Scheduler invokes the existing
+`POST /founders/{id}/runs` daily through an API destination; it
+authenticates with the same `KAIROS_API_TOKEN` bearer token the dashboard's
+proxy sends; retries are capped at 1 so overlap stays a non-issue at a
+daily cadence; and API and worker do not separate, so SQLite stays
+single-writer.
 
-Before choosing an approach, confirm:
-
-- where the Python/FastAPI pipeline will be deployed;
-- expected run duration and frequency;
-- whether overlapping runs must be prevented;
-- required retry and failure-reporting behavior;
-- how the scheduled trigger will authenticate;
-- whether the scheduler should invoke an HTTP endpoint, enqueue a job, or start a dedicated worker;
-- database and locking requirements when the API and worker run separately.
-
-The browser must not own this responsibility: Kairos must continue searching when no founder has the site open.
+Still true and still enforced: the browser owns none of this — nothing in
+`frontend/` schedules anything. Still open: the Terraform has not been
+applied against a live account, there is no run-lease lock if the cadence
+ever tightens, and failure reporting is CloudWatch logs, not an alarm.
 
 ## Backend gaps the frontend ran into
 
@@ -69,15 +70,16 @@ deliberate decision, not an oversight.
    changed without `degree_level` is how a founder gets told they are
    eligible for something they are not. The body's `founder_id` must match
    the path.
-6. **No authentication anywhere in the repository.** Still open, and now it
-   matters more: the API has writes. `PUT /founders/{id}` will replace any
-   founder's profile and `PATCH /inbox/{item_id}` will mutate any item, for
-   anyone who can reach the port. This is acceptable for a local
-   single-founder demo and is **not** acceptable on a public host. Before
-   deploying anywhere reachable, decide who authenticates, how the frontend
-   carries that identity, and whether founder scoping becomes a real
-   authorisation check rather than the 404-on-mismatch convenience it is
-   today.
+6. ~~**No authentication anywhere in the repository.**~~ Closed for the
+   single-founder case: `KAIROS_API_TOKEN` gates every endpoint except
+   `/health` (`api/main.py::require_api_token`, covered by
+   `backend_method_suites/auth_required`). The frontend carries the token
+   server-side only — the browser talks to the Route Handlers and never
+   holds the credential. What this deliberately is **not**: per-founder
+   identity. One token opens the whole API, so founder scoping in the paths
+   remains the 404-on-mismatch convenience it always was. The day there are
+   two founders, that becomes a real authorisation check or the second
+   founder does not get an account.
 
 ### Still not exposed, on purpose
 
