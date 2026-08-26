@@ -1,0 +1,49 @@
+{
+  "case_id": "clean_05_cold_start",
+  "trap": false,
+  "title": "A knowledge base below the floor disables drafting entirely",
+  "why": "Section 11.10. A sparse profile must produce more questions, never more invention. No model call happens at all.",
+  "chunks": [
+    {
+      "chunk_id": "c1",
+      "text": "LabQueue schedules shared lab equipment for university research groups.",
+      "source": "pitch_deck.pdf p1"
+    },
+    {
+      "chunk_id": "c2",
+      "text": "40 students used LabQueue during a six-week pilot at Example University.",
+      "source": "pitch_deck.pdf p4"
+    }
+  ],
+  "traction": {},
+  "fields": [
+    {
+      "field_id": "problem",
+      "label": "What problem are you solving?",
+      "kind": "long_text"
+    },
+    {
+      "field_id": "traction",
+      "label": "What traction do you have so far?",
+      "kind": "long_text"
+    }
+  ],
+  "proposal": [],
+  "truth": {
+    "problem": "WITHHOLD",
+    "traction": "WITHHOLD"
+  },
+  "opportunity": {
+    "id": "opp_campus_innovation",
+    "title": "[DEMO] Campus Innovation Fund",
+    "funder": "[DEMO] Example University",
+    "source": "seed",
+    "source_url": "https://example.invalid/campus-innovation-fund",
+    "award_min": 2000,
+    "award_max": 10000,
+    "deadline": "2026-10-15",
+    "effort_hours_estimate": 5.0,
+    "description_excerpt": "Awards of up to $10,000 for enrolled students building early-stage ventures.",
+    "verified": false
+  }
+}

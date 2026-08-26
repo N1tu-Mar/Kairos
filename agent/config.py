@@ -42,6 +42,26 @@ def _require(key: str, hint: str) -> str:
     return value
 
 
+def stamp_placeholder_models(label: str) -> None:
+    """Fill the model IDs with obviously-fake strings, for paths that never
+    call a model.
+
+    `os.environ.setdefault` is the wrong primitive here and using it was a
+    bug: `cp .env.example .env` — step two of the README's own setup — puts
+    `BEDROCK_MODEL_REASONING=` into the environment as an empty string, so the
+    key exists, `setdefault` declines to touch it, and `_require` then refuses
+    to start. That made `--dry-run` fail for exactly the person the dry run
+    exists to serve: someone with a clean clone and no AWS account.
+
+    Blank is missing, here as in `_require`. The label is stamped onto every
+    `DraftField` these paths produce, so a fixture-derived answer says so.
+    """
+    for key in ("BEDROCK_MODEL_REASONING", "BEDROCK_MODEL_CLASSIFY"):
+        if not os.getenv(key, "").strip():
+            os.environ[key] = label
+    settings.cache_clear()
+
+
 def _int(key: str, default: int) -> int:
     raw = os.getenv(key, "").strip()
     return int(raw) if raw else default

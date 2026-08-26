@@ -214,6 +214,9 @@ uv run python scripts/run_scout.py
 # a local daily schedule, standing in for EventBridge
 uv run python scripts/run_scout.py --schedule --hour 6
 
+# the Section 11.11 golden set — 15 drafts, 8 with traps, prints the number
+uv run python scripts/run_eval.py
+
 # the API
 uv run fastapi dev api/main.py
 
@@ -259,6 +262,57 @@ deterministic filter's result is unchanged.
 
 ---
 
+---
+
+## The number
+
+Section 11.11 asks for a golden set and says to publish the result, whatever it
+is. This is the result.
+
+```
+15 cases, 8 with traps · 20 fields scored · 10 shipped · 3 drafts blocked
+
+groundedness             80.0%   (8/10 shipped claims supported)
+abstention accuracy      81.8%   (9/11 unsupported claims withheld)
+unnecessary questions    11.1%   (1/9 supported claims withheld anyway)
+  of those, collateral   100%    (blocked by another field in the same draft)
+```
+
+**This measures the deterministic defense layer, not the model.** The offline
+run replays a fixture Drafter proposal per case through the real
+`draft_application`, `audit_draft` and `ship_gate`, so it answers "given a model
+that says X, what reaches the application?" `run_eval.py --live` puts a real
+Bedrock Drafter and Auditor in front of the same cases and the same scorer, and
+that is the number for the whole system — it is not in this README yet because
+[nothing here has run against live Bedrock](#honest-limitations).
+
+Ground truth is declared by hand per field in
+[`tests/golden_set/cases/`](tests/golden_set/cases), and the scorer imports
+nothing from `guardrails`. A scorer that asks the gate whether the gate was
+right is marking its own homework.
+
+### What it found on its first run
+
+Two leaks, one cause: **the forbidden-claims evidence check cannot tell a
+statement from its negation.** `agent/guardrails.py` pairs a trigger regex with
+an evidence regex and treats a match anywhere in the knowledge base as support.
+
+- A draft claiming *"we work closely with a faculty advisor"* is supported by
+  the deck line *"there is no faculty advisor"* — the evidence pattern matches
+  the negation.
+- A draft claiming *"incorporated as a Delaware C-Corporation"* is supported by
+  *"No legal entity has been formed"* — same shape.
+
+Both are claims Section 10.2 names as never-invent. Both shipped.
+
+They are **not fixed**, deliberately. The obvious patch — reject an evidence
+match sitting near a negation marker — would make exactly these two cases pass,
+and tuning a check until it satisfies the eval that measures it is how an eval
+stops meaning anything. The fix needs adversarial cases written without looking
+at this scoreboard. Until then the number stands at 80% and says why.
+
+---
+
 ## Honest limitations
 
 Written before the deadline pressure, so it stays honest.
@@ -288,9 +342,14 @@ Written before the deadline pressure, so it stays honest.
   produce false positives. Every false positive pushes a field to *you answer
   this*, which is the safe direction — one extra question beats one invented
   fact — but it is not free.
-- **No groundedness number yet.** The golden-set eval is not built, so this
-  README does not claim an accuracy figure. When it exists, the real number
-  goes here whatever it is.
+- **The groundedness number covers the defense layer, not the model.** See
+  [The number](#the-number). The live figure needs Bedrock and does not exist
+  yet.
+- **Two known leaks, both the same bug.** An evidence regex that matches the
+  negation of the claim it is checking. Reproduced by
+  `uv run python scripts/run_eval.py`, written up in
+  [`tests/golden_set/README.md`](tests/golden_set/README.md), and pinned by
+  `tests/test_golden_set.py` so a third one fails the build.
 - **The daily spend ledger is a JSON file**, correct for one process and not
   safe across several.
 - **Nothing here has run against live Bedrock yet.** Every model path is

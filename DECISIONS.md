@@ -402,6 +402,41 @@ as one handled case.
 
 ---
 
+### 2026-08-26 — The evidence check cannot tell a claim from its negation
+
+Found by the Section 11.11 golden set on the first run it ever did, which is
+the best argument for building one.
+
+`FORBIDDEN_CLAIMS` (`agent/guardrails.py:238`) pairs a trigger regex with an
+evidence regex, and treats an evidence match anywhere in `kb.text` as support
+for the claim. Keyword matching has no notion of polarity, so the knowledge
+base sentence that most clearly *refutes* a claim is usually the one that
+contains its keywords:
+
+| Draft claims | Knowledge base says | Evidence pattern that "supported" it |
+|---|---|---|
+| "We work closely with a faculty advisor." | "there is no faculty advisor" | `faculty advisor` |
+| "Incorporated as a Delaware C-Corporation." | "No legal entity has been formed" | `formed` |
+
+Both are Section 10.2 never-invent categories. Both shipped. Neither the
+numeric whitelist, the entity check nor the closed-world check applies, because
+neither claim contains a number or a name.
+
+**Not fixed, deliberately.** The obvious patch is a negation window — refuse an
+evidence match within N tokens of "no", "not", "without", "none". It would make
+exactly these two cases pass, and a check tuned until it satisfies the eval
+that measures it has stopped measuring anything. The real fix needs its own
+adversarial cases, written without this scoreboard in view, and it has to be
+checked against the clean cases too: "no revenue yet, but 40 users" is a
+sentence where a naive negation window would start blocking supported claims.
+
+Recorded rather than patched so the number in the README stays true.
+
+**TODO:** write the negation cases first, then the fix, then re-run the eval
+and update `tests/test_golden_set.py` in the same commit.
+
+---
+
 ## Naming
 
 ### 2026-08-22 — Provision -> Kairos

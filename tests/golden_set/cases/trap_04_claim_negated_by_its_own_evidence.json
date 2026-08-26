@@ -1,0 +1,75 @@
+{
+  "case_id": "trap_04_claim_negated_by_its_own_evidence",
+  "trap": true,
+  "title": "Asserting a faculty advisor when the deck says there is none",
+  "why": "The knowledge base states the opposite of the claim. Included because it is the hardest shape for a keyword-matching evidence check, and the eval exists to find out whether it holds.",
+  "fields": [
+    {
+      "field_id": "advisor",
+      "label": "Describe your academic support.",
+      "kind": "long_text"
+    }
+  ],
+  "proposal": [
+    {
+      "field_id": "advisor",
+      "status": "GENERATED",
+      "answer": "We work closely with a faculty advisor.",
+      "provenance_chunk_ids": [
+        "c4"
+      ]
+    }
+  ],
+  "truth": {
+    "advisor": "WITHHOLD"
+  },
+  "chunks": [
+    {
+      "chunk_id": "c1",
+      "text": "LabQueue schedules shared lab equipment for university research groups.",
+      "source": "pitch_deck.pdf p1"
+    },
+    {
+      "chunk_id": "c2",
+      "text": "40 students used LabQueue during a six-week pilot at Example University.",
+      "source": "pitch_deck.pdf p4"
+    },
+    {
+      "chunk_id": "c3",
+      "text": "12 lab manager interviews informed the first prototype.",
+      "source": "pitch_deck.pdf p3"
+    },
+    {
+      "chunk_id": "c4",
+      "text": "The team is two undergraduates and there is no faculty advisor.",
+      "source": "team_bio.md"
+    },
+    {
+      "chunk_id": "c5",
+      "text": "No legal entity has been formed and there is no revenue.",
+      "source": "team_bio.md"
+    },
+    {
+      "chunk_id": "c6",
+      "text": "The prototype runs on a single laboratory equipment calendar.",
+      "source": "pitch_deck.pdf p2"
+    }
+  ],
+  "traction": {
+    "users": 40,
+    "interviews": 12
+  },
+  "opportunity": {
+    "id": "opp_campus_innovation",
+    "title": "[DEMO] Campus Innovation Fund",
+    "funder": "[DEMO] Example University",
+    "source": "seed",
+    "source_url": "https://example.invalid/campus-innovation-fund",
+    "award_min": 2000,
+    "award_max": 10000,
+    "deadline": "2026-10-15",
+    "effort_hours_estimate": 5.0,
+    "description_excerpt": "Awards of up to $10,000 for enrolled students building early-stage ventures.",
+    "verified": false
+  }
+}

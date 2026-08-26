@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent.budget import RunBudget  # noqa: E402
-from agent.config import REPO_ROOT, settings  # noqa: E402
+from agent.config import REPO_ROOT, settings, stamp_placeholder_models  # noqa: E402
 from agent.models import ApplicationForm, FounderProfile  # noqa: E402
 from agent.runtime import SubAgents  # noqa: E402
 from agent.scout import new_run_context, run_once  # noqa: E402
@@ -53,11 +53,7 @@ def _dry_run_settings():
     for a real run and wrong for a dry run that never calls a model. The IDs
     are stamped as obviously-fake strings rather than the check being relaxed.
     """
-    import os
-
-    os.environ.setdefault("BEDROCK_MODEL_REASONING", "[DRY-RUN]no-model")
-    os.environ.setdefault("BEDROCK_MODEL_CLASSIFY", "[DRY-RUN]no-model")
-    settings.cache_clear()
+    stamp_placeholder_models("[DRY-RUN]no-model")
     return settings()
 
 
