@@ -38,7 +38,7 @@ from agent.models import (
     RunReport,
     SkipRecord,
 )
-from agent.prompting import Abstention, load_prompt
+from agent.prompting import Abstention, Throttled, load_prompt
 from agent.runtime import RunContext, SubAgents
 from agent.toolset import build_toolset
 from agent.tools.discovery import Source
@@ -201,6 +201,13 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
         report.halted_reason = f"{exc.cap}: {exc.detail}"
         ctx.pending_inbox.clear()
         log.warning("run_halted", extra={"run_id": report.run_id, "cap": exc.cap})
+    except Throttled as exc:
+        # Section 11.12: backoff is exhausted, so abort and report. A busy
+        # region is not a judgment about any opportunity, and surfacing a
+        # partial digest would make it look like one.
+        report.halted_reason = f"THROTTLED: {exc.detail}"
+        ctx.pending_inbox.clear()
+        log.warning("run_throttled", extra={"run_id": report.run_id})
     except Abstention as exc:
         report.halted_reason = f"sub-agent abstained and could not continue: {exc.detail}"
         ctx.pending_inbox.clear()

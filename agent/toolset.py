@@ -122,6 +122,7 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
                 ctx.profile,
                 eligibility,
                 ctx.today,
+                budget=ctx.budget,
             )
         except Abstention as exc:
             # An abstention is an outcome, not an error. It surfaces as
@@ -181,6 +182,7 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
             ctx.agents.drafter,
             ctx.agents.drafter_version,
             draft_id=f"{ctx.report.run_id}:{opportunity_id}",
+            budget=ctx.budget,
             form=form,
             opportunity=opportunity,
             profile=ctx.profile,
@@ -189,7 +191,11 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         )
 
         audit = await audit_draft(
-            ctx.agents.auditor, ctx.agents.auditor_version, draft, ctx.kb
+            ctx.agents.auditor,
+            ctx.agents.auditor_version,
+            draft,
+            ctx.kb,
+            budget=ctx.budget,
         )
 
         gate = guardrails.ship_gate(

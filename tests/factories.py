@@ -117,3 +117,21 @@ def form(*fields: ApplicationField) -> ApplicationForm:
         source_url="https://example.invalid/demo",
         fields=list(fields),
     )
+
+
+def budget(**overrides):
+    """A `RunBudget` for tests that call a sub-agent.
+
+    Built from `settings()` so it picks up the autouse `fake_env` fixture's
+    tmp state directory — the ledger is a real file and must not be the
+    developer's own. `budget` is a required argument on every sub-agent
+    entry point precisely so a call site cannot forget to charge, which
+    means the fakes need one too.
+    """
+    from agent.budget import RunBudget
+    from agent.config import settings
+
+    b = RunBudget.from_settings(settings())
+    for key, value in overrides.items():
+        setattr(b, key, value)
+    return b

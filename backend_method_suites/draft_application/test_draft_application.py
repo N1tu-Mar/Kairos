@@ -21,13 +21,14 @@ FIELDS = [
 ]
 
 
-async def test_cold_start_turns_every_field_into_needs_founder_without_model_call():
+async def test_cold_start_turns_every_field_into_needs_founder_without_model_call(run_budget):
     agent = FakeAgent()
 
     draft = await draft_application(
         agent,
         "prompt-v1",
         draft_id="draft_cold",
+        budget=run_budget,
         form=form(*FIELDS),
         opportunity=opportunity(),
         profile=profile(),
@@ -43,7 +44,7 @@ async def test_cold_start_turns_every_field_into_needs_founder_without_model_cal
     assert agent.prompts == []
 
 
-async def test_blocklisted_and_recalled_fields_are_not_sent_to_the_drafter():
+async def test_blocklisted_and_recalled_fields_are_not_sent_to_the_drafter(run_budget):
     recalled = DraftField(
         field_id="traction",
         question="Describe your traction.",
@@ -69,6 +70,7 @@ async def test_blocklisted_and_recalled_fields_are_not_sent_to_the_drafter():
         agent,
         "prompt-v1",
         draft_id="draft_recall",
+        budget=run_budget,
         form=form(*FIELDS),
         opportunity=opportunity(),
         profile=profile(),
@@ -90,7 +92,7 @@ async def test_blocklisted_and_recalled_fields_are_not_sent_to_the_drafter():
     assert "Describe your traction" not in agent.prompts[0]
 
 
-async def test_missing_or_fabricated_citation_demotes_field_to_needs_founder():
+async def test_missing_or_fabricated_citation_demotes_field_to_needs_founder(run_budget):
     agent = FakeAgent(
         DraftProposal(
             fields=[
@@ -108,6 +110,7 @@ async def test_missing_or_fabricated_citation_demotes_field_to_needs_founder():
         agent,
         "prompt-v1",
         draft_id="draft_bad_cite",
+        budget=run_budget,
         form=form(ApplicationField(field_id="venture", label="Describe your venture.")),
         opportunity=opportunity(),
         profile=profile(),

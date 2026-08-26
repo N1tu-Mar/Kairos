@@ -20,6 +20,8 @@ randomness, so the same catalog always produces the same counters.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 from agent.models import Assessment
 
 LABEL = "[DRY RUN — no model was called]"
@@ -33,7 +35,44 @@ BANNER = f"""
 """
 
 
-class StubAssessor:
+@dataclass
+class StubMetrics:
+    """Zero usage, and that is the honest number.
+
+    No model was called, so nothing was spent. Reporting a plausible-looking
+    token count here would put a fabricated figure into the same ledger that
+    enforces the daily cap.
+    """
+
+    accumulated_usage: dict = field(
+        default_factory=lambda: {"inputTokens": 0, "outputTokens": 0, "totalTokens": 0}
+    )
+
+
+@dataclass
+class StubResult:
+    """The shape `structured_call` reads back from `Agent.invoke_async`."""
+
+    structured_output: object
+    metrics: StubMetrics = field(default_factory=StubMetrics)
+    stop_reason: str = "end_turn"
+
+
+class StubAgent:
+    """Records prompts and answers from a rule. Subclasses implement `respond`."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def invoke_async(self, prompt, *, structured_output_model=None, limits=None):
+        self.prompts.append(prompt)
+        return StubResult(structured_output=self.respond(structured_output_model, prompt))
+
+    def respond(self, output_model, prompt):  # pragma: no cover - overridden
+        raise NotImplementedError
+
+
+class StubAssessor(StubAgent):
     """Judges on structured fields alone, so the result is reproducible.
 
     Holds the `RunContext` rather than a snapshot of it: discovery replaces
@@ -42,11 +81,10 @@ class StubAssessor:
     """
 
     def __init__(self, ctx) -> None:
+        super().__init__()
         self.ctx = ctx
-        self.prompts: list[str] = []
 
-    async def structured_output_async(self, output_model, prompt):
-        self.prompts.append(prompt)
+    def respond(self, output_model, prompt):
         return self._judge(self._match(prompt))
 
     def _match(self, prompt: str):
@@ -103,26 +141,18 @@ class StubAssessor:
         )
 
 
-class StubDrafter:
+class StubDrafter(StubAgent):
     """Refuses to write anything. Every field goes to the founder."""
 
-    def __init__(self) -> None:
-        self.prompts: list[str] = []
-
-    async def structured_output_async(self, output_model, prompt):
-        self.prompts.append(prompt)
+    def respond(self, output_model, prompt):
         # `output_model` is the Drafter's DraftProposal. Returning zero fields
         # makes every asked field NEEDS_FOUNDER, which is the correct shape
         # for "no model was consulted".
         return output_model(fields=[])
 
 
-class StubAuditor:
-    def __init__(self) -> None:
-        self.prompts: list[str] = []
-
-    async def structured_output_async(self, output_model, prompt):
-        self.prompts.append(prompt)
+class StubAuditor(StubAgent):
+    def respond(self, output_model, prompt):
         return output_model(fields=[])
 
 

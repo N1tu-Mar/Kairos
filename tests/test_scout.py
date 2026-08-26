@@ -196,21 +196,60 @@ async def test_assessment_cap_halts_judging_and_says_so(tmp_path):
     assert sum(1 for s in report.skips if "cap" in s.reason) == 3
 
 
-async def test_a_blown_token_ceiling_halts_and_surfaces_nothing(tmp_path):
-    class ExpensiveAssessor(FakeAgent):
-        def __init__(self, ctx_budget):
-            super().__init__()
-            self.budget = ctx_budget
+async def test_a_throttled_run_halts_and_surfaces_nothing(tmp_path, monkeypatch):
+    """Section 11.12: exhausted backoff aborts the run.
 
-        async def structured_output_async(self, output_model, prompt):
-            self.budget.charge(tier="reasoning", input_tokens=10_000, output_tokens=0)
-            return assessment()
+    A busy region is not a judgment about any opportunity, so nothing may
+    reach the founder's inbox on the way out.
+    """
+    import asyncio as _asyncio
+
+    from strands.types.exceptions import ModelThrottledException
+
+    from agent.prompting import MAX_THROTTLE_ATTEMPTS
+
+    async def instant(seconds):
+        return None
+
+    monkeypatch.setattr(_asyncio, "sleep", instant)
+
+    b = budget(tmp_path)
+    ctx = new_run_context(
+        profile=profile(), repo=repo(), budget=b,
+        agents=SubAgents(
+            assessor=FakeAgent(*[ModelThrottledException("busy")] * MAX_THROTTLE_ATTEMPTS),
+            assessor_version="v1",
+            drafter=FakeAgent(), drafter_version="v1",
+            auditor=FakeAgent(), auditor_version="v1",
+        ),
+        today=TODAY,
+    )
+
+    report = await run_once(
+        ctx, [ListSource([opportunity(id="fit", eligibility=OPEN_RULES)])]
+    )
+
+    assert report.halted_reason is not None
+    assert report.halted_reason.startswith("THROTTLED")
+    assert report.surfaced == 0
+    assert ctx.pending_inbox == []
+
+
+async def test_a_blown_token_ceiling_halts_and_surfaces_nothing(tmp_path):
+    # The agent reports a large usage and nothing else is special about it.
+    # Charging is the orchestrator's job, not the fake's — an earlier version
+    # of this test charged the ledger by hand, which meant it passed while
+    # production never charged at all.
+    expensive = FakeAgent(
+        assessment(),
+        usage={"inputTokens": 10_000, "outputTokens": 0, "totalTokens": 10_000},
+    )
 
     b = budget(tmp_path, max_run_tokens=5_000)
     ctx = new_run_context(
         profile=profile(), repo=repo(), budget=b,
         agents=SubAgents(
-            assessor=ExpensiveAssessor(b), assessor_version="v1",
+            assessor=expensive, assessor_version="v1",
             drafter=FakeAgent(), drafter_version="v1",
             auditor=FakeAgent(), auditor_version="v1",
         ),

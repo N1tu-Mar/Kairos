@@ -187,6 +187,7 @@ async def draft_application(
     prompt_version: str,
     *,
     draft_id: str,
+    budget,
     form: ApplicationForm,
     opportunity: Opportunity,
     profile: FounderProfile,
@@ -228,6 +229,8 @@ async def draft_application(
             DraftProposal,
             render_context(form, opportunity, profile, kb, askable),
             agent_name="drafter",
+            budget=budget,
+            tier="reasoning",
         )
         by_spec = {f.field_id: f for f in form.fields}
 

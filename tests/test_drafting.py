@@ -14,7 +14,16 @@ from agent.subagents.drafter import (
     draft_application,
 )
 from tests.conftest import FakeAgent
-from tests.factories import draft, form, generated, kb, opportunity, profile, span
+from tests.factories import (
+    budget,
+    draft,
+    form,
+    generated,
+    kb,
+    opportunity,
+    profile,
+    span,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -44,6 +53,7 @@ async def run_drafter(*proposed, kb_override=None, recalled=None):
         agent,
         "promptv1",
         draft_id="d1",
+        budget=budget(),
         form=FORM,
         opportunity=opportunity(),
         profile=profile(),
@@ -64,6 +74,7 @@ async def test_a_thin_knowledge_base_disables_the_drafter_entirely():
         agent,
         "promptv1",
         draft_id="d1",
+        budget=budget(),
         form=FORM,
         opportunity=opportunity(),
         profile=profile(),
@@ -211,6 +222,7 @@ async def test_repeated_schema_failures_end_in_an_abstention_not_a_guess():
             agent,
             "promptv1",
             draft_id="d1",
+            budget=budget(),
             form=FORM,
             opportunity=opportunity(),
             profile=profile(),
@@ -242,7 +254,7 @@ async def test_supported_without_a_quote_is_downgraded():
         )
     )
 
-    report = await audit_draft(agent, "v1", d, RICH_KB)
+    report = await audit_draft(agent, "v1", d, RICH_KB, budget=budget())
 
     assert report.fields[0].verdict == "UNVERIFIABLE"
     assert "quoted no supporting span" in report.fields[0].note
@@ -262,7 +274,7 @@ async def test_a_field_the_auditor_skipped_is_not_a_pass():
         )
     )
 
-    report = await audit_draft(agent, "v1", d, RICH_KB)
+    report = await audit_draft(agent, "v1", d, RICH_KB, budget=budget())
 
     evidence = next(f for f in report.fields if f.field_id == "evidence")
     assert evidence.verdict == "UNVERIFIABLE"
@@ -281,7 +293,7 @@ async def test_verdicts_are_written_back_onto_the_draft():
         )
     )
 
-    await audit_draft(agent, "v1", d, RICH_KB)
+    await audit_draft(agent, "v1", d, RICH_KB, budget=budget())
 
     assert d.fields[0].audit_verdict == "UNSUPPORTED"
     assert d.fields[0].audit_note == "nothing supports this"
@@ -293,7 +305,7 @@ async def test_a_draft_with_nothing_answered_needs_no_model_call():
     )
     agent = FakeAgent()
 
-    report = await audit_draft(agent, "v1", d, RICH_KB)
+    report = await audit_draft(agent, "v1", d, RICH_KB, budget=budget())
 
     assert agent.prompts == []
     assert report.fields == []

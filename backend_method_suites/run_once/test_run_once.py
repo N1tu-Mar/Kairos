@@ -65,14 +65,11 @@ async def test_run_once_ranks_surfaces_passive_overflow_and_persists_seen_rows(
 
 
 async def test_run_once_halts_on_budget_and_surfaces_no_partial_digest(tmp_path, memory_repo):
-    class ExpensiveAssessor(FakeAgent):
-        def __init__(self, budget):
-            super().__init__()
-            self.budget = budget
-
-        async def structured_output_async(self, output_model, prompt):
-            self.budget.charge(tier="reasoning", input_tokens=10_000, output_tokens=0)
-            return assessment("APPLY", hours=1)
+    # Usage is reported by the agent; charging is the orchestrator's job.
+    expensive = FakeAgent(
+        *[assessment("APPLY", hours=1) for _ in range(4)],
+        usage={"inputTokens": 10_000, "outputTokens": 0, "totalTokens": 10_000},
+    )
 
     budget = RunBudget(
         max_run_tokens=5_000,
@@ -85,7 +82,7 @@ async def test_run_once_halts_on_budget_and_surfaces_no_partial_digest(tmp_path,
         repo=memory_repo,
         budget=budget,
         agents=SubAgents(
-            assessor=ExpensiveAssessor(budget),
+            assessor=expensive,
             assessor_version="v1",
             drafter=FakeAgent(),
             drafter_version="v1",

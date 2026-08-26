@@ -22,7 +22,10 @@ API surface used, verified against strands-agents 1.53.0 by reading the
 installed source (see DECISIONS.md):
     strands.Agent(model=..., system_prompt=..., name=..., description=...)
     strands.models.BedrockModel(region_name=..., **BedrockConfig)
-    Agent.structured_output_async(output_model, prompt) -> BaseModel
+    Agent.invoke_async(prompt, structured_output_model=..., limits=...) -> AgentResult
+        (`.structured_output` is the parsed model, `.metrics.accumulated_usage`
+         is what the budget charges. `structured_output_async` is deprecated
+         in 1.53.0 and returns no metrics at all — see DECISIONS.md.)
 """
 
 from __future__ import annotations

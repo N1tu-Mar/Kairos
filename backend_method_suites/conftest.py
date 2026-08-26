@@ -12,6 +12,10 @@ from agent.runtime import SubAgents
 from api.main import app
 from api.repository import SqliteRepository
 
+# One fake, imported rather than copied: a second copy drifts, and a drifted
+# fake is a suite that has quietly stopped testing the real call shape.
+from tests.conftest import FakeAgent  # noqa: E402
+
 
 @pytest.fixture(autouse=True)
 def method_suite_env(monkeypatch, tmp_path):
@@ -50,19 +54,6 @@ def run_budget(tmp_path):
     )
 
 
-class FakeAgent:
-    def __init__(self, *responses):
-        self.responses = list(responses)
-        self.prompts: list[str] = []
-
-    async def structured_output_async(self, output_model, prompt):
-        self.prompts.append(prompt)
-        if not self.responses:
-            raise AssertionError("FakeAgent ran out of canned responses")
-        response = self.responses.pop(0)
-        if isinstance(response, Exception):
-            raise response
-        return response
 
 
 def fake_agents(*assessments: Assessment) -> SubAgents:

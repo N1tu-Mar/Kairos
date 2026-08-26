@@ -83,7 +83,7 @@ and say what is missing.
 
 
 async def audit_draft(
-    agent, prompt_version: str, draft: Draft, kb: KnowledgeBase
+    agent, prompt_version: str, draft: Draft, kb: KnowledgeBase, *, budget
 ) -> AuditReport:
     """Audit every answered field and write the verdicts back onto the draft."""
     audited = [f for f in draft.fields if f.status in {"GENERATED", "KNOWN", "REUSED"}]
@@ -96,7 +96,13 @@ async def audit_draft(
         )
 
     proposal = await structured_call(
-        agent, ProposedAudit, render_context(draft, kb), agent_name="auditor"
+        agent,
+        ProposedAudit,
+        render_context(draft, kb),
+        agent_name="auditor",
+        # D7: the Auditor runs on the reasoning tier, not the cheap one.
+        budget=budget,
+        tier="reasoning",
     )
 
     by_field = {a.field_id: a for a in proposal.fields}

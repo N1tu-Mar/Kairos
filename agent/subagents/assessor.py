@@ -119,6 +119,8 @@ async def assess(
     profile: FounderProfile,
     eligibility: EligibilityResult,
     today: date,
+    *,
+    budget,
 ) -> Assessment:
     """Run one assessment. Raises `Abstention` if it cannot produce valid output."""
     assessment = await structured_call(
@@ -126,6 +128,8 @@ async def assess(
         Assessment,
         render_context(opportunity, profile, eligibility, today),
         agent_name="assessor",
+        budget=budget,
+        tier="reasoning",
     )
     # Stamped by us, not by the model — a model that can write its own
     # receipt can write a false one.
