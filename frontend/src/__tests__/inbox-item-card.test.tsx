@@ -1,8 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { InboxItemCard } from "@/components/inbox-item-card";
-import { inboxItem } from "./fixtures";
+import { inboxItem, opportunity } from "./fixtures";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 describe("InboxItemCard", () => {
   it("keeps the [DEMO] marker and flags synthetic records", () => {
@@ -62,5 +66,55 @@ describe("InboxItemCard", () => {
 
     expect(screen.getByText(/you can move it/i)).toBeInTheDocument();
     expect(screen.getByText("requires a faculty PI")).toBeInTheDocument();
+  });
+
+  it("renders structured facts and the funder's page link when the row resolves", () => {
+    render(<InboxItemCard item={inboxItem()} opportunity={opportunity()} />);
+
+    // The date comes from the structured deadline field, not the headline.
+    expect(screen.getByText(/due oct 15, 2999/i)).toBeInTheDocument();
+    expect(screen.getByText("$2,500 – $10,000")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /open the funder/i });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://example.invalid/campus-innovation-fund",
+    );
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
+  });
+
+  it("falls back to the composed headline when the row cannot be resolved", () => {
+    render(<InboxItemCard item={inboxItem()} opportunity={null} />);
+
+    // The pre-rendered facts from the Python headline, verbatim.
+    expect(screen.getByText("24 days left")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open the funder/i })).toBeNull();
+  });
+
+  it("marks an unverified source instead of hiding it", () => {
+    render(
+      <InboxItemCard
+        item={inboxItem()}
+        opportunity={opportunity({ verified: false })}
+      />,
+    );
+
+    expect(screen.getByText("Unverified source")).toBeInTheDocument();
+  });
+
+  it("flags a deadline that has already passed", () => {
+    render(
+      <InboxItemCard
+        item={inboxItem()}
+        opportunity={opportunity({ deadline: "2020-01-01" })}
+      />,
+    );
+
+    expect(screen.getByText(/deadline passed/i)).toBeInTheDocument();
+  });
+
+  it("shows what the founder did with the item", () => {
+    render(<InboxItemCard item={inboxItem({ state: "applied" })} />);
+
+    expect(screen.getByText("Applied")).toBeInTheDocument();
   });
 });

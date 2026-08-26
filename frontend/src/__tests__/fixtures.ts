@@ -1,7 +1,9 @@
 import type {
   Draft,
   DraftCounts,
+  FounderProfile,
   InboxItem,
+  Opportunity,
   RunReport,
 } from "@/lib/types";
 
@@ -122,6 +124,68 @@ export function counts(overrides: Partial<DraftCounts> = {}): DraftCounts {
     REUSED: 2,
     GENERATED: 1,
     NEEDS_FOUNDER: 1,
+    ...overrides,
+  };
+}
+
+export function opportunity(overrides: Partial<Opportunity> = {}): Opportunity {
+  return {
+    id: "opp_1",
+    title: "[DEMO] Campus Innovation Fund",
+    funder: "[DEMO] Example University Office of Innovation",
+    source: "seed",
+    source_url: "https://example.invalid/campus-innovation-fund",
+    award_min: 2_500,
+    award_max: 10_000,
+    deadline: "2999-10-15",
+    rolling: false,
+    effort_hours_estimate: 5,
+    eligibility: {
+      degree_levels: ["undergrad", "masters"],
+      citizenships: ["us_citizen"],
+      entity_types: ["none", "llc"],
+      min_team_size: null,
+      max_team_size: 5,
+      geographies: null,
+      institutions: null,
+      requires_faculty_pi: null,
+      takes_equity: false,
+    },
+    criteria: [],
+    description_excerpt: "[DEMO] Seed funding for enrolled students.",
+    verified: true,
+    verified_at: "2026-08-22T00:00:00Z",
+    retrieved_at: "2026-08-22T00:00:00Z",
+    ...overrides,
+  };
+}
+
+export function founderProfile(
+  overrides: Partial<FounderProfile> = {},
+): FounderProfile {
+  return {
+    founder_id: "founder_demo",
+    degree_level: "masters",
+    institution: "Rutgers University",
+    citizenship: "us_citizen",
+    entity_type: "none",
+    team_size: 2,
+    stage: "prototype",
+    traction: { users: 120 },
+    funding_range: [5_000, 50_000],
+    equity_ok: false,
+    has_faculty_advisor: false,
+    max_application_hours: 8,
+    geographies: ["US-NJ", "US"],
+    knowledge_base: [
+      {
+        chunk_id: "chunk_1",
+        text: "[DEMO] We shipped a prototype to 120 users.",
+        source: "onboarding",
+        confidence: 1,
+        created_at: "2026-08-22T00:00:00Z",
+      },
+    ],
     ...overrides,
   };
 }
