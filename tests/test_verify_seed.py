@@ -33,12 +33,25 @@ PAGE = """
 """
 
 
-def _row(criteria_texts):
+FAQ = """
+<html><body>
+<h2>FAQ</h2>
+<p>Teams may consist of 1 to 4 members.</p>
+</body></html>
+"""
+
+URL = "https://example.edu/fund"
+FAQ_URL = "https://example.edu/fund/faq"
+
+
+def _row(criteria, source_url=URL):
+    """`criteria` is a list of quote strings, or (quote, source_doc) pairs."""
+    normalised = [c if isinstance(c, tuple) else (c, source_url) for c in criteria]
     return {
         "id": "x",
         "title": "Campus Innovation Fund",
-        "source_url": "https://example.edu/fund",
-        "criteria": [{"text": t, "source_doc": "https://example.edu/fund"} for t in criteria_texts],
+        "source_url": source_url,
+        "criteria": [{"text": t, "source_doc": doc} for t, doc in normalised],
     }
 
 
@@ -51,13 +64,15 @@ class TestNormalize:
 
 
 class TestMissingEvidence:
+    PAGES = {URL: PAGE, FAQ_URL: FAQ}
+
     def test_a_real_quote_is_found_across_markup_and_entities(self):
         row = _row(["undergraduate and graduate students enrolled full-time"])
-        assert verify_seed.missing_evidence(PAGE, row) == []
+        assert verify_seed.missing_evidence(self.PAGES, row) == []
 
     def test_a_fabricated_quote_is_reported(self):
         row = _row(["awards up to $50,000 for freshmen"])
-        assert verify_seed.missing_evidence(PAGE, row) == [
+        assert verify_seed.missing_evidence(self.PAGES, row) == [
             "awards up to $50,000 for freshmen"
         ]
 
@@ -68,10 +83,53 @@ class TestMissingEvidence:
                 "no equity is taken",  # not on the page
             ]
         )
-        assert verify_seed.missing_evidence(PAGE, row) == ["no equity is taken"]
+        assert verify_seed.missing_evidence(self.PAGES, row) == ["no equity is taken"]
+
+    def test_a_quote_is_checked_against_the_sub_page_it_cites(self):
+        """Programs state eligibility on FAQ and rules sub-pages. A quote
+        that is real but lives on the sub-page must verify, not fail."""
+        row = _row([("Teams may consist of 1 to 4 members.", FAQ_URL)])
+        assert verify_seed.missing_evidence(self.PAGES, row) == []
+
+    def test_a_quote_on_the_wrong_page_still_fails(self):
+        """The same quote, cited to the landing page where it does not
+        appear, is not evidence."""
+        row = _row([("Teams may consist of 1 to 4 members.", URL)])
+        assert verify_seed.missing_evidence(self.PAGES, row) != []
+
+    def test_an_unfetchable_cited_page_is_reported_not_assumed_good(self):
+        row = _row([("anything at all", "https://example.edu/fund/gone")])
+        assert "could not be fetched" in verify_seed.missing_evidence(self.PAGES, row)[0]
 
     def test_a_row_with_no_criteria_checks_nothing(self):
-        assert verify_seed.missing_evidence(PAGE, {"id": "x"}) == []
+        assert verify_seed.missing_evidence(self.PAGES, {"id": "x"}) == []
+
+
+class TestEvidencePages:
+    def test_sub_pages_of_the_same_site_are_fetched(self):
+        wanted, refused = verify_seed.evidence_pages(
+            _row([("q", FAQ_URL), ("q2", URL)])
+        )
+        assert set(wanted) == {FAQ_URL, URL}
+        assert refused == []
+
+    def test_a_quote_citing_another_organisation_is_refused(self):
+        wanted, refused = verify_seed.evidence_pages(
+            _row([("q", "https://someoneelse.org/rules")])
+        )
+        assert refused == ["https://someoneelse.org/rules"]
+        assert wanted == []
+
+    @pytest.mark.parametrize(
+        "a,b,expected",
+        [
+            ("https://cep.mit.edu/x", "https://mit.edu/y", True),
+            ("https://www.nasa.gov/x", "https://nasaorbit.org/rules", False),
+            ("https://rbpc.rice.edu/eligibility", "https://rbpc.rice.edu", True),
+        ],
+    )
+    def test_same_site_comparison(self, a, b, expected):
+        assert verify_seed.same_site(a, b) is expected
 
 
 class TestVerifyEndToEnd:

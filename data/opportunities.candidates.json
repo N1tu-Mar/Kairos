@@ -60,5 +60,1446 @@
       }
     ],
     "_curation_note": "Promoted 2026-08-26 from data/opportunities.rutgers.candidates.json after the audit in docs/rutgers-candidates-audit.md re-verified every field against the live page. Deadline dates on the page carry no year ('2027 Competition' timeline), so deadline stays null rather than guessed. 'Graduate students' on the page is mapped to masters+phd; equity is unstated and left UNKNOWN. Apply link on page: https://go.rutgers.edu/ApplyScarletPitch."
+  },
+  {
+    "id": "masschallenge-switzerland-2026-early-stage-accelerator",
+    "title": "MassChallenge Switzerland Early-Stage Accelerator 2026",
+    "funder": "MassChallenge",
+    "source_url": "https://masschallenge.org/programs-switzerland/",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2026-03-04",
+    "rolling": false,
+    "eligibility": {
+      "takes_equity": false,
+      "geographies": [
+        "global"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "The opportunity to compete for up to CHF 1M in non-dilutive cash prizes and other in-kind awards",
+        "source_doc": "https://masschallenge.org/programs-switzerland/#cash-prizes"
+      },
+      {
+        "text": "there are no application fees, and we don\u2019t take equity from your company",
+        "source_doc": "https://masschallenge.org/programs-switzerland/#faq-equity"
+      },
+      {
+        "text": "which will open from January 14 to March 4, 2026",
+        "source_doc": "https://masschallenge.org/programs-switzerland/#application-window"
+      },
+      {
+        "text": "Less than CHF 2M capital raised and CHF 2M sales; you do not need to be incorporated",
+        "source_doc": "https://masschallenge.org/programs-switzerland/#stage-eligibility"
+      },
+      {
+        "text": "Startups can be from any geography and should select the relevant track of interest in the application form",
+        "source_doc": "https://masschallenge.org/programs-switzerland/#geography"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via https://masschallenge.org/programs-switzerland/ (2026 application window Jan 14 \u2013 Mar 4, 2026 \u2014 DEADLINE PASSED/stale; expect a 2027 window). Prize is a competed pool 'up to CHF 1M' in non-dilutive cash plus in-kind awards (currency CHF, pool not per-team, so award fields left null). Equity-free, no application fee, incorporation not required. Not student-specific \u2014 open to any early-stage team under CHF 2M raised/CHF 2M sales. [stale] deadline 2026-03-04 passed 176 days ago."
+  },
+  {
+    "id": "mit-solve-ai-for-a-better-world-2026",
+    "title": "AI for a Better World Challenge (MIT Solve)",
+    "funder": "MIT Solve",
+    "source_url": "https://solve.mit.edu/challenges/ai-for-a-better-world",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2026-03-20",
+    "rolling": false,
+    "eligibility": {
+      "geographies": [
+        "United States"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "AI For A Better World is a national initiative that invites students in grades 6-12 to explore how artificial intelligence can improve their communities and the broader world",
+        "source_doc": "https://solve.mit.edu/challenges/ai-for-a-better-world#overview"
+      },
+      {
+        "text": "This track is designed for students in Grades 6-12 (ages 11 and up)",
+        "source_doc": "https://solve.mit.edu/challenges/ai-for-a-better-world#who-should-apply"
+      },
+      {
+        "text": "This track is open to students from public, charter, private, parochial, independent, and homeschool and after school settings in the United States",
+        "source_doc": "https://solve.mit.edu/challenges/ai-for-a-better-world#who-should-apply"
+      },
+      {
+        "text": "Five student teams will be selected as winners and invited to America\u2019s Youth AI Festival on MIT\u2019s campus on July 17-19, 2026",
+        "source_doc": "https://solve.mit.edu/challenges/ai-for-a-better-world#prize"
+      },
+      {
+        "text": "only five of the student team members and one adult will be given an all-expense paid trip to Boston, Massachusetts that weekend",
+        "source_doc": "https://solve.mit.edu/challenges/ai-for-a-better-world#prize"
+      },
+      {
+        "text": "submitted via the Solve platform by the deadline (Friday, March 20, 2026 at 12:00pm ET)",
+        "source_doc": "https://solve.mit.edu/challenges/ai-for-a-better-world#deadline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via the Solve platform at https://solve.mit.edu/challenges/ai-for-a-better-world \u2014 2026 deadline (2026-03-20) PASSED/stale and page shows 'Submissions are closed'. Non-cash prize: all-expense paid trip to America's Youth AI Festival at MIT (no cash amount stated). Eligibility is Grades 6-12 (ages 11+), i.e. K-12, NOT college students. The Solv[ED] Youth Innovation Challenge ran in 2022/2023 and is not currently open; this is Solve's current student challenge. [stale] deadline 2026-03-20 passed 160 days ago."
+  },
+  {
+    "id": "hello-tomorrow-global-challenge-11th-edition",
+    "title": "Hello Tomorrow Global Challenge (11th Edition)",
+    "funder": "Hello Tomorrow",
+    "source_url": "https://hello-tomorrow.org/global-challenge/",
+    "award_min": null,
+    "award_max": 100000,
+    "deadline": "2026-01-05",
+    "rolling": false,
+    "eligibility": {
+      "min_team_size": 2,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "80 finalists will be selected to pitch in front of a select audience of 400 people to compete for \u20ac100K equity-free prize money",
+        "source_doc": "https://hello-tomorrow.org/faq-global-challenge/#prize"
+      },
+      {
+        "text": "In the early-stage of development or the beginning of their commercialization phase (up to series A)",
+        "source_doc": "https://hello-tomorrow.org/global-challenge/#eligibility"
+      },
+      {
+        "text": "Composed of a team of at least 2 people",
+        "source_doc": "https://hello-tomorrow.org/global-challenge/#eligibility"
+      },
+      {
+        "text": "Not a subsidiary or spin-off of an existing company",
+        "source_doc": "https://hello-tomorrow.org/global-challenge/#eligibility"
+      },
+      {
+        "text": "January 5th, 2026 - Applications Close",
+        "source_doc": "https://hello-tomorrow.org/global-challenge/#timeline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via https://hello-tomorrow.org/global-challenge/ \u2014 page currently shows 'APPLICATIONS CLOSED' and the 2026-01-05 deadline is PASSED/stale (11th edition; grand finals at Hello Tomorrow Summit June 11-12, 2026, Amsterdam \u2014 expect a next-edition window ~Sept). award_max is EUR 100,000 (currency EUR, not USD), equity-free. No student-specific eligibility stated anywhere on the official pages \u2014 open to early-stage deep tech startups (team of 2+, up to Series A), so students qualify only as founders of such a startup. [stale] deadline 2026-01-05 passed 234 days ago."
+  },
+  {
+    "id": "ford-community-resiliency-student-challenge-2026",
+    "title": "Ford Community Resiliency Student Challenge 2026",
+    "funder": "Ford Philanthropy (with Resolution Project and Enactus)",
+    "source_url": "https://enactus.org/ford-2026/",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "institutions": [
+        "enrolled Enactus teams in participating countries"
+      ],
+      "geographies": [
+        "Australia",
+        "Brazil",
+        "Germany",
+        "Mexico",
+        "South Africa",
+        "United Kingdom"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "engages undergraduate students across six countries to build critical future-of-work skills while implementing community projects that address disaster preparedness, disaster relief, community resilience, and essential services",
+        "source_doc": "https://enactus.org/ford-2026/#overview"
+      },
+      {
+        "text": "The program operates in Australia, Brazil, Germany, Mexico, South Africa, and the United Kingdom",
+        "source_doc": "https://enactus.org/ford-2026/#countries"
+      },
+      {
+        "text": "All enrolled Enactus teams in the participating countries with projects meeting the program goals and reporting requirements listed below are eligible to apply",
+        "source_doc": "https://enactus.org/ford-2026/#eligibility"
+      },
+      {
+        "text": "Winning projects will receive a grant to further their project and impact",
+        "source_doc": "https://enactus.org/ford-2026/#award"
+      },
+      {
+        "text": "1 December 2025 \u2013 30 November 2026",
+        "source_doc": "https://enactus.org/ford-2026/#project-window"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via the application link on https://enactus.org/ford-2026/ (page fetched successfully; enactus.org blocks some fetchers with 403 \u2014 page is live). Grant AMOUNT NOT STATED on the official page, so award fields are null. No application deadline stated; project outcomes must fall 2025-12-01 to 2026-11-30. IMPORTANT: the legacy Ford College Community Challenge no longer has a live page \u2014 fordfund.org/college-community-challenge-home 302-redirects to the fordphilanthropy.org homepage and fordphilanthropy.org/ford-fund-community-challenge returns 404, with no C3 mention on the fordphilanthropy.org homepage; this Enactus-run 2026 challenge is the current successor program. US students NOT eligible (six listed countries only)."
+  },
+  {
+    "id": "xprize-connect-2026-global-pitch-competition",
+    "title": "XPRIZE Connect 2026 Global Pitch Competition",
+    "funder": "XPRIZE Foundation (XPRIZE Connect)",
+    "source_url": "https://competition.xpconnect.org/global",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2026-06-05",
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "All qualifying individuals or teams aged 13-18 with parental consent who have completed the XPRIZE Connect DEFINE Experience and have been down-selected by their schools or institutions are eligible to submit their entries into the Global Pitch Competition",
+        "source_doc": "https://competition.xpconnect.org/global#who-can-submit"
+      },
+      {
+        "text": "Three teams will be selected as winners of our Global Pitch Competition",
+        "source_doc": "https://competition.xpconnect.org/global#winners"
+      },
+      {
+        "text": "Submission Deadline: 5 June 2026 @11:59pm PT",
+        "source_doc": "https://competition.xpconnect.org/global#key-dates"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; submit via https://competition.xpconnect.org/global (xpconnect.org is XPRIZE Connect's own domain; xprize.org/connect returned 404). Non-cash prize: winners receive flights, hotel stays, and entry tickets to the Global Visioneering Summit, Malibu CA, Oct 15-17 2026. Deadline 2026-06-05 PASSED/stale (winners announced Aug 2026). Ages 13-18 \u2014 high school, NOT college students. The XPRIZE Digital Learning Challenge named in the brief CONCLUDED (winners announced, program ended 2023; xprize.org/competitions/digitallearning is an archive page) \u2014 no current college-student-accessible cash XPRIZE was found; flagship prizes (Healthspan, Wildfire, Water Scarcity, Quantum Applications) welcome student teams but are open expert competitions, not student tracks. [stale] deadline 2026-06-05 passed 83 days ago."
+  },
+  {
+    "id": "thiel-fellowship",
+    "title": "Thiel Fellowship",
+    "funder": "The Thiel Foundation",
+    "source_url": "https://thielfellowship.org/faq",
+    "award_min": 250000,
+    "award_max": 250000,
+    "deadline": null,
+    "rolling": true,
+    "eligibility": {
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "The Thiel Fellowship is a two-year, $250,000 grant for young people who want to build new things instead of sitting in a classroom.",
+        "source_doc": "https://thielfellowship.org/faq#grant"
+      },
+      {
+        "text": "We do not take equity in your company.",
+        "source_doc": "https://thielfellowship.org/faq#equity"
+      },
+      {
+        "text": "Anyone aged 22 or younger (and without a university degree) is eligible to apply.",
+        "source_doc": "https://thielfellowship.org/faq#age"
+      },
+      {
+        "text": "No - we accept applications year round. If you\u2019re working on something cool, apply now.",
+        "source_doc": "https://thielfellowship.org/faq#deadline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply at https://thielfellowship.my.site.com/apply/s/ (linked from thielfellowship.org/apply); age limit 22 or younger AND no university degree (schema has no age/no-degree key, recorded here); must drop out of school to accept ('Do I need to drop out to accept the Fellowship? Yes.'); no team required; no relocation required; citizenship rules UNKNOWN (not stated)."
+  },
+  {
+    "id": "776-foundation-fellowship",
+    "title": "776 Fellowship",
+    "funder": "776 Foundation",
+    "source_url": "https://www.776.org/",
+    "award_min": null,
+    "award_max": 100000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "geographies": [
+        "worldwide"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "The 776 Fellowship is a two-year, full-time program for 18 - 24 year olds, across the world.",
+        "source_doc": "https://www.776.org/#faq-what-is-the-fellowship"
+      },
+      {
+        "text": "Fellows will receive a $100,000 grant over two years to work on projects to fight climate change instead of pursuing a university degree.",
+        "source_doc": "https://www.776.org/#faq-what-is-the-fellowship"
+      },
+      {
+        "text": "No, the Fellowship is open to international applicants.",
+        "source_doc": "https://www.776.org/#faq-us-based"
+      },
+      {
+        "text": "Our 5th Cohort will be selected May 2026, with a start date of June 2026.",
+        "source_doc": "https://www.776.org/#faq-cohort-start"
+      },
+      {
+        "text": "Check back later this year for our 2026 Application.",
+        "source_doc": "https://www.776.org/#application"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; program still runs (5th Cohort selected May 2026, started June 2026) but application section says 'Check back later this year for our 2026 Application' with an email-notify signup for the '2026 Cohort' \u2014 no open deadline; STALE/between cycles. Age 18-24; full-time, expected to drop out if enrolled ('You can still be enrolled when you apply, but we'd expect you to drop out if you get accepted.'); 20 fellows per cohort. 776foundation.com no longer resolves (DNS failure); official site is 776.org, which is JS-rendered \u2014 quotes were extracted verbatim from the site's own bundle (/static/js/main.424763df.chunk.js) that renders the page text. takes_equity UNKNOWN (grant per page text, but no explicit no-equity statement)."
+  },
+  {
+    "id": "emergent-ventures",
+    "title": "Emergent Ventures",
+    "funder": "Mercatus Center at George Mason University",
+    "source_url": "https://www.mercatus.org/emergent-ventures",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": true,
+    "criteria": [
+      {
+        "text": "Emergent Ventures is a low-overhead fellowship and grant program that supports entrepreneurs and brilliant minds",
+        "source_doc": "https://www.mercatus.org/emergent-ventures#about"
+      },
+      {
+        "text": "To be eligible for an EV grant, all applicants must be 13 years of age or older.",
+        "source_doc": "https://www.mercatus.org/emergent-ventures#eligibility"
+      },
+      {
+        "text": "There is NO typical grant range or average award amount",
+        "source_doc": "https://mercatus.tfaforms.net/5099527#award"
+      },
+      {
+        "text": "Responses are typically sent within a week.",
+        "source_doc": "https://mercatus.tfaforms.net/5099527#timeline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply at https://mercatus.tfaforms.net/5099527; no award range stated ('There is NO typical grant range or average award amount \u2013 funding is project specific'); minimum age 13 (schema has no age key); no deadline appears anywhere on the official page or form and responses come within a week \u2014 rolling=true rests on that plus the always-live form, the page never uses the word 'rolling'; citizenship/degree/equity terms UNKNOWN. Caveat: mercatus.org blocks plain curl (Cloudflare), quotes came via rendered fetch of the official pages."
+  },
+  {
+    "id": "westly-prize",
+    "title": "Westly Prize for Young Innovators of California",
+    "funder": "The Westly Foundation",
+    "source_url": "https://www.westly.org/about",
+    "award_min": null,
+    "award_max": 40000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "geographies": [
+        "California"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "Prizes totaling up to $145,000 will be awarded to winning changemakers and social innovators.",
+        "source_doc": "https://www.westly.org/about#prize"
+      },
+      {
+        "text": "Three top prizes of $40,000 in unrestricted funding will be given.",
+        "source_doc": "https://www.westly.org/about#prize"
+      },
+      {
+        "text": "we\u2019ve awarded cash prizes to early-stage, young social innovators in California with novel solutions to community challenges.",
+        "source_doc": "https://www.westly.org/about#eligibility"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via 'Apply Now' at https://www.westly.org/about (application page https://www.westly.org/application renders empty without JS); site was recently rebuilt \u2014 the old /westly-prize/ URL now 404s. Total pool up to $145,000, three top prizes of $40,000. Age limit (widely reported as under 28), team size (reported up to 4), and the 2025-26 deadline (reported Oct 17, 2025 \u2014 stale/previous cycle) appear only in third-party sources, NOT on the current official page, so they stay UNKNOWN here; current-cycle deadline not posted on official site."
+  },
+  {
+    "id": "resolution-project-social-venture-challenge",
+    "title": "Resolution Project Social Venture Challenge",
+    "funder": "The Resolution Project",
+    "source_url": "https://fellowship.resolutionproject.org/app/main/page/about-social-venture-challenges",
+    "award_min": null,
+    "award_max": 5000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "min_team_size": 2
+    },
+    "criteria": [
+      {
+        "text": "This includes seed funding of up to $5,000 to launch the venture proposed for the SVC, along with ongoing mentorship, pro bono services, robust support and access to the Resolution network.",
+        "source_doc": "https://fellowship.resolutionproject.org/app/main/faqs/detail/3#funding"
+      },
+      {
+        "text": "You must be a current undergraduate student in college or university.",
+        "source_doc": "https://fellowship.resolutionproject.org/app/main/faqs/detail/5#eligibility"
+      },
+      {
+        "text": "You must have at least one teammate working on your social venture.",
+        "source_doc": "https://fellowship.resolutionproject.org/app/main/faqs/detail/5#team"
+      },
+      {
+        "text": "each team receives a grant (not each Fellow).",
+        "source_doc": "https://fellowship.resolutionproject.org/app/main/faqs/detail/3#grant-per-team"
+      },
+      {
+        "text": "We host our SVCs at conferences that serve broad communities of university students.",
+        "source_doc": "https://fellowship.resolutionproject.org/app/main/page/about-social-venture-challenges#format"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via the Applicant Portal at https://fellowship.resolutionproject.org/ (register for an SVC hosted at a partner conference); no single global deadline \u2014 deadlines follow each host conference, so deadline=null and rolling=false; must be a Founder and present in person at the conference; seed grant is up to $5,000 per team; no age limit stated; citizenship UNKNOWN."
+  },
+  {
+    "id": "echoing-green-fellowship",
+    "title": "Echoing Green Fellowship",
+    "funder": "Echoing Green",
+    "source_url": "https://echoinggreen.org/fellowship/",
+    "award_min": null,
+    "award_max": 100000,
+    "deadline": null,
+    "rolling": false,
+    "criteria": [
+      {
+        "text": "A stipend over 18 months (100,000 USD).",
+        "source_doc": "https://echoinggreen.org/fellowship/#seed-funding"
+      },
+      {
+        "text": "Echoing Green Fellowship applicants must be 18 years or older by June 1, 2026.",
+        "source_doc": "https://echoinggreen.org/fellowship/apply/#age"
+      },
+      {
+        "text": "applicants must be the primary decision maker and have the ultimate authority over your organization\u2019s growth and strategic vision",
+        "source_doc": "https://echoinggreen.org/fellowship/apply/#founder-role"
+      },
+      {
+        "text": "Applications for the 2026 Fellowship are now closed",
+        "source_doc": "https://echoinggreen.org/fellowship/apply/#status"
+      },
+      {
+        "text": "Funding offered to for-profit organizations is in the form of recoverable grants",
+        "source_doc": "https://echoinggreen.org/fellowship/#recoverable"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply at https://echoinggreen.org/fellowship/apply/ \u2014 2026 cycle CLOSED (stale/previous cycle), next opening not stated (sign-up for updates offered); $100,000 stipend over 18 months; for-profits get recoverable grants; must be founder/primary decision maker of an early-stage org ('have operated with full-time staff for less than five years'); minimum age 18 by June 1, 2026 (no age key in schema); citizenship/degree UNKNOWN; equity not applicable per page wording but no explicit statement, so takes_equity left UNKNOWN."
+  },
+  {
+    "id": "oshaughnessy-fellowships",
+    "title": "O'Shaughnessy Fellowships",
+    "funder": "O'Shaughnessy Ventures (OSV)",
+    "source_url": "https://www.osv.llc/fellowships",
+    "award_min": 100000,
+    "award_max": 100000,
+    "deadline": "2026-04-30",
+    "rolling": false,
+    "eligibility": {
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "One Year and $100,000",
+        "source_doc": "https://www.osv.llc/fellowships#award"
+      },
+      {
+        "text": "The O'Shaughnessy Fellowships is a one year program for researchers, builders and creatives advancing civilization.",
+        "source_doc": "https://www.osv.llc/fellowships#about"
+      },
+      {
+        "text": "Go from idea to reality while keeping 100% ownership",
+        "source_doc": "https://www.osv.llc/fellowships#equity"
+      },
+      {
+        "text": "Applications close on April 30, 2026",
+        "source_doc": "https://www.osv.llc/fellowships#deadline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via 'Apply Now' on https://www.osv.llc/fellowships; posted deadline April 30, 2026 has already PASSED \u2014 stale/previous cycle, next cycle not announced on page; 'keeping 100% ownership' is the page's own no-equity language; age, citizenship, degree, location requirements UNKNOWN (not stated on page). [stale] deadline 2026-04-30 passed 119 days ago."
+  },
+  {
+    "id": "neo-scholars",
+    "title": "Neo Scholars",
+    "funder": "Neo",
+    "source_url": "https://neo.com/scholars",
+    "award_min": null,
+    "award_max": 40000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "takes_equity": false,
+      "geographies": [
+        "United States",
+        "Canada"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "We\u2019ll give you a $40K equity-free grant, a tight-knit peer community, and workspace to call your own.",
+        "source_doc": "https://neo.com/scholars#grant"
+      },
+      {
+        "text": "The Neo Scholar program is open to undergrads who graduate Winter 2026 or later. It primarily focuses on supporting students who are studying in the United States or Canada.",
+        "source_doc": "https://neo.com/scholars/faq#eligibility"
+      },
+      {
+        "text": "Neo Scholars are guaranteed access to the student builder $40k grant anytime while enrolled in school.",
+        "source_doc": "https://neo.com/scholars/faq#grant-access"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply at https://neo.com/scholars; grant is explicitly '$40K equity-free' (not an investment); undergrads graduating Winter 2026 or later; geography quote is hedged ('primarily focuses on') US/Canada students; timeline text 'September: Neo Scholars selected' but no explicit application deadline date found, and whether applications are currently open is UNKNOWN (a conditional 'The application deadline has passed.' element exists in the app). Site is a JS (Bubble) app \u2014 quotes extracted verbatim from neo.com's own app bundle that renders the page."
+  },
+  {
+    "id": "z-fellows",
+    "title": "Z Fellows",
+    "funder": "Z Fellows",
+    "source_url": "https://www.zfellows.com/",
+    "award_min": 10000,
+    "award_max": 10000,
+    "deadline": null,
+    "rolling": true,
+    "eligibility": {
+      "takes_equity": true,
+      "geographies": [
+        "worldwide"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "You can participate without money or we can give you a $10,000 investment at a $1B valuation cap.",
+        "source_doc": "https://www.zfellows.com/#equity"
+      },
+      {
+        "text": "This $10,000 investment will convert into stock at your next priced round.",
+        "source_doc": "https://www.zfellows.com/#equity"
+      },
+      {
+        "text": "Applications are reviewed on a rolling basis and there is no deadline to submit an application.",
+        "source_doc": "https://www.zfellows.com/#timeline"
+      },
+      {
+        "text": "Z Fellows are technical builders of all ages working on side projects and startups.",
+        "source_doc": "https://www.zfellows.com/#who"
+      },
+      {
+        "text": "You can be based anywhere, there are Z Fellows all over the world.",
+        "source_doc": "https://www.zfellows.com/#location"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply at https://www.zfellows.com/ ('Apply Now'); NOT a pure grant \u2014 the $10,000 is an INVESTMENT converting to stock at the next priced round ($1B valuation cap), so takes_equity=true; however participation without taking the money is explicitly allowed; no age restriction, no degree requirement, no drop-out requirement ('Do I need to drop out or quit my job? No.'); one-week program, mostly virtual with final day in SF or NYC."
+  },
+  {
+    "id": "davidson-fellows-scholarship",
+    "title": "Davidson Fellows Scholarship",
+    "funder": "Davidson Institute",
+    "source_url": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/",
+    "award_min": 25000,
+    "award_max": 100000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "citizenships": [
+        "US citizen",
+        "US permanent resident"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "We award $100,000, $50,000 and $25,000 scholarships to gifted and high-achieving students",
+        "source_doc": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/#award"
+      },
+      {
+        "text": "Applicants must be 18 or younger as of the application deadline to be eligible.",
+        "source_doc": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/#age"
+      },
+      {
+        "text": "Be a U.S. citizen residing in the United States, or a Permanent Resident of the United States residing in the United States, or be stationed overseas due to active U.S. military duty.",
+        "source_doc": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/#citizenship"
+      },
+      {
+        "text": "The 2026 application is closed. The 2027 application will open in the Fall of 2026.",
+        "source_doc": "https://www.davidsongifted.org/gifted-programs/fellows-scholarship/#deadline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; AGE LIMIT: 18 or younger as of the application deadline \u2014 this is a scholarship for a significant completed project (categories: Science, Technology, Engineering, Mathematics, Literature, Music, Philosophy, Outside the Box), not startup funding; 2026 cycle CLOSED (stale), 2027 application opens Fall 2026 so no dated deadline recorded; US citizens/permanent residents residing in the US (or overseas on active US military duty). Caveat: site blocks plain curl (Cloudflare); quotes came via rendered fetch of the official page."
+  },
+  {
+    "id": "nsf-i-corps-national-teams",
+    "title": "NSF National Innovation Corps (I-Corps) Teams Program",
+    "funder": "U.S. National Science Foundation",
+    "source_url": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm",
+    "award_min": null,
+    "award_max": 50000,
+    "deadline": null,
+    "rolling": true,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd",
+        "postdoc"
+      ],
+      "entity_types": [
+        "none"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "The total amount of the request must not exceed $50,000/12 months.",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#award-amount"
+      },
+      {
+        "text": "Proposers must have either 1) received a prior award from NSF in a scientific or engineering field relevant to the proposed innovation",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#nsf-lineage"
+      },
+      {
+        "text": "have participated in a NSF Regional I-Corps Training program hosted by an NSF I-Corps Hub and have a letter of recommendation signed by a senior member of the NSF Regional I-Corps program staff",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#nsf-lineage-alternative"
+      },
+      {
+        "text": "The Entrepreneurial Lead (EL) may be a postdoctoral scholar, graduate, or other student, staff member, researcher, or other personnel with relevant knowledge of the technology",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#entrepreneurial-lead"
+      },
+      {
+        "text": "Typically, the TL will also serve as the Principal Investigator (PI) of the award.",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#technical-lead"
+      },
+      {
+        "text": "Two- and four-year IHEs (including community colleges) accredited in, and having a campus located in the US, acting on behalf of their faculty members",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#eligible-organizations"
+      },
+      {
+        "text": "Proposals Accepted Anytime",
+        "source_doc": "https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation#deadlines"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via NSF solicitation NSF 25-549 at https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation; NSF RESEARCH LINEAGE REQUIRED: team needs a prior/active NSF award (within 5 years) OR completion of an NSF Regional I-Corps program with a staff recommendation letter. Proposal is submitted by the university, not a company; the Technical Lead (typically the PI) is usually a faculty member/senior researcher, while a student can serve as Entrepreneurial Lead. Award is non-dilutive training+customer-discovery funding, not startup capital; a $10,000 participation fee is paid from award funds per the NSF program page. [structured institutions dropped to UNKNOWN: the page states it as prose ('U.S. accredited two- and four-year Institutions of Higher Education (including community colleges); proposals submitted by the institution, not individuals'), and prose is not a structured fact \u2014 the quote stays in criteria]"
+  },
+  {
+    "id": "epa-p3-student-design-competition",
+    "title": "EPA People, Prosperity and the Planet (P3) Student Design Competition",
+    "funder": "U.S. Environmental Protection Agency",
+    "source_url": "https://www.epa.gov/P3",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2024-02-21",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "entity_types": [
+        "none"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "P3 - People, Prosperity and the Planet \u2013 Program is a unique competition that is open to teams of college/university students",
+        "source_doc": "https://www.epa.gov/P3#overview"
+      },
+      {
+        "text": "There are no open funding opportunities at this time.",
+        "source_doc": "https://www.epa.gov/P3/p3-funding-opportunities#status"
+      },
+      {
+        "text": "February 21, 2024: 11:59:59 pm Eastern Time",
+        "source_doc": "https://www.epa.gov/research-grants/21st-annual-p3-awards-national-student-design-competition-focusing-people#closing-date"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; STALE/NOT CURRENTLY RUNNING: EPA's P3 funding-opportunities page explicitly states there are no open funding opportunities; the most recent RFA found is the 21st Annual P3 Awards, which closed 2024-02-21 (deadline recorded above is stale and flagged). No 2026 solicitation located on epa.gov. Applications historically went through the institution (grants to colleges/universities), not to a registered company. Monitor https://www.epa.gov/P3/p3-funding-opportunities for any future RFA. [structured institutions dropped to UNKNOWN: the page states it as prose ('teams of college/university students'), and prose is not a structured fact \u2014 the quote stays in criteria] [stale] deadline 2024-02-21 passed 918 days ago."
+  },
+  {
+    "id": "doe-energytech-university-prize",
+    "title": "EnergyTech University Prize (EnergyTech UP)",
+    "funder": "U.S. Department of Energy, Office of Technology Commercialization",
+    "source_url": "https://www.energy.gov/technologycommercialization/energytech-university-prize",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "There will not be a 2025-2026 round of the EnergyTech University Prize.",
+        "source_doc": "https://www.energy.gov/technologycommercialization/energytech-university-prize#status"
+      },
+      {
+        "text": "Student teams compete for more than $460,000 in cash prizes",
+        "source_doc": "https://www.energy.gov/technologycommercialization/energytech-university-prize#prizes"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; NOT CURRENTLY RUNNING: DOE's official page explicitly states there will not be a 2025-2026 round; 2025 winners were announced July 2025 and no new cycle is posted. Historical prize pool (>$460,000 total across teams) recorded in criteria only, since no active round exists; per-team award amounts not stated on the page, so award fields left null. When it ran, it was open to collegiate student teams (no company registration required). DOE directs prospective participants to https://americanmadechallenges.org for open prizes."
+  },
+  {
+    "id": "nasa-minds",
+    "title": "NASA MINDS (MUREP Innovative New Designs for Space)",
+    "funder": "NASA Office of STEM Engagement (MUREP)",
+    "source_url": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/nasa-minds/",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "NASA ORBIT is a new national challenge for MSI/HBCU and TCU students to solve tomorrow's dilemmas\u2014both in space, and here on Earth.",
+        "source_doc": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/nasa-minds/#orbit-replacement"
+      },
+      {
+        "text": "The prize pool is deep, with $380,000 in total award funding.",
+        "source_doc": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/nasa-minds/#orbit-funding"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; NO ACTIVE NASA MINDS CHALLENGE FOUND: the official nasa.gov NASA MINDS URL now serves the MUREP 'Student Engagement' page, which contains no mention of NASA MINDS by name and instead promotes NASA ORBIT as 'a new national challenge' for MSI/HBCU/TCU students. The MUREP opportunities page also does not list MINDS. Treat MINDS as superseded/dormant; see the separate nasa-orbit entry for the successor program's verified rules. Eligibility left empty because no current MINDS-specific terms are published."
+  },
+  {
+    "id": "nasa-orbit-challenge",
+    "title": "NASA ORBIT Challenge (Opportunities in Research, Business, Innovation, and Technology for the Workforce)",
+    "funder": "NASA (MUREP / Center of Excellence for Collaborative Innovation)",
+    "source_url": "https://www.nasa.gov/directorates/stmd/prizes-challenges-crowdsourcing-program/center-of-excellence-for-collaborative-innovation-coeci/nasa-orbit-challenge-2026/",
+    "award_min": null,
+    "award_max": 380000,
+    "deadline": "2026-02-09",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "citizenships": [
+        "U.S. citizens",
+        "lawful permanent residents",
+        "eligible foreign nationals"
+      ],
+      "entity_types": [
+        "none"
+      ],
+      "max_team_size": 6,
+      "requires_faculty_pi": true
+    },
+    "criteria": [
+      {
+        "text": "The Lead Institution must be a MSI, HBCU, or TCU listed on the NASA MSI Exchange.",
+        "source_doc": "https://nasaorbit.org/rules/#lead-institution"
+      },
+      {
+        "text": "Teams must consist of six (6) or fewer student members, not including the faculty advisor.",
+        "source_doc": "https://nasaorbit.org/rules/#team-size"
+      },
+      {
+        "text": "Be enrolled full-time or part-time (undergraduate or graduate) at a U.S.-based institution.",
+        "source_doc": "https://nasaorbit.org/rules/#student-eligibility"
+      },
+      {
+        "text": "Each team must have at least one faculty advisor.",
+        "source_doc": "https://nasaorbit.org/rules/#faculty-advisor"
+      },
+      {
+        "text": "Up to $380,000 in prize purses will be available.",
+        "source_doc": "https://nasaorbit.org/rules/#prizes"
+      },
+      {
+        "text": "Registration Deadline: Feb 9, 2026 at 3:00 pm Eastern local time",
+        "source_doc": "https://nasaorbit.org/rules/#deadlines"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; register/apply at https://nasaorbit.org/; STALE DEADLINES FLAGGED: 2026-cycle registration closed 2026-02-09 and the final Phase 3 submission closed 2026-06-15, so the current cycle has ended \u2014 watch for a next cycle. Restricted to teams led from Minority Serving Institutions (MSI/HBCU/TCU) with a REQUIRED FACULTY ADVISOR; no company registration required. Total prize pool $380,000; per-team awards include $15,000 Phase 2 wins and $30,000/$25,000 Phase 3 track prizes per the official rules page. [structured institutions dropped to UNKNOWN: the page states it as prose ('Lead Institution must be an MSI, HBCU, or TCU listed on the NASA MSI Exchange; members enrolled at a U.S.-based institution'), and prose is not a structured fact \u2014 the quote stays in criteria] [stale] deadline 2026-02-09 passed 199 days ago."
+  },
+  {
+    "id": "nsf-sbir-americas-seed-fund",
+    "title": "America's Seed Fund powered by NSF (SBIR/STTR)",
+    "funder": "U.S. National Science Foundation",
+    "source_url": "https://seedfund.nsf.gov/",
+    "award_min": null,
+    "award_max": 2000000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "citizenships": [
+        "company must be at least 51% owned and controlled by U.S. citizens or permanent residents"
+      ],
+      "entity_types": [
+        "llc",
+        "c_corp",
+        "s_corp"
+      ],
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "We invest up to $2 million in seed funding.",
+        "source_doc": "https://seedfund.nsf.gov/#award-amount"
+      },
+      {
+        "text": "take no equity in your company \u2014 you retain full control over your team, the direction of your work, and your intellectual property",
+        "source_doc": "https://seedfund.nsf.gov/#non-dilutive"
+      },
+      {
+        "text": "The proposing small business must have fewer than 500 employees, including affiliate entities.",
+        "source_doc": "https://seedfund.nsf.gov/solicitation-eligibility/#size"
+      },
+      {
+        "text": "The proposing small business must be at least 51% owned and controlled by U.S. citizens or permanent residents",
+        "source_doc": "https://seedfund.nsf.gov/solicitation-eligibility/#ownership"
+      },
+      {
+        "text": "The project's Principal Investigator (PI) must be more than 50% employed by the small business for the duration of the SBIR/STTR project.",
+        "source_doc": "https://seedfund.nsf.gov/solicitation-eligibility/#pi-employment"
+      },
+      {
+        "text": "All research and development must be performed within the United States.",
+        "source_doc": "https://seedfund.nsf.gov/solicitation-eligibility/#work-location"
+      },
+      {
+        "text": "Phase I proposers must submit a Project Pitch and receive an official invitation email from an NSF program director before they can submit a full proposal.",
+        "source_doc": "https://seedfund.nsf.gov/solicitation-eligibility/#project-pitch"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; start at https://seedfund.nsf.gov/apply/ (Project Pitch required before a full proposal); REQUIRES A REGISTERED U.S. SMALL BUSINESS: students cannot apply as individuals \u2014 the applicant is a for-profit small business (<500 employees, majority U.S.-citizen/permanent-resident owned), and the PI must be >50% employed by the company, which effectively rules out full-time students/faculty as PI unless they commit to the company. Non-dilutive (NSF explicitly takes no equity). Up to $2M total across phases; per-phase amounts and full-proposal deadlines not stated on the fetched pages, so left null \u2014 check the current solicitation. [structured geographies dropped to UNKNOWN: the page states it as prose ('all research and development must be performed within the United States'), and prose is not a structured fact \u2014 the quote stays in criteria]"
+  },
+  {
+    "id": "diu-dual-use-university-accelerator-challenge",
+    "title": "DIU Dual-Use University Accelerator Challenge",
+    "funder": "Defense Innovation Unit, U.S. Department of Defense",
+    "source_url": "https://www.diu.mil/latest/diu-presents-dual-use-university-accelerator-challenge",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2025-06-25",
+    "rolling": false,
+    "eligibility": {
+      "entity_types": [
+        "llc",
+        "c_corp",
+        "s_corp"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "founded by students, faculty, staff, recent graduates (within the past 18 months)",
+        "source_doc": "https://www.diu.mil/latest/diu-presents-dual-use-university-accelerator-challenge#eligibility"
+      },
+      {
+        "text": "early TRL 2-4 (pre-seed/seed stage) with limited or no prior DoD contracts",
+        "source_doc": "https://www.diu.mil/latest/diu-presents-dual-use-university-accelerator-challenge#stage"
+      },
+      {
+        "text": "This challenge will close on June 25, 2025, at 11:59:59 pm ET.",
+        "source_doc": "https://www.diu.mil/latest/diu-presents-dual-use-university-accelerator-challenge#deadline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; STALE/CLOSED: the only DOD student prize found on an official .mil page \u2014 applications closed 2025-06-25 and the accelerator concluded October 2025; deadline recorded above is stale and flagged; no new round found on diu.mil as of today. REQUIRES A REGISTERED COMPANY: eligibility is U.S. owned and operated companies/startups founded by students, faculty, staff, or recent graduates (within 18 months). $500,000 total prize pool shared among up to 15 finalists; per-team amounts not stated, so award fields left null. No currently active DOD/NSIN student prize was located on an official .gov/.mil page. [structured geographies dropped to UNKNOWN: the page states it as prose ('U.S. owned and operated companies'), and prose is not a structured fact \u2014 the quote stays in criteria] [stale] deadline 2025-06-25 passed 428 days ago."
+  },
+  {
+    "id": "venturewell-e-team-program",
+    "title": "E-Team Program",
+    "funder": "VentureWell",
+    "source_url": "https://venturewell.org/e-team-program/",
+    "award_min": 5000,
+    "award_max": 25000,
+    "deadline": "2026-09-29",
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "U.S.-based institution"
+      ],
+      "min_team_size": 2,
+      "requires_faculty_pi": true,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "up to $25,000 in grant funding",
+        "source_doc": "https://venturewell.org/e-team-program/#award"
+      },
+      {
+        "text": "$5,000 in non-dilutive funding",
+        "source_doc": "https://venturewell.org/e-team-program/#pioneer-award"
+      },
+      {
+        "text": "an additional $20,000 in non-dilutive funding",
+        "source_doc": "https://venturewell.org/e-team-program/#propel-award"
+      },
+      {
+        "text": "we award over $800,000 in non-dilutive E-Team Program grants",
+        "source_doc": "https://venturewell.org/e-team-program/#no-equity"
+      },
+      {
+        "text": "Deadline to apply: September 29, 2026",
+        "source_doc": "https://venturewell.org/e-team-program/#deadline-winter-2027"
+      },
+      {
+        "text": "Teams that include two or more students and a faculty advisor.",
+        "source_doc": "https://venturewell.org/e-team-program/#team"
+      },
+      {
+        "text": "The E-Team Program is open to all applicants who are currently enrolled at a U.S.-based institution.",
+        "source_doc": "https://venturewell.org/e-team-program/#institution"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply URLs stated on page: https://oms.aws.venturewell.org/go/pioneer-winter-2027 and https://oms.aws.venturewell.org/go/propel-winter-2027; deadline 2026-09-29 is the Winter 2027 cohort deadline (later cycles: 2027-01-25 for Spring 2027); page notes all dates subject to change; old /e-team-grants/ URL replaced by /e-team-program/; degree level and citizenship UNKNOWN (page states only 'students' at a U.S.-based institution)"
+  },
+  {
+    "id": "hult-prize",
+    "title": "The Hult Prize",
+    "funder": "Hult Prize Foundation",
+    "source_url": "https://www.hultprize.org/how-it-works",
+    "award_min": null,
+    "award_max": 1000000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "min_team_size": 2,
+      "max_team_size": 4,
+      "takes_equity": true
+    },
+    "criteria": [
+      {
+        "text": "one team will win $1M USD in seed funding to bring their idea to life.",
+        "source_doc": "https://www.hultprize.org/how-it-works#prize"
+      },
+      {
+        "text": "We welcome teams of 2-4 students from almost every country in the world",
+        "source_doc": "https://www.hultprize.org/how-it-works#team-size"
+      },
+      {
+        "text": "At least 18 years of age",
+        "source_doc": "https://www.hultprize.org/how-it-works#age"
+      },
+      {
+        "text": "Enrolled in any degree-granting program (including undergraduate and graduate programs) at the time of registration",
+        "source_doc": "https://www.hultprize.org/how-it-works#degree-levels"
+      },
+      {
+        "text": "The Hult Prize Foundation receives an equity stake in the winning startup (typically 10%), which we use to fund our non-profit operations",
+        "source_doc": "https://www.hultprize.org/how-it-works#equity"
+      },
+      {
+        "text": "The Hult Prize competition runs September through September",
+        "source_doc": "https://www.hultprize.org/how-it-works#timeline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; NOT fully non-dilutive - the $1M win carries a typically 10% equity stake to the Hult Prize Foundation; no fixed application deadline stated on page (season runs September through September; most teams enter via a campus Qualifier); registration via hultprize.org; citizenship UNKNOWN beyond 'almost every country in the world'"
+  },
+  {
+    "id": "rice-business-plan-competition",
+    "title": "Rice Business Plan Competition",
+    "funder": "Rice Alliance for Technology and Entrepreneurship, Rice University",
+    "source_url": "https://rbpc.rice.edu/eligibility",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2026-01-31",
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "college or university anywhere in the world"
+      ],
+      "min_team_size": 2
+    },
+    "criteria": [
+      {
+        "text": "more than $1 million in cash, investments and prizes",
+        "source_doc": "https://rbpc.rice.edu/#prize-pool"
+      },
+      {
+        "text": "11:59 PM CST - Applications close; deadline to submit applications",
+        "source_doc": "https://rbpc.rice.edu/eligibility#deadline-jan-31-2026"
+      },
+      {
+        "text": "has at least two current student founders or management team members, and at least one of those students is a current graduate degree-seeking student",
+        "source_doc": "https://rbpc.rice.edu/eligibility#team"
+      },
+      {
+        "text": "are from a college or university anywhere in the world",
+        "source_doc": "https://rbpc.rice.edu/eligibility#institution"
+      },
+      {
+        "text": "has not raised more than $250,000 in equity capital prior to July 1, 2025",
+        "source_doc": "https://rbpc.rice.edu/eligibility#funding-cap"
+      },
+      {
+        "text": "Save the date for the 27th Annual Rice Business Plan Competition: April 8-10, 2027",
+        "source_doc": "https://rbpc.rice.edu/#next-event"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; stale/previous cycle - the January 31, 2026 deadline is for the completed 2026 RBPC; 2027 competition is April 8-10, 2027 with applications opening Nov. 3 at https://rbpc.poetic.io; LIKELY POOR FIT for undergrad-only teams: eligibility requires at least one current graduate degree-seeking student; total prize pool over $1M but no fixed per-award amount stated, so award_min/max left null; some prizes are investments (may be dilutive) - equity terms per prize UNKNOWN [stale] deadline 2026-01-31 passed 208 days ago."
+  },
+  {
+    "id": "baylor-new-venture-competition",
+    "title": "Baylor New Venture Competition",
+    "funder": "John F. Baugh Center for Entrepreneurship, Hankamer School of Business, Baylor University",
+    "source_url": "https://hankamer.baylor.edu/baugh-center/new-venture",
+    "award_min": 500,
+    "award_max": 50000,
+    "deadline": "2026-10-01",
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "First Place: $50,000 Cash + In-kind awards",
+        "source_doc": "https://hankamer.baylor.edu/baugh-center/new-venture#first-prize"
+      },
+      {
+        "text": "Second Place: $25,000 Cash + In-kind awards",
+        "source_doc": "https://hankamer.baylor.edu/baugh-center/new-venture#second-prize"
+      },
+      {
+        "text": "3rd Place - $500 Cash",
+        "source_doc": "https://hankamer.baylor.edu/baugh-center/new-venture#elevator-pitch-third"
+      },
+      {
+        "text": "April 1, 2026 - Oct. 1, 2026",
+        "source_doc": "https://hankamer.baylor.edu/baugh-center/new-venture#application-window"
+      },
+      {
+        "text": "Nov. 20, 2026 - Jan. 18, 2027",
+        "source_doc": "https://hankamer.baylor.edu/baugh-center/new-venture#business-plan-window"
+      },
+      {
+        "text": "The 2027 NVC is open to teams of not-for-profit accredited university students and recent alumni around the world.",
+        "source_doc": "https://hankamer.baylor.edu/baugh-center/new-venture#eligibility"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; application URL stated on page: https://apply.younoodle.com/round/2026_2027_baylor_new_venture_competition; current cycle (finals April 16-17, 2027, application window closes Oct. 1, 2026); page fetched via rendering proxy because the site blocks plain HTTP clients (Cloudflare) - quotes transcribed from the rendered page, recommend re-verification; degree level, team size, citizenship, and equity terms UNKNOWN (not stated on this page; a fuller guidebook PDF exists)"
+  },
+  {
+    "id": "tcu-values-and-ventures",
+    "title": "Values and Ventures",
+    "funder": "TCU Neeley Institute for Entrepreneurship and Innovation, Texas Christian University",
+    "source_url": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "min_team_size": 2,
+      "max_team_size": 5,
+      "requires_faculty_pi": true,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "Open to currently enrolled undergraduate students",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#student-eligibility"
+      },
+      {
+        "text": "Graduate students may participate on teams but may not present",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#grad-students"
+      },
+      {
+        "text": "Teams must include a minimum of 2 undergraduate members and may include up to 5",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#team-size"
+      },
+      {
+        "text": "A faculty or staff sponsor is required to verify the work",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#sponsor"
+      },
+      {
+        "text": "Values and Ventures awards significant non-dilutive capital to undergraduate teams developing ventures that create both profit and impact.",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#non-dilutive"
+      },
+      {
+        "text": "Must be majority owned by undergraduate team members",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#ownership"
+      },
+      {
+        "text": "Application deadlines occur early in the spring semester",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#deadline"
+      },
+      {
+        "text": "Only one team per university will be selected for the competition",
+        "source_doc": "https://neeley.tcu.edu/centers-institutes/institute-for-entrepreneurship-innovation/values-ventures/rules.php#one-team-per-school"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; the redesigned neeley.tcu.edu site no longer lists specific dollar amounts or full dates - award amounts and exact deadline UNKNOWN on current official page (page says applications open each fall, deadlines early spring semester); 'requires_faculty_pi' reflects the page's 'faculty or staff sponsor' requirement; no application URL on page - contact lianne.yang@tcu.edu; old URL neeley.tcu.edu/centers/institute-for-entrepreneurship-and-innovation/values-and-ventures now 404s"
+  },
+  {
+    "id": "e-fest-schulze-entrepreneurship-challenge",
+    "title": "e-Fest",
+    "funder": "Richard M. Schulze Family Foundation / Schulze School of Entrepreneurship",
+    "source_url": "https://efest.biz/",
+    "award_min": null,
+    "award_max": 50000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "geographies": [
+        "North America"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "Compete for $250,000 in cash prizes and join the Top 25 undergraduate startup teams from across North America.",
+        "source_doc": "https://efest.biz/#prize-pool-and-eligibility"
+      },
+      {
+        "text": "$215K in cash prizes across four competitions",
+        "source_doc": "https://efest.biz/#cash-prizes"
+      },
+      {
+        "text": "Schulze Entrepreneurship Challenge Grand Champion \u2013 $50,000",
+        "source_doc": "https://efest.biz/#grand-champion"
+      },
+      {
+        "text": "Save the date and be ready when submissions open on January 7, 2026",
+        "source_doc": "https://efest.biz/#submissions-open"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; stale/previous cycle - page still shows the e-Fest 2026 timeline (submissions Jan 7 - Mar 1, event Apr 23-25, 2026, already held); no unambiguous full submission deadline date printed (timeline shows 'Jan 7 \u2013 Mar 1: Submit Your Pitch'), so deadline null; apply via https://efest.biz/submit or https://efest.biz/compete; team size, equity terms, and exact grad-year cutoff UNKNOWN on homepage (see site's Rules & Eligibility page); page title brands it 'e-Fest\u00ae | Undergraduate Entrepreneurship Competition, Home Of The Schulze Entrepreneurship Challenge'"
+  },
+  {
+    "id": "eo-global-student-entrepreneur-awards",
+    "title": "Global Student Entrepreneur Awards (GSEA)",
+    "funder": "Entrepreneurs' Organization (EO)",
+    "source_url": "https://eonetwork.org/gsea/",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "compete for your share of $100,000",
+        "source_doc": "https://eonetwork.org/gsea/#prize-pool"
+      },
+      {
+        "text": "university and college students who own and operate a business while attending school",
+        "source_doc": "https://eonetwork.org/gsea/#who"
+      },
+      {
+        "text": "An undergraduate or graduate student",
+        "source_doc": "https://eonetwork.org/gsea/competitions/#degree-levels"
+      },
+      {
+        "text": "Owner of a company operating for at least 6 months",
+        "source_doc": "https://eonetwork.org/gsea/competitions/#business-age"
+      },
+      {
+        "text": "Generating at least US$500 in revenue or US$1,000 in investment",
+        "source_doc": "https://eonetwork.org/gsea/competitions/#traction"
+      },
+      {
+        "text": "You must be enrolled at the time of application to be eligible",
+        "source_doc": "https://eonetwork.org/gsea/competitions/#enrollment"
+      },
+      {
+        "text": "Deadlines vary by location.",
+        "source_doc": "https://eonetwork.org/gsea/apply/#deadlines"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply at https://eonetwork.org/gsea/apply/ - page says 'Upcoming Competition Starting July 1st, 2026' and 'Upcoming Competitions August 2026 through 2027' with deadlines varying by local competition, so no single deadline recorded; $100,000 is a shared prize pool - per-winner amount UNKNOWN, so award_min/max null; equity terms and citizenship UNKNOWN; requires an already-operating business (6+ months, US$500 revenue or US$1,000 investment)"
+  },
+  {
+    "id": "microsoft-imagine-cup",
+    "title": "Imagine Cup",
+    "funder": "Microsoft",
+    "source_url": "https://imaginecup.microsoft.com/en-us",
+    "award_min": 50000,
+    "award_max": 150000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "$150,000 USD cash prize, and a mentorship session with Microsoft Chairman and CEO, Satya Nadella",
+        "source_doc": "https://imaginecup.microsoft.com/en-us#world-champion-prize"
+      },
+      {
+        "text": "Prizing: $100,000 USD",
+        "source_doc": "https://imaginecup.microsoft.com/en-us#scale-path-prize"
+      },
+      {
+        "text": "Prizing: $50,000 USD",
+        "source_doc": "https://imaginecup.microsoft.com/en-us#launch-path-prize"
+      },
+      {
+        "text": "Open only to enrolled high-school or college/university students 18+",
+        "source_doc": "https://imaginecup.microsoft.com/en-us#eligibility"
+      },
+      {
+        "text": "Winner announced on June 2, 2026",
+        "source_doc": "https://imaginecup.microsoft.com/en-us#season-timeline"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; stale/previous cycle - page covers the concluded 2026 season (2026 World Champion announced June 2, 2026) and invites students to 'Register for next season'; no 2027-season application deadline stated, so deadline null; official rules PDF linked as aka.ms/icrulesregs; team size, citizenship, and equity terms UNKNOWN on this page (page names two award paths, Launch $50,000 and Scale $100,000, plus the $150,000 World Champion prize); eligibility includes high-school students so degree_levels key not applicable"
+  },
+  {
+    "id": "mit-climate-energy-prize",
+    "title": "MIT Climate & Energy Prize",
+    "funder": "MIT Climate & Energy Prize (MIT student-run organization)",
+    "source_url": "https://cep.mit.edu/eligibility",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "min_team_size": 2
+    },
+    "criteria": [
+      {
+        "text": "compete for more than $100,000 in Grand Prize",
+        "source_doc": "https://cep.mit.edu/competition#prize-pool"
+      },
+      {
+        "text": "granted more than $3.4M in non-dilutive cash prizes",
+        "source_doc": "https://cep.mit.edu/competition#non-dilutive"
+      },
+      {
+        "text": "A team must be comprised of at least two individuals.",
+        "source_doc": "https://cep.mit.edu/eligibility#team-size"
+      },
+      {
+        "text": "At least 50% of founding team members must (1) be enrolled as a part-time or full-time student, or (2) be a postdoctoral fellow at a college or university",
+        "source_doc": "https://cep.mit.edu/eligibility#student-status"
+      },
+      {
+        "text": "All student or postdoctoral team members counted toward eligibility must have been enrolled since the beginning of the Fall 2025 academic term or earlier",
+        "source_doc": "https://cep.mit.edu/eligibility#enrollment-timing"
+      },
+      {
+        "text": "Startup must have raised less than $100K in dilutive funding.",
+        "source_doc": "https://cep.mit.edu/eligibility#funding-cap"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; application via https://cep.mit.edu/apply; no application deadline date stated on the eligibility or competition pages, so deadline null; prize pool 'more than $100,000' with amounts at Managing Directors' discretion, so award_min/max null; eligibility references the Fall 2025 term (2025-2026 cycle language - may be stale for the next cycle); open to students and postdocs worldwide per site, degree level of student members not restricted on page; citizenship UNKNOWN"
+  },
+  {
+    "id": "tcnj-mayo-business-plan-competition",
+    "title": "Mayo Business Plan Competition",
+    "funder": "The College of New Jersey (TCNJ) School of Business",
+    "source_url": "https://mbpc.tcnj.edu/",
+    "award_min": 10000,
+    "award_max": 30000,
+    "deadline": "2026-12-11",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "institutions": [
+        "The College of New Jersey (TCNJ)"
+      ],
+      "min_team_size": 2,
+      "max_team_size": 4
+    },
+    "criteria": [
+      {
+        "text": "A top prize of $30,000 will be awarded to the winning team with prizes of $20,000 and $10,000 for second and third-place teams.",
+        "source_doc": "https://mbpc.tcnj.edu/#awards"
+      },
+      {
+        "text": "All team members must be currently enrolled TCNJ undergraduate students.",
+        "source_doc": "https://mbpc.tcnj.edu/competition-schedule/#eligibility"
+      },
+      {
+        "text": "Mayo Business Plan Competition teams must be comprised of two to four members.",
+        "source_doc": "https://mbpc.tcnj.edu/competition-schedule/#team-size"
+      },
+      {
+        "text": "Business plans submitted by 11:59 pm \u2013 Absolute due date; no exceptions",
+        "source_doc": "https://mbpc.tcnj.edu/competition-schedule/#deadlines"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; register via Intent to Compete form after kick-off 9/16/26 (https://mbpc.tcnj.edu/competition-schedule/); deadline shown is team registration close 12/11/26; business plans due 1/08/27, finals 3/24/27; TCNJ undergrads only"
+  },
+  {
+    "id": "princeton-keller-elab-incubator",
+    "title": "eLab Incubator (Keller Center)",
+    "funder": "Princeton University Keller Center",
+    "source_url": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/elab-incubator",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2025-10-10",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "institutions": [
+        "Princeton University"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "Eligible to apply for a modest amount of project funding",
+        "source_doc": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/elab-incubator#funding"
+      },
+      {
+        "text": "Currently enrolled undergraduate and graduate Princeton University students at the time of application (all years)",
+        "source_doc": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/elab-incubator#eligibility"
+      },
+      {
+        "text": "Applicants must have a well-defined startup idea or product",
+        "source_doc": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/elab-incubator#eligibility"
+      },
+      {
+        "text": "Currently enrolled Princeton University undergraduate and graduate students of any major with a for- or non-profit startup idea.",
+        "source_doc": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/compare-opportunities#eligibility"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; apply via kellercenter.princeton.edu eLab Incubator page; STALE DEADLINE FLAG: page still shows 'October 10, 2025: Application deadline' \u2014 compare-opportunities page lists application window as 'September/October' annually; no dollar amount published ('modest amount of project funding'); eLab Accelerator detail page returned 404 on 2026-08-26; Princeton-only [stale] deadline 2025-10-10 passed 321 days ago."
+  },
+  {
+    "id": "seton-hall-pirates-pitch",
+    "title": "Pirates Pitch Startup Competition",
+    "funder": "Seton Hall University, Center for Innovation and Entrepreneurship (Stillman School of Business)",
+    "source_url": "https://www.shu.edu/business/pirates-pitch/index.html",
+    "award_min": 500,
+    "award_max": 8000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters"
+      ],
+      "institutions": [
+        "Seton Hall University"
+      ],
+      "min_team_size": 1,
+      "max_team_size": 5
+    },
+    "criteria": [
+      {
+        "text": "The judges will award a 1st place prize of $8,000, a 2nd place prize of $4,500 and a 3rd place prize of $3,000.",
+        "source_doc": "https://www.shu.edu/business/pirates-pitch/index.html#prizes"
+      },
+      {
+        "text": "The Pirates Pitch Startup Competition is held annually and open to all Seton Hall students.",
+        "source_doc": "https://www.shu.edu/business/pirates-pitch/index.html#eligibility"
+      },
+      {
+        "text": "At least one member of the team must be an undergraduate or graduate matriculated student who is enrolled full-time or part-time at Seton Hall University.",
+        "source_doc": "https://www.shu.edu/innovation-and-entrepreneurship/pirates-pitch.html#eligibility"
+      },
+      {
+        "text": "Student teams can range in size from one to five members.",
+        "source_doc": "https://www.shu.edu/innovation-and-entrepreneurship/pirates-pitch.html#team-size"
+      },
+      {
+        "text": "The judges evaluate the teams based on their ability to execute their business model and turn it into a viable, profitable business.",
+        "source_doc": "https://www.shu.edu/business/pirates-pitch/index.html#judging"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; enter via shu.edu Pirates Pitch pages; STALE DATE FLAG: page still describes the 2026 event ('This year's Pirates Pitch will be held on Wednesday, April 8, 2026') \u2014 next cycle dates not yet posted; $500 Audience Choice Award also offered; note the innovation-and-entrepreneurship page lists 2nd place as $3,500 (older figure) vs $4,500 on the index page"
+  },
+  {
+    "id": "montclair-fcei-pitch-day",
+    "title": "FCE+I Pitch Day (Feliciano Center for Entrepreneurship and Innovation)",
+    "funder": "Montclair State University, Feliciano Center for Entrepreneurship and Innovation",
+    "source_url": "https://inside.montclair.edu/colleges-schools-research/business/feliciano-center-entrepreneurship-and-innovation/ignite-entrepreneurs/fcei-pitch-day",
+    "award_min": null,
+    "award_max": 10000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "Montclair State University (Ignite Entrepreneurs program)"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "compete for a share of $25K in seed funding",
+        "source_doc": "https://inside.montclair.edu/colleges-schools-research/business/feliciano-center-entrepreneurship-and-innovation/ignite-entrepreneurs/fcei-pitch-day#prizes"
+      },
+      {
+        "text": "compete for the grand prize of $10K",
+        "source_doc": "https://inside.montclair.edu/colleges-schools-research/business/feliciano-center-entrepreneurship-and-innovation/ignite-entrepreneurs/fcei-pitch-day#prizes"
+      },
+      {
+        "text": "Ignite Entrepreneurs and Ignite alumni the opportunity to compete",
+        "source_doc": "https://inside.montclair.edu/colleges-schools-research/business/feliciano-center-entrepreneurship-and-innovation/ignite-entrepreneurs/fcei-pitch-day#eligibility"
+      },
+      {
+        "text": "Prior to the competition, finalists participate in an eight-week bootcamp",
+        "source_doc": "https://inside.montclair.edu/colleges-schools-research/business/feliciano-center-entrepreneurship-and-innovation/ignite-entrepreneurs/fcei-pitch-day#process"
+      },
+      {
+        "text": "$385K Awarded to student and community business owners since 2015",
+        "source_doc": "https://inside.montclair.edu/colleges-schools-research/business/feliciano-center-entrepreneurship-and-innovation#history"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; entry via Ignite Entrepreneurs Interest List on the FCE+I Pitch Day page; no 'MIX Challenge' found on montclair.edu as of 2026-08-26 \u2014 current competition is FCE+I Pitch Day; last event was April 23, 2026 (past; next cycle not yet posted); eligibility runs through the Ignite Entrepreneurs program, page does not explicitly restrict to enrolled students"
+  },
+  {
+    "id": "rowan-rohrer-new-venture-competition",
+    "title": "Rohrer New Venture Competition & Expo",
+    "funder": "Rowan University, Rowan Center for Innovation and Entrepreneurship / School of Innovation and Entrepreneurship",
+    "source_url": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html",
+    "award_min": null,
+    "award_max": 25000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "Rowan University (or graduated within the last 12 months)"
+      ],
+      "min_team_size": 1,
+      "max_team_size": 5,
+      "geographies": [
+        "United States (legal residents)"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "Held annually in April, the competition prepares students for future entrepreneurial success while providing the opportunity to win a share of the $50,000 prize pool.",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#prizes"
+      },
+      {
+        "text": "$25,000 Rowan Innovation Venture Fund convertible note investment option, $5,000 in non-dilutive seed funding with automatic acceptance into AccelerateRU",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#prizes"
+      },
+      {
+        "text": "One member on each team must either be a full-time or part-time student of Rowan University or must have graduated from Rowan University within the last 12 months.",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#eligibility"
+      },
+      {
+        "text": "Participants must be legal residents of the United States.",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#eligibility"
+      },
+      {
+        "text": "There is a maximum of 5 team members. A team may consist of just one team member (not recommended).",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#team-size"
+      },
+      {
+        "text": "Each company must register on StartupTree and provide a brief summary of the business idea.",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#application"
+      },
+      {
+        "text": "Judges will be asked to evaluate the plans based upon their likelihood of it actually becoming the basis for a viable business.",
+        "source_doc": "https://ent.rowan.edu/rcie/startupru/competitions/nvce.html#judging"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; register on StartupTree per official page; held annually in April, next-cycle deadline not yet posted; CAVEAT on non-dilutive framing: 1st place $25,000 is a convertible note investment OPTION (not non-dilutive) \u2014 the explicitly non-dilutive component is $5,000 seed funding; separate Expo has a $7,000 prize pool"
+  },
+  {
+    "id": "stevens-scholl-launchpad-awards",
+    "title": "Thomas H. Scholl Launchpad Awards (Launchpad@Stevens)",
+    "funder": "Stevens Institute of Technology",
+    "source_url": "https://www.stevens.edu/school-engineering-science/undergraduate-studies/launchpad",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "Stevens Institute of Technology (Launchpad@Stevens participants)"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "Through the annual Thomas H. Scholl Launchpad Awards, former Stevens trustee Thomas H. Scholl champions innovative student projects across a host of industries.",
+        "source_doc": "https://www.stevens.edu/school-engineering-science/undergraduate-studies/launchpad#overview"
+      },
+      {
+        "text": "Awards are granted to teams that demonstrate a high commitment to their projects, and that are prepared for continued progress",
+        "source_doc": "https://www.stevens.edu/news/scholl-launchpad-awards-support-student-innovation-at-stevens#selection"
+      },
+      {
+        "text": "Launchpad@Stevens participants who have incorporated companies are consulted, as are successful entrepreneurs who serve as judges",
+        "source_doc": "https://www.stevens.edu/news/scholl-launchpad-awards-support-student-innovation-at-stevens#selection"
+      }
+    ],
+    "_curation_note": "researched 2026-08-26; no open application URL \u2014 awards are selected annually from Launchpad@Stevens participants; official pages publish NO award amounts, deadlines, or formal eligibility criteria as of 2026-08-26; included as optional per brief since a current official Launchpad page exists; recipients in official news coverage are Stevens students/recent alumni"
   }
 ]
