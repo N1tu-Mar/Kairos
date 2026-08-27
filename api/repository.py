@@ -198,14 +198,41 @@ class SqliteRepository:
         *,
         matcher: SemanticMatcher | None = DEFAULT_MATCHER,
         similarity_threshold: float = DEFAULT_THRESHOLD,
+        create_schema: bool = True,
     ) -> None:
         """`matcher=None` disables semantic recall and leaves exact matching
         only — which is what the pre-semantic behaviour was, still reachable
-        for anyone who wants the strictest possible reuse policy."""
+        for anyone who wants the strictest possible reuse policy.
+
+        `create_schema=False` skips `create_all()`. That call cannot *evolve*
+        a schema — it creates what is missing and silently ignores a table
+        whose shape has changed — which is fine for a fresh local database
+        and for tests, and exactly wrong for a deployment. In production the
+        schema is owned by `alembic upgrade head` at deploy time, so a
+        missing table should be a loud readiness failure rather than a table
+        quietly conjured with whatever shape this build happens to expect.
+        """
         self.engine = create_engine(url, echo=echo)
         self.matcher = matcher
         self.similarity_threshold = similarity_threshold
-        SQLModel.metadata.create_all(self.engine)
+        if create_schema:
+            SQLModel.metadata.create_all(self.engine)
+
+    def schema_version(self) -> str | None:
+        """The Alembic revision this database is at, or None if unmanaged.
+
+        None means the database predates migrations — created by
+        `create_all()` and never adopted. In production that is a readiness
+        failure, and the fix is `alembic upgrade head`, which adopts an
+        existing database in place without dropping anything.
+        """
+        from sqlalchemy import inspect, text
+
+        if "alembic_version" not in inspect(self.engine).get_table_names():
+            return None
+        with self.engine.connect() as conn:
+            row = conn.execute(text("SELECT version_num FROM alembic_version")).first()
+        return row[0] if row else None
 
     # -- profiles --
 

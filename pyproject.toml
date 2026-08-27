@@ -3,6 +3,7 @@ name = "kairos"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.19.1",
     "apscheduler>=3.11.3",
     "beautifulsoup4>=4.13.0",
     "fastapi[standard]>=0.141.1",

@@ -89,7 +89,14 @@ async def lifespan(app: FastAPI):
             "Set KAIROS_ENV=production to make this a startup failure."
         )
     app.state.authenticator = build_authenticator(config)
-    app.state.repo = SqliteRepository(config.db_url)
+    # In production the schema belongs to `alembic upgrade head`, run at
+    # deploy time. create_all() cannot evolve one — it fills in missing
+    # tables and says nothing about a table whose shape has drifted — so a
+    # deployment that skipped its migration must fail readiness loudly
+    # rather than boot on a half-invented schema.
+    app.state.repo = SqliteRepository(
+        config.db_url, create_schema=not config.production
+    )
     _seed_demo_profile(app.state.repo)
 
     # The async job machinery. The lease TTL is double the run timeout so a
@@ -299,10 +306,20 @@ def ready(response: Response) -> dict:
     # Production mode is opt-in and strict. In local single-founder mode an
     # open API and zero prices are the documented demo posture, not a fault.
     if config.production:
-        if not config.api_token:
-            checks["authentication"] = "missing"
-        else:
+        if config.api_token or config.credentials_file:
             checks["authentication"] = "ok"
+        else:
+            checks["authentication"] = "missing"
+        try:
+            # An unmigrated database in production means the deploy skipped
+            # its migration step. Serving on it would work until the first
+            # query against a table this build expects and that one does not
+            # have — which is a 500 at 3am rather than a red probe at deploy.
+            checks["schema"] = (
+                "ok" if app.state.repo.schema_version() else "unmigrated"
+            )
+        except Exception:  # noqa: BLE001
+            checks["schema"] = "unknown"
         if config.daily_usd_cap > 0 and not config.prices.configured:
             # Zero prices make the daily USD cap unenforceable: every call
             # costs $0.00, so the cap can never trip.
