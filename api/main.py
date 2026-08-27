@@ -22,10 +22,12 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from typing import Annotated, Literal
+
+from fastapi import Depends, FastAPI, HTTPException, Path as PathParam, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings
 from agent.models import (
@@ -57,6 +59,51 @@ ALLOWED_ORIGINS = ["http://localhost:3000", "https://kairos.vercel.app"]
 ALLOWED_ORIGIN_REGEX = r"https://kairos-[a-z0-9-]+\.vercel\.app"
 
 
+# ── Input bounds ─────────────────────────────────────────────────────────────
+#
+# Every parameter that reaches the database is bounded here rather than in
+# each route, so a route added later inherits the bound by using the type
+# instead of remembering the rule.
+#
+# The numbers are chosen against real callers, not invented: the dashboard's
+# runs page asks for 50 (`frontend/src/app/runs/page.tsx`), so the ceiling
+# sits well above it. What the ceiling actually prevents is `?limit=10000000`
+# — a request to serialise the whole table, which is a denial-of-service
+# written in query-string form — and `?limit=-1`, which SQL reads as
+# "no limit at all".
+
+#: Longest identifier any route accepts. Real ids are short: a run id is
+#: `run_` plus 12 hex characters, an inbox item id is `{run_id}:{opp_id}`.
+#: 200 is generous for all of them and still bounds what reaches an index.
+MAX_ID_LENGTH = 200
+
+#: Most rows a list endpoint will return in one response.
+MAX_LIST_LIMIT = 1_000
+
+#: A list limit: at least one row, at most `MAX_LIST_LIMIT`.
+ListLimit = Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)]
+
+#: An identifier in a path. Non-empty and length-bounded. Deliberately not a
+#: character allowlist: ids come from several generators and a wrong pattern
+#: would 422 a legitimate row, which is worse than the unbounded-length
+#: problem this exists to solve. Traversal and injection are handled where
+#: they matter — ids are parameter-bound in SQL and never used as paths.
+ResourceId = Annotated[str, PathParam(min_length=1, max_length=MAX_ID_LENGTH)]
+
+#: An identifier in a query string. The default belongs on the parameter
+#: (`= None`), not in the annotation — FastAPI rejects a `Query` default
+#: inside `Annotated`.
+OptionalResourceId = Annotated[
+    str | None, Query(min_length=1, max_length=MAX_ID_LENGTH)
+]
+
+#: Who asked for a run. Closed set: it is recorded on the job and on failure
+#: log entries, so "did last night's *scheduled* run fail?" depends on the
+#: value being trustworthy. An unrecognised value used to be silently
+#: rewritten to "unknown", which threw away the caller's mistake.
+RunSource = Literal["manual", "scheduled", "unknown"]
+
+
 class RunTrigger(BaseModel):
     """Run request. Same code path whether a person or the scheduler asks.
 
@@ -65,16 +112,26 @@ class RunTrigger(BaseModel):
     generated one per click. `source` is recorded on the job and on any
     failure-log entry, so "did last night's *scheduled* run fail?" is
     answerable.
+
+    `extra="forbid"`: a misspelled flag is a caller who thinks they asked for
+    something. Accepting `use_demo_catalogue` and silently running against
+    the real catalogue is the failure this prevents.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     use_demo_catalog: bool = False
     include_grants_gov: bool = True
-    idempotency_key: str | None = None
-    source: str = "unknown"
+    idempotency_key: str | None = PydanticField(
+        default=None, min_length=1, max_length=MAX_ID_LENGTH
+    )
+    source: RunSource = "unknown"
 
 
 class InboxStateUpdate(BaseModel):
     """The one thing a person may change about a surfaced item."""
+
+    model_config = ConfigDict(extra="forbid")
 
     state: InboxState
 
@@ -334,7 +391,7 @@ def ready(response: Response) -> dict:
 
 
 @app.get("/founders/{founder_id}")
-def get_founder(founder_id: str, actor: Principal = Depends(principal)) -> FounderProfile:
+def get_founder(founder_id: ResourceId, actor: Principal = Depends(principal)) -> FounderProfile:
     owned(founder_id, actor)
     profile = app.state.repo.get_profile(founder_id)
     if profile is None:
@@ -344,7 +401,7 @@ def get_founder(founder_id: str, actor: Principal = Depends(principal)) -> Found
 
 @app.put("/founders/{founder_id}")
 def put_founder(
-    founder_id: str,
+    founder_id: ResourceId,
     profile: FounderProfile,
     actor: Principal = Depends(principal),
 ) -> FounderProfile:
@@ -386,25 +443,28 @@ def put_founder(
 
 @app.get("/founders/{founder_id}/inbox")
 def get_inbox(
-    founder_id: str,
+    founder_id: ResourceId,
     include_passive: bool = True,
+    limit: ListLimit = 50,
     actor: Principal = Depends(principal),
 ) -> list:
     owned(founder_id, actor)
-    items = app.state.repo.list_inbox(founder_id)
+    items = app.state.repo.list_inbox(founder_id, limit)
     return items if include_passive else [i for i in items if not i.passive]
 
 
 @app.get("/founders/{founder_id}/runs")
 def list_runs(
-    founder_id: str, limit: int = 20, actor: Principal = Depends(principal)
+    founder_id: ResourceId,
+    limit: ListLimit = 20,
+    actor: Principal = Depends(principal),
 ) -> list[RunReport]:
     owned(founder_id, actor)
     return app.state.repo.list_runs(founder_id, limit)
 
 
 @app.get("/founders/{founder_id}/runs/latest")
-def latest_run(founder_id: str, actor: Principal = Depends(principal)) -> RunReport:
+def latest_run(founder_id: ResourceId, actor: Principal = Depends(principal)) -> RunReport:
     owned(founder_id, actor)
     report = app.state.repo.latest_run(founder_id)
     if report is None:
@@ -413,7 +473,7 @@ def latest_run(founder_id: str, actor: Principal = Depends(principal)) -> RunRep
 
 
 @app.get("/founders/{founder_id}/runs/latest/skips")
-def latest_skips(founder_id: str, actor: Principal = Depends(principal)) -> dict:
+def latest_skips(founder_id: ResourceId, actor: Principal = Depends(principal)) -> dict:
     """Everything the agent threw away, and why.
 
     The founder does not see this by default. A judge asking "how do I know
@@ -428,7 +488,7 @@ def latest_skips(founder_id: str, actor: Principal = Depends(principal)) -> dict
 
 @app.get("/founders/{founder_id}/runs/{run_id}")
 def get_run(
-    founder_id: str, run_id: str, actor: Principal = Depends(principal)
+    founder_id: ResourceId, run_id: ResourceId, actor: Principal = Depends(principal)
 ) -> RunReport:
     """One run by id, however old.
 
@@ -441,7 +501,7 @@ def get_run(
 
 @app.get("/founders/{founder_id}/runs/{run_id}/skips")
 def get_run_skips(
-    founder_id: str, run_id: str, actor: Principal = Depends(principal)
+    founder_id: ResourceId, run_id: ResourceId, actor: Principal = Depends(principal)
 ) -> dict:
     """The silent path for one specific run."""
     owned(founder_id, actor)
@@ -450,7 +510,7 @@ def get_run_skips(
 
 @app.get("/opportunities/{opportunity_id}")
 def get_opportunity(
-    opportunity_id: str, actor: Principal = Depends(principal)
+    opportunity_id: ResourceId, actor: Principal = Depends(principal)
 ) -> Opportunity:
     """The row a verdict was made about.
 
@@ -474,7 +534,9 @@ def get_opportunity(
 
 @app.patch("/inbox/{item_id}")
 def patch_inbox_item(
-    item_id: str, update: InboxStateUpdate, actor: Principal = Depends(principal)
+    item_id: ResourceId,
+    update: InboxStateUpdate,
+    actor: Principal = Depends(principal),
 ):
     """Record what the founder did with an item: opened, dismissed, applied.
 
@@ -512,8 +574,8 @@ def patch_inbox_item(
 
 @app.get("/founders/{founder_id}/drafts")
 def list_drafts(
-    founder_id: str,
-    opportunity_id: str | None = None,
+    founder_id: ResourceId,
+    opportunity_id: OptionalResourceId = None,
     actor: Principal = Depends(principal),
 ) -> list[dict]:
     """Every draft for a founder, newest form first.
@@ -527,7 +589,7 @@ def list_drafts(
 
 
 @app.get("/drafts/{draft_id}")
-def get_draft(draft_id: str, actor: Principal = Depends(principal)) -> dict:
+def get_draft(draft_id: ResourceId, actor: Principal = Depends(principal)) -> dict:
     """One draft, ownership-checked.
 
     A draft is the most sensitive object in the system — it is the founder's
@@ -544,7 +606,7 @@ def get_draft(draft_id: str, actor: Principal = Depends(principal)) -> dict:
 
 @app.post("/founders/{founder_id}/runs", status_code=202)
 async def trigger_run(
-    founder_id: str,
+    founder_id: ResourceId,
     trigger: RunTrigger,
     response: Response,
     actor: Principal = Depends(principal),
@@ -575,7 +637,6 @@ async def trigger_run(
             response.status_code = 200
             return existing
 
-    source = trigger.source if trigger.source in ("manual", "scheduled") else "unknown"
     lease = app.state.run_lock.acquire(
         founder_id=founder_id, run_kind=job_module.RUN_KIND
     )
@@ -599,7 +660,7 @@ async def trigger_run(
     job = job_module.new_job(
         founder_id=founder_id,
         idempotency_key=trigger.idempotency_key,
-        source=source,
+        source=trigger.source,
         use_demo_catalog=trigger.use_demo_catalog,
         include_grants_gov=trigger.include_grants_gov,
     )
@@ -625,14 +686,16 @@ async def trigger_run(
         resource=job.job_id,
         method=actor.method,
         founder_id=founder_id,
-        source=source,
+        source=trigger.source,
     )
     return job
 
 
 @app.get("/founders/{founder_id}/jobs")
 def list_jobs(
-    founder_id: str, limit: int = 20, actor: Principal = Depends(principal)
+    founder_id: ResourceId,
+    limit: ListLimit = 20,
+    actor: Principal = Depends(principal),
 ) -> list[RunJob]:
     owned(founder_id, actor)
     return app.state.repo.list_jobs(founder_id, limit)
@@ -640,7 +703,7 @@ def list_jobs(
 
 @app.get("/founders/{founder_id}/jobs/{job_id}")
 def get_job(
-    founder_id: str, job_id: str, actor: Principal = Depends(principal)
+    founder_id: ResourceId, job_id: ResourceId, actor: Principal = Depends(principal)
 ) -> dict:
     """One job, with its report once the run has one.
 
@@ -658,7 +721,7 @@ def get_job(
 
 @app.post("/founders/{founder_id}/jobs/{job_id}/cancel")
 def cancel_job(
-    founder_id: str, job_id: str, actor: Principal = Depends(principal)
+    founder_id: ResourceId, job_id: ResourceId, actor: Principal = Depends(principal)
 ) -> dict:
     """Ask the executor to stop a running job.
 
@@ -692,7 +755,9 @@ def cancel_job(
 
 @app.get("/founders/{founder_id}/scheduler/failures")
 def scheduler_failures(
-    founder_id: str, limit: int = 20, actor: Principal = Depends(principal)
+    founder_id: ResourceId,
+    limit: ListLimit = 20,
+    actor: Principal = Depends(principal),
 ) -> list:
     """Recent invocations that failed to start or finish, newest first.
 
