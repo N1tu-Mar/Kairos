@@ -14,15 +14,19 @@ When a cap trips, the run **halts and reports**. It does not degrade, it does
 not surface a partial digest, and it does not quietly skip the remaining
 work. `RunReport.halted_reason` carries the explanation to the UI.
 
-The daily ledger is a JSON file keyed by UTC date. Cheap, inspectable, and
-correct for a single-process scheduled run. It is not safe across concurrent
-processes — noted in DECISIONS.md, alongside the DynamoDB atomic-counter
-upgrade path.
+The daily ledger is SQLite, keyed by UTC date. Every `add` is one
+`BEGIN IMMEDIATE` transaction — increment and read-back are a single atomic
+step, so two concurrent processes cannot both read a stale total and both
+conclude they are under the cap. A legacy `daily_spend.json` from earlier
+versions is imported once and left in place as its own backup. DynamoDB
+remains the documented upgrade path if workers ever span machines
+(DECISIONS.md).
 """
 
 from __future__ import annotations
 
 import json
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, timezone, datetime
 from pathlib import Path
@@ -53,37 +57,106 @@ class TierPrice:
 
 
 class DailyLedger:
-    """Persisted daily spend, keyed by UTC date."""
+    """Persisted daily spend, keyed by UTC date. Atomic across processes.
+
+    Backed by SQLite so an increment is check-and-write in one transaction.
+    The failure posture is unchanged from the JSON version: anything that
+    prevents a verifiable total — a corrupt database, an unreadable legacy
+    file — raises `BudgetExceeded` and the run halts. We refuse to spend
+    money we cannot account for; we never reset the ledger to zero.
+    """
 
     def __init__(self, state_dir: Path) -> None:
-        self.path = Path(state_dir) / "daily_spend.json"
+        self.dir = Path(state_dir)
+        self.path = self.dir / "daily_spend.sqlite3"
+        #: The pre-migration ledger. Imported once, then kept as a backup —
+        #: this class never writes to it and never deletes it.
+        self.legacy_path = self.dir / "daily_spend.json"
 
-    def _load(self) -> dict[str, float]:
-        if not self.path.exists():
-            return {}
+    def _refuse(self, exc: Exception) -> BudgetExceeded:
+        return BudgetExceeded(
+            "DAILY_USD_CAP",
+            f"spend ledger at {self.path} is unreadable ({exc}); "
+            f"refusing to run without a verifiable daily total",
+        )
+
+    def _connect(self) -> sqlite3.Connection:
+        self.dir.mkdir(parents=True, exist_ok=True)
         try:
-            return json.loads(self.path.read_text())
+            conn = sqlite3.connect(self.path, timeout=10)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS daily_spend"
+                " (day TEXT PRIMARY KEY, usd REAL NOT NULL)"
+            )
+        except sqlite3.Error as exc:
+            raise self._refuse(exc) from exc
+        self._import_legacy(conn)
+        return conn
+
+    def _import_legacy(self, conn: sqlite3.Connection) -> None:
+        """Carry earlier JSON totals forward, exactly once per day-key.
+
+        `INSERT OR IGNORE` makes this idempotent: a day already in the
+        database — imported before, or already accumulating new spend — is
+        never touched again. A corrupt legacy file is still a refusal, not a
+        reset, because its totals are part of today's proof.
+        """
+        if not self.legacy_path.exists():
+            return
+        try:
+            data = json.loads(self.legacy_path.read_text())
         except (json.JSONDecodeError, OSError) as exc:
-            # No silent fallback: a corrupt ledger means we cannot prove we
-            # are under the cap, so we refuse to spend rather than reset it.
-            raise BudgetExceeded(
-                "DAILY_USD_CAP",
-                f"spend ledger at {self.path} is unreadable ({exc}); "
-                f"refusing to run without a verifiable daily total",
-            ) from exc
+            raise self._refuse(exc) from exc
+        try:
+            with conn:
+                for day, usd in data.items():
+                    conn.execute(
+                        "INSERT OR IGNORE INTO daily_spend (day, usd) VALUES (?, ?)",
+                        (str(day), float(usd)),
+                    )
+        except (sqlite3.Error, TypeError, ValueError, AttributeError) as exc:
+            raise self._refuse(exc) from exc
 
     def spent_today(self, today: date | None = None) -> float:
         today = today or datetime.now(timezone.utc).date()
-        return float(self._load().get(today.isoformat(), 0.0))
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT usd FROM daily_spend WHERE day = ?", (today.isoformat(),)
+            ).fetchone()
+            return float(row[0]) if row else 0.0
+        except sqlite3.Error as exc:
+            raise self._refuse(exc) from exc
+        finally:
+            conn.close()
 
     def add(self, amount: float, today: date | None = None) -> float:
+        """Increment today's total and return it — one atomic step.
+
+        `BEGIN IMMEDIATE` takes the writer lock before the read, so two
+        concurrent calls serialise: each sees a total that includes every
+        earlier call, and the call that crosses the cap is the one whose
+        returned total says so.
+        """
         today = today or datetime.now(timezone.utc).date()
-        data = self._load()
         key = today.isoformat()
-        data[key] = float(data.get(key, 0.0)) + amount
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(data, indent=2, sort_keys=True))
-        return data[key]
+        conn = self._connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "INSERT INTO daily_spend (day, usd) VALUES (?, ?)"
+                " ON CONFLICT (day) DO UPDATE SET usd = usd + excluded.usd",
+                (key, float(amount)),
+            )
+            total = conn.execute(
+                "SELECT usd FROM daily_spend WHERE day = ?", (key,)
+            ).fetchone()[0]
+            conn.commit()
+            return float(total)
+        except sqlite3.Error as exc:
+            raise self._refuse(exc) from exc
+        finally:
+            conn.close()
 
 
 @dataclass
