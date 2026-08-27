@@ -13,8 +13,8 @@
     },
     "_curation_note": "TODO: a human must read the page and fill award_min/award_max/deadline. Left null so they surface as UNKNOWN rather than as a guess.",
     "verified": true,
-    "verified_at": "2026-08-27T00:53:00.482193+00:00",
-    "verification_note": "HTTP 200, title terms present (79665 bytes)"
+    "verified_at": "2026-08-27T00:54:13.995402+00:00",
+    "verification_note": "HTTP 200, title terms present, 0 evidence quote(s) found on page (79665 bytes)"
   },
   {
     "id": "venturewell_eteam",
@@ -67,7 +67,7 @@
     ],
     "_curation_note": "Promoted 2026-08-26 from data/opportunities.rutgers.candidates.json after the audit in docs/rutgers-candidates-audit.md re-verified every field against the live page. Deadline dates on the page carry no year ('2027 Competition' timeline), so deadline stays null rather than guessed. 'Graduate students' on the page is mapped to masters+phd; equity is unstated and left UNKNOWN. Apply link on page: https://go.rutgers.edu/ApplyScarletPitch.",
     "verified": true,
-    "verified_at": "2026-08-27T00:53:02.125865+00:00",
-    "verification_note": "HTTP 200, title terms present (50173 bytes)"
+    "verified_at": "2026-08-27T00:54:14.991113+00:00",
+    "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found on page (50173 bytes)"
   }
 ]

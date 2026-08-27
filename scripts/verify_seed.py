@@ -9,23 +9,29 @@ This script is what makes that rule mechanical instead of aspirational. It
 reads `data/opportunities.candidates.json`, fetches every `source_url`, and
 writes `data/opportunities.seed.json` with an honest verdict on each row.
 
-It verifies **reachability**, not correctness. A 200 means the page exists;
-it does not mean the award range and eligibility on the row are right. A
-human still has to read the page. What this prevents is the specific failure
-that is easy to miss in review: a confidently-written row pointing at a URL
-that has never existed.
+It verifies two things, and is honest about the difference:
+
+1.  **Reachability** — the page exists and still mentions the program title.
+    A 200 alone does not prove a manually entered value is correct.
+2.  **Evidence presence** — every verbatim quote the row carries in
+    `criteria[].text` actually appears on the fetched page (whitespace- and
+    punctuation-normalised). A row whose quoted evidence cannot be found on
+    its own source page fails verification. This is the mechanical guard
+    against fabricated or drifted evidence: a curator (human or agent) cannot
+    invent a supporting quote without the verifier catching it.
+
+It still does not verify *interpretation* — that `award_max: 10000` is the
+right reading of the quoted sentence is a human judgment. What it removes is
+the failure class where the quote itself never existed.
 
     uv run python scripts/verify_seed.py
     uv run python scripts/verify_seed.py --strict   # exit 1 if any row fails
-
-Optionally checks that a keyword from the title appears in the fetched page,
-which catches a URL that resolves to a generic 200 landing page after the
-real one was retired.
 """
 
 from __future__ import annotations
 
 import argparse
+import html as html_mod
 import json
 import re
 import sys
@@ -41,6 +47,14 @@ SEED = REPO_ROOT / "data" / "opportunities.seed.json"
 UA = "Mozilla/5.0 (compatible; kairos-seed-verifier/1.0)"
 
 
+def normalize(text: str) -> str:
+    """Lowercase, tags stripped, every run of non-alphanumerics collapsed to
+    one space. Makes quote matching robust to markup, curly quotes and
+    whitespace without weakening it to keyword search."""
+    text = html_mod.unescape(re.sub(r"<[^>]+>", " ", text))
+    return re.sub(r"[^a-z0-9]+", " ", text.lower()).strip()
+
+
 def page_mentions(html: str, phrase: str) -> bool:
     """Does the fetched page actually talk about this program?"""
     text = re.sub(r"<[^>]+>", " ", html).lower()
@@ -49,6 +63,21 @@ def page_mentions(html: str, phrase: str) -> bool:
         return True
     hits = sum(1 for t in tokens if t in text)
     return hits >= max(1, len(tokens) // 2)
+
+
+def missing_evidence(html: str, row: dict) -> list[str]:
+    """Every `criteria[].text` quote that does NOT appear on the page.
+
+    Quotes are matched normalised, as substrings. An empty return means every
+    quoted evidence span was found verbatim (modulo whitespace/punctuation).
+    """
+    page = normalize(html)
+    missing = []
+    for criterion in row.get("criteria") or []:
+        quote = criterion.get("text", "")
+        if quote and normalize(quote) not in page:
+            missing.append(quote)
+    return missing
 
 
 def verify(row: dict, timeout_s: float) -> dict:
@@ -86,9 +115,24 @@ def verify(row: dict, timeout_s: float) -> dict:
         )
         return result
 
+    lost = missing_evidence(response.text, row)
+    if lost:
+        result["verified"] = False
+        result["verified_at"] = None
+        result["verification_note"] = (
+            f"page returned 200 but {len(lost)} quoted evidence span(s) were "
+            f"not found on it — the quote may be fabricated, or the page has "
+            f"changed since curation. First missing: {lost[0][:120]!r}"
+        )
+        return result
+
+    checked = len(row.get("criteria") or [])
     result["verified"] = True
     result["verified_at"] = datetime.now(timezone.utc).isoformat()
-    result["verification_note"] = f"HTTP 200, title terms present ({len(response.text)} bytes)"
+    result["verification_note"] = (
+        f"HTTP 200, title terms present, {checked} evidence quote(s) found on "
+        f"page ({len(response.text)} bytes)"
+    )
     return result
 
 
