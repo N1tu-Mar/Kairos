@@ -2,7 +2,7 @@
 
 Current as of 2026-08-27.
 
-**Local health.** 811 Python tests pass with no `xfail` remaining; 54
+**Local health.** 835 Python tests pass with no `xfail` remaining; 54
 frontend tests, TypeScript checking, ESLint and the production build all
 pass. Migrations are covered by 20 tests against both a fresh database and a
 representative existing one.

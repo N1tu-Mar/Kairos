@@ -155,6 +155,11 @@ def build_record(
             "because it was named explicitly in the target list, at exactly that URL, "
             "and it was not crawled."
         )
+    elif target.tier == "WEB_SEARCH":
+        opportunity.caveats.append(
+            "[web search] This page was discovered by a search API result, fetched "
+            "exactly once, and has not been human reviewed."
+        )
 
     # Never scraped, never inferred. Stated on every record so its emptiness
     # cannot be mistaken for "no reviews exist".
