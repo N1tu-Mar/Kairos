@@ -339,16 +339,96 @@ def evidence_supports_claim(
 # Section 11.4 — numeric whitelist
 # ═════════════════════════════════════════════════════════════════════════════
 
-#: `$5,000` `5K` `1.2M` `40%` `40`. Digits only — spelled-out numbers
-#: ("forty users") are a known gap.
-#: TODO: extend to spelled-out numerals if the golden set shows them leaking.
+#: `$5,000` `5K` `1.2M` `40%` `40`, plus spelled-out forms: `forty users`,
+#: `twenty-five`, `one hundred applicants`, `two thousand dollars`,
+#: `forty-five percent`, and mixed `1.5 million`. Everything normalises to a
+#: comparable float, so the whitelist is symmetric between digit and word
+#: forms in both the draft and the knowledge base.
 _NUMBER = re.compile(r"\$?\s?(\d[\d,]*(?:\.\d+)?)\s?([KkMm])?%?")
+
+_WORD_UNITS = {
+    "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15,
+    "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
+}
+_WORD_TENS = {
+    "twenty": 20, "thirty": 30, "forty": 40, "fifty": 50,
+    "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90,
+}
+_WORD_SCALES = {"thousand": 1_000, "million": 1_000_000, "billion": 1_000_000_000}
+
+_NUMBER_WORDS = sorted(
+    {*_WORD_UNITS, *_WORD_TENS, "hundred", *_WORD_SCALES}, key=len, reverse=True
+)
+_WORDS_ALT = "|".join(_NUMBER_WORDS)
+
+#: A run of number words joined by spaces, hyphens, or "and":
+#: "three hundred and twelve". Must start on a number word, never on "and".
+_SPELLED_NUMBER = re.compile(
+    rf"\b(?:{_WORDS_ALT})(?:[\s-]+(?:{_WORDS_ALT}|and))*\b", re.I
+)
+
+#: A digit quantity with a scale word: "1.5 million", "2 thousand". One
+#: value, not two — the bare digits must not leak into the asserted set.
+_DIGIT_SCALE = re.compile(
+    r"\$?\s?(\d[\d,]*(?:\.\d+)?)[\s-]+(hundred|thousand|million|billion)\b", re.I
+)
+
+
+def _words_to_number(tokens: list[str]) -> float | None:
+    """Deterministic word-number accumulator. `None` when nothing numeric."""
+    total = 0.0
+    current = 0.0
+    seen = False
+    for token in tokens:
+        if token == "and":
+            continue
+        if token in _WORD_UNITS:
+            current += _WORD_UNITS[token]
+            seen = True
+        elif token in _WORD_TENS:
+            current += _WORD_TENS[token]
+            seen = True
+        elif token == "hundred":
+            current = max(current, 1) * 100
+            seen = True
+        elif token in _WORD_SCALES:
+            total += max(current, 1) * _WORD_SCALES[token]
+            current = 0.0
+            seen = True
+    return total + current if seen else None
 
 
 def extract_numbers(text: str) -> set[float]:
-    """Every numeric value asserted in a piece of text, normalised."""
+    """Every numeric value asserted in a piece of text, normalised.
+
+    Digit forms, spelled-out forms, and digit-plus-scale-word forms all
+    reduce to one comparable float. Two deliberate exclusions, so ordinary
+    prose does not read as a quantity claim: a standalone "one" or "zero"
+    ("one of the first", "no one") is ignored — any longer word sequence
+    ("one hundred") still counts — and imprecise plurals ("hundreds of
+    students") assert no specific number to check.
+    """
+    text = text or ""
     found: set[float] = set()
-    for raw, suffix in _NUMBER.findall(text or ""):
+    consumed: list[tuple[int, int]] = []
+
+    for match in _DIGIT_SCALE.finditer(text):
+        try:
+            value = float(match.group(1).replace(",", ""))
+        except ValueError:
+            continue
+        found.add(value * _WORD_SCALES.get(match.group(2).lower(), 100))
+        consumed.append(match.span())
+
+    def overlaps(span: tuple[int, int]) -> bool:
+        return any(start < span[1] and span[0] < end for start, end in consumed)
+
+    for match in _NUMBER.finditer(text):
+        if overlaps(match.span()):
+            continue
+        raw, suffix = match.group(1), match.group(2)
         try:
             value = float(raw.replace(",", ""))
         except ValueError:
@@ -358,6 +438,17 @@ def extract_numbers(text: str) -> set[float]:
         elif suffix in {"M", "m"}:
             value *= 1_000_000
         found.add(value)
+
+    for match in _SPELLED_NUMBER.finditer(text):
+        if overlaps(match.span()):
+            continue
+        tokens = [t.lower() for t in re.split(r"[\s-]+", match.group(0)) if t]
+        if tokens in (["one"], ["zero"]):
+            continue
+        value = _words_to_number(tokens)
+        if value is not None:
+            found.add(float(value))
+
     return found
 
 
