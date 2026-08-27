@@ -234,7 +234,10 @@ def blocklisted(label: str) -> str | None:
 
 #: Category -> (trigger in generated text, evidence pattern required in the KB).
 #: If the draft asserts one of these and nothing in the knowledge base
-#: supports the same category, the draft hard-fails. Not a warning — a fail.
+#: supports the same category *with the same polarity*, the draft hard-fails.
+#: Not a warning — a fail. Polarity matters: "there is no faculty advisor"
+#: contains the words "faculty advisor" and supports nothing except the
+#: absence of one. See `evidence_supports_claim`.
 FORBIDDEN_CLAIMS: tuple[tuple[str, re.Pattern[str], re.Pattern[str]], ...] = (
     (
         "faculty_sponsor",
@@ -267,6 +270,69 @@ FORBIDDEN_CLAIMS: tuple[tuple[str, re.Pattern[str], re.Pattern[str]], ...] = (
         re.compile(r"\b(patent\w*|provisional|trademark|licens\w+|IP)\b", re.I),
     ),
 )
+
+
+# ── Polarity-aware evidence support ──────────────────────────────────────────
+
+#: Clause boundaries: sentence punctuation, commas, and contrast conjunctions.
+#: Commas matter — "no revenue yet, but 40 users" is one sentence whose two
+#: clauses carry opposite polarities, and a negation window that ignores the
+#: comma blocks the supported half.
+_CLAUSE_BOUNDARY = re.compile(
+    r"[.;!?\n,]+|\b(?:but|however|although|though|whereas|except)\b", re.I
+)
+
+#: Deterministic negation markers. Words, contractions (both apostrophes),
+#: and the "has yet to" family. Deliberately not a dependency parse — a
+#: marker anywhere in the clause negates the whole clause, which errs toward
+#: withholding, the direction the design accepts.
+_NEGATION_MARKER = re.compile(
+    r"\b(?:no|not|never|neither|nor|none|cannot|without|lacks?|lacked|lacking)\b"
+    r"|\b\w+n['’]t\b"
+    r"|\byet\s+to\b",
+    re.I,
+)
+
+
+def _clauses(text: str) -> list[str]:
+    return [c for c in _CLAUSE_BOUNDARY.split(text or "") if c and c.strip()]
+
+
+def _polarities(text: str, pattern: re.Pattern[str]) -> set[bool]:
+    """Per clause the pattern matches in: is that clause negated?
+
+    Returns a set because a text can assert both polarities of one category
+    ("no revenue, but 40 users").
+    """
+    return {
+        bool(_NEGATION_MARKER.search(clause))
+        for clause in _clauses(text)
+        if pattern.search(clause)
+    }
+
+
+def evidence_supports_claim(
+    answer: str, trigger: re.Pattern[str], evidence: re.Pattern[str], kb_text: str
+) -> bool:
+    """Does the knowledge base support this claim *at the claim's polarity*?
+
+    Every polarity the answer asserts for the category must appear at the
+    same polarity somewhere in the evidence. A positive claim needs a
+    non-negated evidence clause; a claim of absence needs a negated one.
+    Keyword overlap inside a clause of the opposite polarity is not support —
+    it is usually the refutation.
+
+    Deterministic clause-and-marker analysis, not semantics. When it cannot
+    establish support it fails closed: the field blocks and goes back to the
+    founder.
+    """
+    claimed = _polarities(answer, trigger)
+    if not claimed:
+        # The trigger fired on the whole answer but on no single clause
+        # (a phrase broken by a clause boundary). Treat it as a positive
+        # claim so evidence is still required.
+        claimed = {False}
+    return claimed <= _polarities(kb_text, evidence)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -567,12 +633,21 @@ def _run_gate(
     for field in generated:
         answer = field.answer or ""
         for category, trigger, evidence in FORBIDDEN_CLAIMS:
-            if trigger.search(answer) and not evidence.search(kb_text):
-                block(
-                    "FORBIDDEN_CLAIMS",
-                    field.field_id,
-                    f"asserts a {category} claim with nothing in the knowledge base to support it",
-                )
+            if trigger.search(answer) and not evidence_supports_claim(
+                answer, trigger, evidence, kb_text
+            ):
+                if evidence.search(kb_text):
+                    detail = (
+                        f"asserts a {category} claim whose only knowledge-base "
+                        f"match has the opposite polarity — the evidence "
+                        f"refutes it rather than supporting it"
+                    )
+                else:
+                    detail = (
+                        f"asserts a {category} claim with nothing in the "
+                        f"knowledge base to support it"
+                    )
+                block("FORBIDDEN_CLAIMS", field.field_id, detail)
     if failed("FORBIDDEN_CLAIMS"):
         return
 

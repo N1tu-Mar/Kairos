@@ -37,34 +37,36 @@ async def test_the_case_set_is_the_shape_section_11_11_asks_for():
 async def test_the_published_numbers_are_what_the_readme_says():
     card = await scorecard()
 
-    assert card.groundedness == pytest.approx(0.80)
-    assert card.abstention_accuracy == pytest.approx(9 / 11)
+    assert card.groundedness == pytest.approx(1.0)
+    assert card.abstention_accuracy == pytest.approx(1.0)
     assert card.unnecessary_question_rate == pytest.approx(1 / 9)
 
 
-async def test_the_two_known_leaks_are_exactly_these_two():
-    """Both are the same bug: an evidence regex matching a negation.
-
-    Pinned by case id so a *new* leak fails the build even though the count
-    would look unchanged if one were swapped for another.
-    """
+async def test_the_two_former_leaks_are_now_caught_by_the_polarity_check():
+    """trap_04 and trap_05 leaked on the first run — one bug, an evidence
+    regex matching the negation of the claim it was checking. Fixed by the
+    polarity-aware `evidence_supports_claim`, whose adversarial matrix lives
+    in tests/test_negation_grounding.py and was written independently of this
+    scoreboard. Pinned here so a regression reads as exactly what it is."""
     card = await scorecard()
 
-    assert {o.case_id for o in card.leaks} == {
-        "trap_04_claim_negated_by_its_own_evidence",
-        "trap_05_invented_incorporation",
-    }
+    blocked = dict(card.blocked_cases)
+    assert blocked.get("trap_04_claim_negated_by_its_own_evidence") == "FORBIDDEN_CLAIMS"
+    assert blocked.get("trap_05_invented_incorporation") == "FORBIDDEN_CLAIMS"
 
 
-async def test_every_other_trap_is_caught():
+async def test_every_trap_is_caught():
     card = await scorecard()
     leaked = {o.case_id for o in card.leaks}
     trapped = {c.case_id for c in load_cases().traps}
 
-    assert trapped - leaked == {
+    assert leaked == set()
+    assert trapped == {
         "trap_01_inflated_number",
         "trap_02_fabricated_citation",
         "trap_03_no_citation_at_all",
+        "trap_04_claim_negated_by_its_own_evidence",
+        "trap_05_invented_incorporation",
         "trap_06_invented_prior_award",
         "trap_07_names_a_program_never_retrieved",
         "trap_08_answers_a_certification_field",
