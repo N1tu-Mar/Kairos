@@ -130,10 +130,16 @@ async def execute_job(job: RunJob, repo, lease: Lease, failure_log: ScheduledRun
             profile = repo.get_profile(job.founder_id)
             if profile is None:
                 raise RuntimeError(f"no profile for {job.founder_id}")
+            budget = RunBudget.from_settings(settings())
+            # A scheduled run calls real models. If a dollar cap is
+            # configured that zero prices make unenforceable, refuse here —
+            # before the first token — rather than running to completion
+            # under a cap that was never going to trip.
+            budget.require_enforceable_spend_cap()
             ctx = new_run_context(
                 profile=profile,
                 repo=repo,
-                budget=RunBudget.from_settings(settings()),
+                budget=budget,
                 agents=SubAgents.build(),
             )
             ctx.forms = load_forms()

@@ -43,6 +43,39 @@ class BudgetExceeded(RuntimeError):
         self.detail = detail
 
 
+class UnenforceableSpendCap(RuntimeError):
+    """A dollar cap was configured that arithmetic cannot enforce.
+
+    Raised before any model is called, never during a run. The failure it
+    prevents is the quiet one: an operator sets `KAIROS_DAILY_USD_CAP=3`,
+    leaves the prices at their zero default, and believes three dollars is
+    the most a runaway loop can cost them. Every call prices at $0.00, the
+    ledger records nothing, and the cap can never trip.
+
+    Refusing to start is the honest response. The alternative — running
+    anyway with a warning in a log nobody reads — is how a $3 cap becomes a
+    $300 bill.
+    """
+
+
+@dataclass(frozen=True)
+class EnforcementStatus:
+    """Which caps are actually doing work, and a line that says so.
+
+    Exists so no surface has to infer enforcement from a price being
+    nonzero. `/ready`, the run report and the CLI all read this, so they
+    cannot drift into telling different stories.
+    """
+
+    token_ceiling: int
+    token_ceiling_active: bool
+    usd_cap: float
+    usd_cap_configured: bool
+    prices_configured: bool
+    usd_cap_active: bool
+    summary: str
+
+
 @dataclass(frozen=True)
 class TierPrice:
     """USD per 1M tokens. Zeroes produce a visibly-zero estimate, not a guess."""
@@ -194,6 +227,87 @@ class RunBudget:
                 ),
             },
         )
+
+    # ── What is actually enforced ────────────────────────────────────────
+
+    def prices_configured(self) -> bool:
+        """True when every tier that could be charged has a live price.
+
+        Partial pricing counts as unconfigured. One tier priced and the
+        other at zero under-counts every call the unpriced tier makes, and a
+        cap computed from half the spend is not a cap.
+
+        Output prices are the test: every call this system makes produces
+        output, so a nonzero output price is enough to make a call cost
+        something.
+        """
+        tiers = ("reasoning", "classify")
+        return all(self.prices.get(tier, TierPrice()).output_per_mtok > 0 for tier in tiers)
+
+    def enforcement_status(self) -> EnforcementStatus:
+        """Which caps are real right now. Never inferred by a caller."""
+        priced = self.prices_configured()
+        cap_configured = self.daily_usd_cap > 0
+        cap_active = cap_configured and priced
+
+        if cap_active:
+            summary = (
+                f"token ceiling {self.max_run_tokens:,} per run and a daily "
+                f"cap of ${self.daily_usd_cap:.2f} are both enforced"
+            )
+        elif cap_configured:
+            summary = (
+                f"token ceiling {self.max_run_tokens:,} per run is enforced; the "
+                f"configured daily cap of ${self.daily_usd_cap:.2f} cannot be "
+                f"enforced because model prices are zero"
+            )
+        else:
+            summary = (
+                f"token ceiling {self.max_run_tokens:,} per run is enforced; "
+                f"no daily USD cap is configured"
+            )
+
+        return EnforcementStatus(
+            token_ceiling=self.max_run_tokens,
+            token_ceiling_active=True,
+            usd_cap=self.daily_usd_cap,
+            usd_cap_configured=cap_configured,
+            prices_configured=priced,
+            usd_cap_active=cap_active,
+            summary=summary,
+        )
+
+    def require_enforceable_spend_cap(self, *, calls_models: bool = True) -> None:
+        """Refuse to start a live run whose dollar cap is arithmetic fiction.
+
+        Called before the first model invocation, not during the run — a
+        budget problem discovered halfway through has already spent the
+        money it was supposed to prevent.
+
+        `calls_models=False` exempts the paths that spend nothing: the dry
+        run and the fixture-replaying eval. Refusing there would break
+        `--dry-run` for exactly the person it exists to serve — someone with
+        a clean clone and no AWS account.
+
+        No price is ever suggested. This repository does not ship a table of
+        roughly-what-Bedrock-charges, because a stale guess would silently
+        under-count spend against a real cap, which is the same failure in a
+        more convincing disguise.
+        """
+        if not calls_models:
+            return
+        status = self.enforcement_status()
+        if status.usd_cap_configured and not status.prices_configured:
+            raise UnenforceableSpendCap(
+                f"KAIROS_DAILY_USD_CAP is set to ${self.daily_usd_cap:.2f}, but "
+                f"model prices are zero, so every call costs $0.00 and the cap "
+                f"can never trip. Set KAIROS_PRICE_REASONING_OUT_PER_MTOK and "
+                f"KAIROS_PRICE_CLASSIFY_OUT_PER_MTOK (USD per 1M tokens, from "
+                f"the Bedrock pricing page for your region), or set "
+                f"KAIROS_DAILY_USD_CAP=0 to run under the token ceiling alone. "
+                f"The per-run ceiling of {self.max_run_tokens:,} tokens is "
+                f"enforced either way."
+            )
 
     # ── Token + spend ────────────────────────────────────────────────────
 

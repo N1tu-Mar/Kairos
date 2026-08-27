@@ -19,7 +19,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from agent.budget import RunBudget  # noqa: E402
+from agent.budget import RunBudget, UnenforceableSpendCap  # noqa: E402
 from agent.config import REPO_ROOT, settings, stamp_placeholder_models  # noqa: E402
 from agent.models import ApplicationForm, FounderProfile  # noqa: E402
 from agent.runtime import SubAgents  # noqa: E402
@@ -104,10 +104,20 @@ async def one_run(args) -> int:
         profile = FounderProfile.model_validate_json(path.read_text())
         repo.save_profile(profile)
 
+    budget = RunBudget.from_settings(config)
+    # A dry run calls no model and spends nothing, so an unenforceable
+    # dollar cap is irrelevant there. A real run must not proceed under a
+    # cap that arithmetic cannot enforce.
+    try:
+        budget.require_enforceable_spend_cap(calls_models=not args.dry_run)
+    except UnenforceableSpendCap as exc:
+        print(f"refusing to run: {exc}")
+        return 2
+
     ctx = new_run_context(
         profile=profile,
         repo=repo,
-        budget=RunBudget.from_settings(config),
+        budget=budget,
     )
     ctx.forms = load_forms()
 
@@ -118,6 +128,9 @@ async def one_run(args) -> int:
         ctx.agents = build_stub_agents(ctx)
     else:
         ctx.agents = SubAgents.build()
+
+    # Say which caps are actually doing work, every run, before the work.
+    print(f"budget: {budget.enforcement_status().summary}")
 
     report = await run_once(
         ctx,
