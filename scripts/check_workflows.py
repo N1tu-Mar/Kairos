@@ -227,6 +227,76 @@ def ref_exists(action: str, ref: str) -> bool:
     return ref in out.stdout
 
 
+def version_key(tag: str) -> tuple[int, ...]:
+    """Sort a version tag numerically, not as a string.
+
+    `sorted()` on raw tags puts v0.9.2 after v0.30.0, because "9" > "3" one
+    character at a time. That is how a 2023 release of trivy-action was taken
+    for the newest one and shipped: it pinned a trivy old enough that its
+    vulnerability database endpoint had been retired, so the scan died in
+    eight seconds and the upload got a truncated file.
+    """
+    return tuple(int(part) for part in re.findall(r"\d+", tag))
+
+
+def newest_tag(action: str) -> str | None:
+    """The highest release tag upstream, by numeric order."""
+    owner_repo = "/".join(action.split("/")[:2])
+    try:
+        out = subprocess.run(
+            ["git", "ls-remote", "--tags", f"https://github.com/{owner_repo}.git"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+    if out.returncode != 0:
+        return None
+
+    tags = {
+        m.group(1)
+        for line in out.stdout.splitlines()
+        # Plain release tags only: no ^{} peels, no -rc/-beta suffixes.
+        if (m := re.search(r"refs/tags/(v?\d+(?:\.\d+)*)$", line))
+    }
+    return max(tags, key=version_key) if tags else None
+
+
+def check_versions(paths: list[Path]) -> list[Problem]:
+    """Warn when a pin's version comment is behind the newest release.
+
+    Reported as a note rather than a failure: being a version behind is a
+    choice, and a check that fails on every upstream release is a check
+    people learn to ignore. The point is to make "I picked the newest" a
+    statement somebody verified rather than assumed.
+    """
+    seen: dict[str, tuple[str, str, int]] = {}
+    for path in paths:
+        for lineno, action, ref, comment in find_uses(path):
+            if action.startswith(EXEMPT_PREFIXES) or not SHA.match(ref):
+                continue
+            if comment and re.match(r"^v?\d", comment.strip()):
+                seen.setdefault(action, (comment.strip(), path.name, lineno))
+
+    behind = []
+    for action, (pinned, _file, _line) in sorted(seen.items()):
+        latest = newest_tag(action)
+        if latest is None:
+            continue
+        if version_key(latest) > version_key(pinned):
+            behind.append(f"  {action}: pinned {pinned}, newest {latest}")
+
+    if behind:
+        print("\nBehind the newest upstream release:")
+        print("\n".join(behind))
+        print("  (not a failure — but confirm the pin is deliberate)")
+
+    return []
+
+
 def check_online(paths: list[Path]) -> list[Problem]:
     """Every pinned SHA resolves to a real commit upstream."""
     targets: dict[tuple[str, str], tuple[str, int]] = {}
@@ -282,6 +352,7 @@ def main() -> int:
     if args.online:
         print("\nResolving pins upstream:")
         problems += check_online(paths)
+        problems += check_versions(paths)
 
     if problems:
         print(f"\n{len(problems)} problem(s):\n", file=sys.stderr)

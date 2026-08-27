@@ -159,6 +159,34 @@ def test_the_checker_passes_on_the_committed_workflows() -> None:
     )
 
 
+def test_version_tags_sort_numerically_not_lexically() -> None:
+    """v0.9.2 is older than v0.30.0, however the strings compare.
+
+    Sorting tags as text put v0.9.2 last and it was taken for the newest
+    release of trivy-action. It is from 2023, and it pins a trivy whose
+    vulnerability database endpoint has since been retired — so the scan
+    exited in eight seconds and the SARIF upload got a truncated file.
+    """
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from check_workflows import version_key  # noqa: PLC0415
+
+    tags = ["v0.9.2", "v0.30.0", "v0.36.0", "v0.10.0"]
+
+    assert max(tags, key=version_key) == "v0.36.0"
+    assert sorted(tags, key=version_key) == [
+        "v0.9.2",
+        "v0.10.0",
+        "v0.30.0",
+        "v0.36.0",
+    ]
+    # The failure this replaces: plain string sort disagrees.
+    assert max(tags) == "v0.9.2"
+
+    # Differing component counts still compare.
+    assert version_key("v7") < version_key("v7.0.1")
+    assert version_key("v10.0.1") > version_key("v7.6.0")
+
+
 def test_the_checker_rejects_an_unresolvable_pin(tmp_path: Path) -> None:
     """The regression test proper: the exact shape that broke the build.
 
