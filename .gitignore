@@ -51,8 +51,9 @@ frontend/tsconfig.tsbuildinfo
 # docs
 
 .session
-session.md
-session3.md
+# Session transcripts. A glob, because listing them one at a time kept
+# missing the next one.
+session*.md
 
 # Terraform
 infra/.terraform/
