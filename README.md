@@ -19,7 +19,7 @@ the founder is asleep**.
 
 > **Status: working locally, not production-ready.** The agent loop,
 > deterministic safety layer, SQLite persistence, FastAPI surface and Next.js
-> dashboard are implemented. The catalog holds 49 curated rows, 43 verified
+> dashboard are implemented. The catalog holds 59 curated rows, 52 verified
 > quote-by-quote against their live pages; three real application forms are
 > modelled, two of them partial; discovery scores 85.7% recall against a
 > hand-authored 20-program benchmark. The AWS deployment is defined in
@@ -47,7 +47,7 @@ in a week that already has a problem set due.
 
 | Area | What exists today |
 |---|---|
-| Discovery | Three sources. A curated seed catalog of **49 rows, 43 of them verified quote-by-quote against their live pages**; live Grants.gov `search2`/`fetchOpportunity` with pagination, profile-aware keywords, client-side `since` filtering and per-page failure reporting; and an optional campus source behind `KAIROS_ENABLE_BROWSER` that loads only human-`ACCEPTED` scraped rows. |
+| Discovery | Three sources. A curated seed catalog of **59 rows, 52 of them verified quote-by-quote against their live pages**; live Grants.gov `search2`/`fetchOpportunity` with pagination, profile-aware keywords, client-side `since` filtering and per-page failure reporting; and an optional campus source behind `KAIROS_ENABLE_BROWSER` that loads only human-`ACCEPTED` scraped rows. |
 | Campus research | An operator-run, robots-aware Rutgers scraper with rate limiting, raw-page archives, deterministic extraction, exact evidence spans, explicit `UNKNOWN` fields, deduplication and stale-deadline warnings. Its seven rows have now been audited against their live pages: 1 accepted and promoted, 3 rejected with reasons, 3 still `NEEDS_HUMAN_REVIEW`. |
 | Measurement | A 20-program discovery-recall benchmark with hand-authored ground truth and 6 deliberate negatives: **85.7% retrieval recall, 83.3% eligibility coverage at 100% precision, 0 wrong deadlines.** Separate from the drafting golden set. |
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
@@ -464,7 +464,7 @@ eval nobody can audit.
 
 Written before the deadline pressure, so it stays honest.
 
-- **The catalog is 49 rows, not the promised 60–100.** 43 are verified: the
+- **The catalog is 59 rows, one short of the promised 60–100.** 52 are verified: the
   page was fetched, it still mentions the program, and every quote the row
   carries was re-found on the page that quote cites. The other 6 are
   deliberately retained failures — one URL that 404s, two hosts that refuse
@@ -488,7 +488,7 @@ Written before the deadline pressure, so it stays honest.
   and TCNJ's fourteen components come from pages that publish the shape of
   the application but not the questions inside it; both are marked
   `complete: false` with a note saying what is missing. No login was used and
-  no portal was opened. 2 of 49 catalog rows can therefore be drafted;
+  no portal was opened. 2 of 59 catalog rows can therefore be drafted;
   `scripts/form_coverage.py` prints the gap.
 - **Structured eligibility is still mostly UNKNOWN on live sources.**
   Grants.gov states eligibility in prose, and prose is not a structured

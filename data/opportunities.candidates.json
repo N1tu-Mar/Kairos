@@ -1834,5 +1834,414 @@
       }
     ],
     "_curation_note": "researched 2026-08-27; https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/ ('Apply now' link on that page); the utexas.edu URL surfaced in search (/jon-brumley-texas-venture-labs/students/investment-competition/) 301-redirects to the /brumley-institute/ path used here, which is where every quote lives. Deadline 2026-11-08 is derived from the page's 'The application deadline is Sunday, November 8th' read against the stated Fall 2026 competition date of Friday, December 11th, 2026 \u2014 November 8, 2026 is indeed a Sunday and December 11, 2026 a Friday, so the year is unambiguous, but note the page itself prints no year on the deadline. award_max 15000 is the Texas Champion cash award; award_min 1000 is the Pippin Veteran award, the smallest single named cash prize (the Experian pitch award's third place is also $1,000). Stacked awards could exceed $15,000. degree_levels derives from the explicit 'Graduate students from the University of Texas System' / 'University of Texas graduate students'; undergraduates are not mentioned as eligible or ineligible. No citizenship, team-size, or equity rule is stated. [deadline withheld] The page prints the deadline without a year; the researcher derived 2026 by matching the weekday. That is inference, not evidence, so the deadline stays UNKNOWN \u2014 the verbatim date text remains in criteria for a human to resolve."
+  },
+  {
+    "id": "mit-100k-entrepreneurship-competition",
+    "title": "MIT $100K Entrepreneurship Competition",
+    "funder": "MIT $100K Entrepreneurship Competition (MIT Sloan School of Management)",
+    "source_url": "https://www.mit100k.org/",
+    "award_min": 2000,
+    "award_max": 100000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "institutions": [
+        "Massachusetts Institute of Technology"
+      ],
+      "min_team_size": 1,
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "Each team must have at least one currently registered MIT student; if you are submitting as an individual, you must be a currently registered MIT student.",
+        "source_doc": "https://www.mit100k.org/eligibility-rules"
+      },
+      {
+        "text": "Currently registered MIT students include all full-time and part-time undergraduates and graduate students, including PhD/doctoral candidates.",
+        "source_doc": "https://www.mit100k.org/eligibility-rules"
+      },
+      {
+        "text": "Submissions may be entered by individuals or teams.",
+        "source_doc": "https://www.mit100k.org/eligibility-rules"
+      },
+      {
+        "text": "The winning team takes home the $100,000 Grand Prize!",
+        "source_doc": "https://www.mit100k.org/"
+      },
+      {
+        "text": "compete for both the $5K Grand Prize and the $2K Audience Choice Award",
+        "source_doc": "https://www.mit100k.org/"
+      },
+      {
+        "text": "More than $300K in non-dilutive funding is awarded to new ventures each year.",
+        "source_doc": "https://www.mit100k.org/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; application/registration links are published per phase at https://www.mit100k.org/pitch , /accelerate and /launch; no application deadline date is published anywhere on the site - the Pitch page states only 'Check back in September 2026 for Pitch 2026 dates.', so deadline is null. Three phases (Pitch/Accelerate/Launch) with separate prizes; award_min 2000 = Pitch Audience Choice, award_max 100000 = Launch Grand Prize. takes_equity=false is recorded from the explicit 'non-dilutive funding' statement on the homepage. The rules page also caps prior outside funding (no equity funding accepted; non-equity funding caps of $100K/$150K/$250K by phase)."
+  },
+  {
+    "id": "harvard-presidents-innovation-challenge",
+    "title": "Harvard President's Innovation Challenge",
+    "funder": "Harvard Innovation Labs, Harvard University",
+    "source_url": "https://innovationlabs.harvard.edu/presidents-innovation-challenge/",
+    "award_min": 750,
+    "award_max": 75000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "Out of nearly 200 submissions, four winners will receive $2,500, and six finalists will receive $750.",
+        "source_doc": "https://innovationlabs.harvard.edu/presidents-innovation-challenge/program"
+      },
+      {
+        "text": "Hear one-minute pitches from five finalists followed by the announcement of the $25K and $75K award winners.",
+        "source_doc": "https://innovationlabs.harvard.edu/presidents-innovation-challenge/program"
+      },
+      {
+        "text": "The Student Open Track recognizes student-led commercial ventures that are selling to consumers, businesses, or organizations",
+        "source_doc": "https://innovationlabs.harvard.edu/presidents-innovation-challenge/program"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://innovationlabs.harvard.edu/presidents-innovation-challenge/ ; the site currently shows the completed 2026 cycle (awards ceremony May 6, 2026) and no open application form or 2027 deadline, so deadline is null. Award figures come from the 2026 event program page: five tracks (Student and Alumni+Affiliates x Health Care/Life Sciences, Open, Social Impact) each award $25K and $75K; Ingenuity Awards pay $2,500 (winners) and $750 (finalists). No eligibility keys populated: the program page never states degree levels, citizenship, institution eligibility, team size, or equity terms - the tracks are only described as 'student-led' vs 'Alumni + Affiliates', which is not an explicit eligibility rule. The May 12, 2026 date on this page is an accelerator (Climate Circle / Launch Lab X) deadline, NOT the PIC deadline. The main /presidents-innovation-challenge page and this /program page return HTTP 403 to default HTTP clients; they load over HTTP/1.1 with a browser User-Agent."
+  },
+  {
+    "id": "georgia-tech-inventure-prize",
+    "title": "Georgia Tech InVenture Prize",
+    "funder": "Georgia Institute of Technology",
+    "source_url": "https://inventureprize.gatech.edu/",
+    "award_min": 5000,
+    "award_max": 20000,
+    "deadline": "2027-01-14",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad"
+      ],
+      "institutions": [
+        "Georgia Institute of Technology"
+      ],
+      "min_team_size": 1
+    },
+    "criteria": [
+      {
+        "text": "Current Georgia Tech undergraduate students working towards their first undergraduate degree can enter individually or as teams.",
+        "source_doc": "https://inventureprize.gatech.edu/rules-eligibility"
+      },
+      {
+        "text": "the first-place winner or winning team will receive $20,000 and automatic acceptance into the next cohort",
+        "source_doc": "https://inventureprize.gatech.edu/rules-eligibility"
+      },
+      {
+        "text": "The second-place team will receive $10,000.",
+        "source_doc": "https://inventureprize.gatech.edu/rules-eligibility"
+      },
+      {
+        "text": "Teams with generated revenue or venture capital funding in excess of $100,000 are not eligible to compete.",
+        "source_doc": "https://inventureprize.gatech.edu/rules-eligibility"
+      },
+      {
+        "text": "Below is the timeline for the 2027 Georgia Tech InVenture Prize competition.",
+        "source_doc": "https://inventureprize.gatech.edu/schedule"
+      },
+      {
+        "text": "Registration will open on November 9, 2026.",
+        "source_doc": "https://inventureprize.gatech.edu/schedule"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; registration link is published on https://inventureprize.gatech.edu/schedule ('Click here to access the registration link'). CAVEAT ON DEADLINE: the 2027 cycle Registration Deadline of January 14, 2027 appears on the schedule page as a dated timeline card where 'January', '14' and '2027' sit in separate elements from the 'Registration Deadline' label, so no single contiguous sentence states it; the two quoted schedule sentences establish that the page is the 2027 timeline and that registration opens November 9, 2026. Recent graduates (Spring/Summer/Fall 2025) are also eligible if the idea was conceived while an undergraduate at GT. award_min 5000 = People's Choice Award, award_max 20000 = first place cash (both also listed at https://inventureprize.gatech.edu/prizes ); 1st and 2nd place additionally receive a US patent filing valued at roughly $20,000, and prototype awards of up to $500 are made on a rolling basis. citizenship, equity terms and graduate-student eligibility are not stated, so those keys are omitted."
+  },
+  {
+    "id": "michigan-business-challenge",
+    "title": "Michigan Business Challenge",
+    "funder": "Zell Lurie Institute for Entrepreneurship, University of Michigan",
+    "source_url": "https://zli.umich.edu/program/michigan-business-challenge/",
+    "award_min": 15000,
+    "award_max": 15000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "University of Michigan Ann Arbor"
+      ],
+      "min_team_size": 1
+    },
+    "criteria": [
+      {
+        "text": "Teams must include one current U-M Ann Arbor student who holds a major role in the venture",
+        "source_doc": "https://zli.umich.edu/program/michigan-business-challenge/"
+      },
+      {
+        "text": "Ventures can be for-profit or non-profit and should show high growth or large market potential",
+        "source_doc": "https://zli.umich.edu/program/michigan-business-challenge/"
+      },
+      {
+        "text": "One winner per track receives $15,000.",
+        "source_doc": "https://zli.umich.edu/program/michigan-business-challenge/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; the page offers only a 'Get notified when to apply' signup, no open application URL and no date anywhere, so deadline is null. NOTE the canonical URL: https://zli.umich.edu/programs-competitions/michigan-business-challenge/ redirects (301) to https://zli.umich.edu/program/michigan-business-challenge/ , which is the URL cited; the host returns HTTP 403 to default HTTP clients and loads over HTTP/1.1 with a browser User-Agent. award_min/award_max are both 15000 because that is the only per-winner amount the current page states ('One winner per track receives $15,000.', across three tracks: Seigle Impact, Innovation, Invention). The page separately advertises a total pool - 'compete for up to $200,000 in cash prizes' - but that phrase is split across markup so it is not quoted here, and it is a pool figure, not a single award. The 2026 past-winners list shows larger individual awards ($25,000 first place per track) but those are prior-cycle results, not the stated current structure. Ventures are excluded if they had significant revenue or raised outside equity funding before the current academic year, or were previously a finalist. Degree levels, citizenship and equity terms are not stated."
+  },
+  {
+    "id": "cozad-new-venture-challenge",
+    "title": "Cozad New Venture Challenge",
+    "funder": "Landuyt Center for Entrepreneurship, The Grainger College of Engineering, University of Illinois Urbana-Champaign",
+    "source_url": "https://landuyt.illinois.edu/programs/cozad/rules",
+    "award_min": null,
+    "award_max": 100000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "institutions": [
+        "University of Illinois Urbana-Champaign"
+      ],
+      "min_team_size": 1,
+      "takes_equity": true
+    },
+    "criteria": [
+      {
+        "text": "All undergraduate and graduate students are eligible to compete for the award regardless of college, department, or major.",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/rules"
+      },
+      {
+        "text": "Students must be enrolled at the University of Illinois Urbana-Champaign during the academic year in which they are competing.",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/rules"
+      },
+      {
+        "text": "Forming a team is not required; students may participate on their own.",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/rules"
+      },
+      {
+        "text": "The top cash prizes in the Cozad New Venture Challenge are awarded through SAFE funding.",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/rules"
+      },
+      {
+        "text": "TechNexus Cozad Grand Prize - $100,000 TechNexus SAFE",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/prizes"
+      },
+      {
+        "text": "awarding the $100,000 TechNexus SAFE to accelerate the growth",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/prizes"
+      },
+      {
+        "text": "University of Illinois 2nd Place Prize - University of Illinois $50,000 SAFE",
+        "source_doc": "https://landuyt.illinois.edu/programs/cozad/prizes"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; NOTE the canonical URL: the requested cozad.tec.illinois.edu does not resolve (DNS failure) and tec.illinois.edu/programs/cozad/* 301-redirects to landuyt.illinois.edu/programs/cozad/* , the center's current site (still illinois.edu), which is what is cited. STALE/PREVIOUS CYCLE dates on the rules page: it says 'this is a general framework for 2024-25', with a Demo Showcase of April 2, 2025 and Finals of April 17, 2025, and states 'Rules for Cozad 2026 will be finalized on or before February 18, 2026'; no application deadline for the next cycle is published, so deadline is null. takes_equity=true because the page states the top cash prizes are awarded through SAFE funding (Y Combinator standard terms with a 10% discount) - a future-equity instrument - and the prizes page says the program has distributed cash, equity and in-kind prizes. award_min is null: 3rd place is a $25,000 SAFE but that heading is broken up by superscript markup ('3<sup>rd</sup>') so no contiguous quote exists; 2nd place is a $50,000 SAFE (quoted). Full rules are in an off-site 'Official Rule Book' PDF that was not fetched. Citizenship is not stated (the rules page does not address it), so that key is omitted."
+  },
+  {
+    "id": "notre-dame-mccloskey-new-venture-competition",
+    "title": "McCloskey New Venture Competition",
+    "funder": "IDEA Center, University of Notre Dame",
+    "source_url": "https://ideacenter.nd.edu/student-entrepreneurship/co-curricular-student-entrepreneurship/competitions-awards-and-programs/mccloskey-new-venture-competition/",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "min_team_size": 1
+    },
+    "criteria": [
+      {
+        "text": "The competition welcomes undergraduate and graduate students, faculty, staff, alumni, and eligible participants from the surrounding region.",
+        "source_doc": "https://ideacenter.nd.edu/student-entrepreneurship/co-curricular-student-entrepreneurship/competitions-awards-and-programs/mccloskey-new-venture-competition/"
+      },
+      {
+        "text": "Both commercial and social ventures are eligible, and participants may apply individually or as teams.",
+        "source_doc": "https://ideacenter.nd.edu/student-entrepreneurship/co-curricular-student-entrepreneurship/competitions-awards-and-programs/mccloskey-new-venture-competition/"
+      },
+      {
+        "text": "Participants may compete for cash awards, venture funding, in-kind resources, and other startup support opportunities.",
+        "source_doc": "https://ideacenter.nd.edu/student-entrepreneurship/co-curricular-student-entrepreneurship/competitions-awards-and-programs/mccloskey-new-venture-competition/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; no application URL is published on the page (it directs enquiries to the IDEA Center's Student Engagement Coordinator by email). IMPORTANT: the IDEA Center site was restructured and the older McCloskey URLs are dead - ideacenter.nd.edu/se/opportunities/mccloskey-competition/ and its /eligibility/ and /sponsorship-prizes/ sub-pages all return HTTP 404, and the separate competition host mccloskey.ideacenter.nd.edu fails TLS (its certificate does not cover that hostname). The surviving official page, cited here, is deliberately generic: it gives NO dollar amounts ('Funding levels and award categories vary by year and competition stage') and NO dates ('Competition timelines and application requirements are updated annually'), so award_min, award_max and deadline are all null rather than taken from news articles or search snippets. institutions is omitted because the eligibility paragraph names no institution; it says only 'eligible participants from the surrounding region' alongside students, faculty, staff and alumni. Citizenship and equity terms are not stated. The competition is active - a June 5, 2026 news item covers the most recent edition."
+  },
+  {
+    "id": "mn-cup",
+    "title": "MN Cup",
+    "funder": "Carlson School of Management, University of Minnesota",
+    "source_url": "https://carlsonschool.umn.edu/mn-cup",
+    "award_min": 2500,
+    "award_max": 50000,
+    "deadline": "2026-04-03",
+    "rolling": false,
+    "eligibility": {
+      "geographies": [
+        "Minnesota"
+      ],
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "Entrepreneurs based in MN with less than $1 million in annual revenue are eligible to apply.",
+        "source_doc": "https://carlsonschool.umn.edu/mn-cup/current-season/faq"
+      },
+      {
+        "text": "No! MN Cup does not take equity in exchange for your participation in the competition, or in return for cash prizes.",
+        "source_doc": "https://carlsonschool.umn.edu/mn-cup/current-season/faq"
+      },
+      {
+        "text": "Grand Prize Winner = $50,000",
+        "source_doc": "https://carlsonschool.umn.edu/mn-cup/current-season/faq"
+      },
+      {
+        "text": "Youth Division 2nd Runner up = $2,500",
+        "source_doc": "https://carlsonschool.umn.edu/mn-cup/current-season/faq"
+      },
+      {
+        "text": "Must be a Minnesota-based startup making less than $1 million in revenue.",
+        "source_doc": "https://carlsonschool.umn.edu/mn-cup/current-season/apply"
+      },
+      {
+        "text": "2026 Applications Open Now Until April 3rd",
+        "source_doc": "https://carlsonschool.umn.edu/mn-cup/current-season/apply"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; application page https://carlsonschool.umn.edu/mn-cup/current-season/apply . STALE/PREVIOUS CYCLE: the stated deadline is 'April 3rd' of the 2026 season, i.e. 2026-04-03, which has already passed as of today; the 2026 Grand Finale is listed for September 14, 2026 and no 2027 application date is published yet. NOTE this is NOT a student competition - it is open to Minnesota entrepreneurs generally, so no degree_levels key is populated; geographies is ['Minnesota'] per the explicit MN-based requirement. takes_equity=false is explicit (FAQ answer quoted; the homepage likewise says 'we take no equity in exchange for the seed funding we give away'). Award figures are from the current-season FAQ prize list (Grand Prize $50,000; Division Winners $25,000; Youth Division $10,000 / $7,500 / $2,500, plus additional sponsor-funded prizes); the homepage separately describes the 2025 season, where the grand prize was $100,000 and 25 companies split more than $400,000 - prior-cycle figures, not used. Disqualified: companies with annual revenue exceeding $1 million. Citizenship and team size are not stated. [stale] deadline 2026-04-03 passed 146 days ago."
+  },
+  {
+    "id": "uw-dempsey-startup-competition",
+    "title": "Dempsey Startup Competition",
+    "funder": "Buerk Center for Entrepreneurship, Foster School of Business, University of Washington",
+    "source_url": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/",
+    "award_min": 2500,
+    "award_max": 25000,
+    "deadline": "2027-04-05",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "geographies": [
+        "Washington",
+        "Oregon",
+        "Idaho",
+        "Alaska",
+        "British Columbia"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "The Dempsey Startup Competition is open to undergrads and grad students at accredited colleges and universities across the Cascadia Corridor",
+        "source_doc": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/"
+      },
+      {
+        "text": "Only student team members based in WA, OR, ID, AK and British Columbia are eligible to earn prize money.",
+        "source_doc": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/"
+      },
+      {
+        "text": "The application site will open for submissions in late February and will be due by 11:59pm on Monday, April 5.",
+        "source_doc": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/"
+      },
+      {
+        "text": "BioBead won the $25k BECU Grand Prize",
+        "source_doc": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/"
+      },
+      {
+        "text": "Best Idea Prizes for $2,500",
+        "source_doc": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/"
+      },
+      {
+        "text": "Kindred won the $2.5k eBay Best Marketplace Idea Prize",
+        "source_doc": "https://foster.uw.edu/centers/buerk-ctr-entrepreneurship/entrepreneurship-competitions/dempsey-startup-competition/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; apply via the 'Apply' link on the competition page (submission site opens late February). NOTE the canonical URL: the requested foster.uw.edu/centers/buerk-ctr-entrepreneurship/business-plan-competition/ is a 404; the live page is under /entrepreneurship-competitions/dempsey-startup-competition/ . Deadline 2027-04-05 is the current forward-looking cycle - the page states the entry is due 11:59pm Monday, April 5, and the surrounding schedule dates it explicitly to 2027 ('Screening Round between April 8-13, 2027'; rounds run 'April 5 - May 27, 2027'). This competition is REGIONAL, not UW-only: eligible students may be at any accredited college or university in WA, OR, ID, AK or British Columbia, and only students based in that region can receive prize money - hence geographies is populated and institutions is omitted (no specific institution list is given). Prize amounts are the 2026 structure: $25,000 Grand (BECU), $15,000 second, $10,000 third, $7,500 fourth, $5,000 Big Picture prizes, $2,500 Best Idea prizes; the '$25,000 Grand Prize sponsored by BECU' line is split across markup so the awards-list wording is quoted instead. Other stated rules: revenue cap of $250k, at least one enrolled degree-seeking student in good standing, students must have an ownership stake or potential equity/employment, and teams that participated in the Accelerator may not apply. Citizenship and team size limits are not stated (the page caps only presenters per round, not team size)."
+  },
+  {
+    "id": "purdue-burton-morgan-venture-concept-competition",
+    "title": "Burton D. Morgan Venture Concept Competition",
+    "funder": "Purdue University (Mitchell E. Daniels, Jr. School of Business)",
+    "source_url": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php",
+    "award_min": 3000,
+    "award_max": 10000,
+    "deadline": "2026-09-27",
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "Purdue University"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "The competition is open to all Purdue students. However, your concept must meet these criteria:",
+        "source_doc": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php"
+      },
+      {
+        "text": "It has not received more than $10,000 in funding from any source",
+        "source_doc": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php"
+      },
+      {
+        "text": "Sunday, September 27 at 11:59 p.m. \u2014 Concept Submission Deadline",
+        "source_doc": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php"
+      },
+      {
+        "text": "to enter the competition and embark on this exciting journey of business creation.",
+        "source_doc": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php"
+      },
+      {
+        "text": "will each receive a $3,000",
+        "source_doc": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php"
+      },
+      {
+        "text": "The top three winners will be chosen by a panel of judges experienced in early-stage venture building.",
+        "source_doc": "https://business.purdue.edu/centers/communication-center/case-competitions/burton-d-morgan-business-concept-competition.php"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; application form is an Airtable link on the page (https://airtable.com/appbOLgMKkZ9qAMxR/pagddradTeIElFEUK/form). NOTE the name and URL: the program requested as the 'Burton D. Morgan Business Plan Competition' now runs as the Burton D. Morgan VENTURE CONCEPT Competition (37th+ edition) on business.purdue.edu; the older purdue.edu/discoverypark/bdmce/... path 301-redirects off purdue.edu entirely to purdueinnovates.org, so this business.purdue.edu page is the official purdue.edu source. Deadline 2026-09-27 is the upcoming cycle (final event Dec. 11, 2026). CAVEAT ON AWARD RANGE: the page lists per-track prizes of 1st $10,000, 2nd $7,000, 3rd $5,000 in a bulleted list where each label ('1st Prize:') sits in a <strong> tag separated from its amount by a non-breaking space, so no contiguous verbatim quote states them; the quoted '$3,000' line is the 'You need to build this!' standout-concept prize (seven teams per track) and sets award_min. The page also advertises a $100,000 total prize pool across two tracks with roughly 25 teams receiving an award, but that too is split across markup. Concept must not have received more than $10,000 in funding, generated more than $5,000 in revenue, or be based on Purdue-owned IP. Degree levels, citizenship, team size and equity terms are not stated."
+  },
+  {
+    "id": "cmu-mcginnis-venture-competition",
+    "title": "McGinnis Venture Competition",
+    "funder": "Swartz Center for Entrepreneurship, Carnegie Mellon University",
+    "source_url": "https://www.cmu.edu/swartz-center-for-entrepreneurship/resources-funding-and-talent/mcginnis-venture-competition/index.html",
+    "award_min": null,
+    "award_max": 50000,
+    "deadline": "2026-01-13",
+    "rolling": false,
+    "eligibility": {
+      "institutions": [
+        "Carnegie Mellon University"
+      ],
+      "takes_equity": true
+    },
+    "criteria": [
+      {
+        "text": "is where bold student founders compete for serious capital and real momentum.",
+        "source_doc": "https://www.cmu.edu/swartz-center-for-entrepreneurship/resources-funding-and-talent/mcginnis-venture-competition/index.html"
+      },
+      {
+        "text": "introduces a $50,000 Morgenthaler Prize, bringing total direct cash investment to",
+        "source_doc": "https://www.cmu.edu/swartz-center-for-entrepreneurship/resources-funding-and-talent/mcginnis-venture-competition/index.html"
+      },
+      {
+        "text": "The Round 1 submission deadline is on",
+        "source_doc": "https://www.cmu.edu/swartz-center-for-entrepreneurship/resources-funding-and-talent/mcginnis-venture-competition/index.html"
+      },
+      {
+        "text": "Investments are awarded in the form of a SAFE.",
+        "source_doc": "https://www.cmu.edu/swartz-center-for-entrepreneurship/resources-funding-and-talent/mcginnis-venture-competition/index.html"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; applications are submitted via Pralent (https://www.pralent.com/c/swartz-center/programs/2026mcginnisventurecompetition). NOTE the canonical URL: the /education-and-events/ path is a 404; the live page is under /resources-funding-and-talent/ . STALE/PREVIOUS CYCLE: the Round 1 submission deadline of Tuesday, January 13, 2026 has passed (final round was held March 17, 2026 and 2026 winners are listed); no 2027 dates are published yet. The deadline sentence is quoted only up to 'is on' because the date itself sits inside a separate <strong> element. takes_equity=true is explicit: the prize-allocation footnote states investments are awarded in the form of a SAFE. award_min is null because every amount in the prize table sits in its own heading element, separated from its label, so none can be quoted contiguously; for reference the table reads Graduate Track $50,000 / $30,000 / $20,000, Undergraduate Track $5,000 / $4,000 / $2,500, Social Enterprise Prize $10,000, Gebhardt Sandbox Fund $1,000 (x3), Crowd Favorite $1,000, plus AWS Activate credits. Total package is stated as $375,000 with $125,000 direct cash investment. degree_levels is omitted deliberately: the page names a 'Graduate Track' and an 'Undergraduate Track' but never states which degree levels are eligible, and mapping 'graduate' to masters/phd would be an inference. Citizenship and team size are not stated. [stale] deadline 2026-01-13 passed 226 days ago."
   }
 ]
