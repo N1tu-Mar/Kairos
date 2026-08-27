@@ -1,0 +1,62 @@
+{
+  "opportunity_id": "mit-climate-energy-prize",
+  "name": "MIT Climate & Energy Prize — application sections",
+  "source_url": "https://cep.mit.edu/apply",
+  "retrieved_at": "2026-08-27",
+  "complete": false,
+  "completeness_note": "The public page lists the application's sections and what each covers, not the individual questions inside them or their word limits. The questions themselves live in the application portal, which was not opened — there is no code path here that logs into anything. Treat this as a section map, not a full form. The page also stated \"2026 Applications Now Closed\" when it was read.",
+  "fields": [
+    {
+      "field_id": "startup_information",
+      "label": "Startup Information",
+      "kind": "long_text",
+      "required": true,
+      "help_text": "Page describes this section as: \"Basic information about your project, idea, and progress thus far\""
+    },
+    {
+      "field_id": "business_plan_information",
+      "label": "Business Plan Information",
+      "kind": "long_text",
+      "required": true,
+      "help_text": "Page describes this section as: \"Describe the problem statement, core product, and commercialization plan for your startup\""
+    },
+    {
+      "field_id": "team_member_information",
+      "label": "Team Member Information",
+      "kind": "long_text",
+      "required": true,
+      "help_text": "Page describes this section as: \"Information about the background, skills, and demographics of members of your team\""
+    },
+    {
+      "field_id": "pitch_deck",
+      "label": "Pitch Deck",
+      "kind": "file",
+      "required": true,
+      "help_text": "Page notes \"the content of your Pitch Deck will not be evaluated until the Virtual Round\""
+    },
+    {
+      "field_id": "video_pitch",
+      "label": "Optional Video Pitch",
+      "kind": "file",
+      "required": false,
+      "stated_limit": "two-minute video pitch",
+      "help_text": "Page describes it as: \"Optional - two-minute video pitch of your business and team\""
+    },
+    {
+      "field_id": "disclosure_forms",
+      "label": "MIT CEP 2026 IP, Capital, and Revenue Disclosure Forms",
+      "kind": "file",
+      "required": true,
+      "protected": true,
+      "help_text": "A disclosure the applicant makes about intellectual property, capital and revenue. Section 10.1 category: disclosure. The agent must never complete it, even where the answer is known."
+    },
+    {
+      "field_id": "rules_agreement",
+      "label": "Agree to the Rules and Conditions of Eligibility",
+      "kind": "checkbox",
+      "required": true,
+      "protected": true,
+      "help_text": "An agreement to terms. Section 10.3 forbids the agent from accepting terms of service on the founder's behalf."
+    }
+  ]
+}

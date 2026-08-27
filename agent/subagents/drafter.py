@@ -205,7 +205,14 @@ async def draft_application(
     askable: set[str] = set()
 
     for spec in form.fields:
+        # Two independent sources of "the agent must not fill this": the
+        # label pattern, and the curator who transcribed the form. Either is
+        # enough. The curator sees things a regex cannot — an agreement to
+        # terms, a disclosure whose label happens to contain no keyword —
+        # and a flag that only advises is a flag that eventually gets ignored.
         category = blocklisted(spec.label) or blocklisted(spec.field_id)
+        if not category and spec.protected:
+            category = "curator_marked_protected"
         if category:
             # Never even ask. Section 10.1 is enforced before the model call
             # as well as inside the gate.

@@ -1,0 +1,100 @@
+{
+  "opportunity_id": "tcnj-mayo-business-plan-competition",
+  "name": "Mayo Business Plan Competition — required submission components",
+  "source_url": "https://mbpc.tcnj.edu/competition-schedule/",
+  "retrieved_at": "2026-08-27",
+  "complete": false,
+  "completeness_note": "The schedule page states the deliverables, the plan's required sections, and the length limits. It does not state the registration form's own fields, and the full guidebook at https://mbpc.tcnj.edu/2025-2026-mbpc-guidebook/ was not transcribed. The plan sections below are the components the page lists as required inside the business plan document, not separate form questions.",
+  "fields": [
+    {
+      "field_id": "business_plan_document",
+      "label": "Business Plan (PDF)",
+      "kind": "file",
+      "required": true,
+      "stated_limit": "Maximum plan length: 20 pages, double-spaced 11 or 12 font; additional charts and tables (maximum five pages)",
+      "help_text": "Page states: \"Plan must be submitted as a PDF (not a Word or Excel file)\". Due date on the page: 1/08/27 by 11:59 pm, \"Absolute due date; no exceptions\"."
+    },
+    {
+      "field_id": "executive_summary",
+      "label": "Executive Summary",
+      "kind": "long_text",
+      "required": true,
+      "help_text": "Listed by the page as a required component of the business plan document."
+    },
+    {
+      "field_id": "business_overview",
+      "label": "Business Overview",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "operating_plan",
+      "label": "Operating Plan",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "market_analysis",
+      "label": "Market Analysis",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "products_services",
+      "label": "Products and/or Services",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "competitive_analysis",
+      "label": "Competitive Analysis",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "sales_marketing",
+      "label": "Sales and Marketing",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "management_team",
+      "label": "Management Team",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "financial_plan",
+      "label": "Financial Plan",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "projections",
+      "label": "Projections",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "conclusions",
+      "label": "Conclusions",
+      "kind": "long_text",
+      "required": true
+    },
+    {
+      "field_id": "pitch_video",
+      "label": "A short pitch video (1 to 3 minutes) describing the concept and likely target market(s) is required",
+      "kind": "file",
+      "required": true,
+      "stated_limit": "1 to 3 minutes"
+    },
+    {
+      "field_id": "policy_affirmation",
+      "label": "Affirmation of Policy Statement",
+      "kind": "checkbox",
+      "required": true,
+      "protected": true,
+      "help_text": "An affirmation the applicant makes at registration. Section 10.1 category: attestation. The agent must never complete it."
+    }
+  ]
+}

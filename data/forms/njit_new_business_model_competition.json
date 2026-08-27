@@ -1,0 +1,39 @@
+{
+  "opportunity_id": "njit-new-business-model-competition",
+  "name": "New Business Model Competition — initial submission",
+  "source_url": "https://research.njit.edu/njiac/new-business-model-competition",
+  "retrieved_at": "2026-08-27",
+  "complete": true,
+  "completeness_note": "The page states the initial submission in full: four questions and a two-page total limit. Later rounds (finalist presentation) are not an application form and are not modelled.",
+  "fields": [
+    {
+      "field_id": "need",
+      "label": "What is the problem that this company proposes to solve and for Whom? (Need)",
+      "kind": "long_text",
+      "required": true,
+      "stated_limit": "not more than two pages total across all four answers",
+      "help_text": "Verbatim from the page: \"Initial submission must be four answers to the following questions (not more than two pages total):\""
+    },
+    {
+      "field_id": "application",
+      "label": "How does the company plan to solve the problem? (Application)",
+      "kind": "long_text",
+      "required": true,
+      "stated_limit": "not more than two pages total across all four answers"
+    },
+    {
+      "field_id": "value",
+      "label": "How does the company plan to make money from this application? (Value)",
+      "kind": "long_text",
+      "required": true,
+      "stated_limit": "not more than two pages total across all four answers"
+    },
+    {
+      "field_id": "competition",
+      "label": "What is the competition and why will your team win? (Competition)",
+      "kind": "long_text",
+      "required": true,
+      "stated_limit": "not more than two pages total across all four answers"
+    }
+  ]
+}

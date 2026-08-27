@@ -215,6 +215,10 @@ FIELD_BLOCKLIST: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("signature", re.compile(r"\b(e-?signature|signature|signed by|sign here|initials?)\b", re.I)),
     ("authorization", re.compile(r"authorized (?:organization )?representative|\bAOR\b", re.I)),
     ("disclosure", re.compile(r"\b(debarment|debarred|conflict of interest|lobbying)\b", re.I)),
+    # A form that says "Disclosure Form" and nothing else is still a
+    # disclosure. Found by transcribing a real one: MIT CEP's "IP, Capital,
+    # and Revenue Disclosure Forms" tripped none of the patterns above.
+    ("disclosure", re.compile(r"\bdisclosure(?:s)?\b", re.I)),
     ("tax_id", re.compile(r"\b(ssn|social security|itin|ein|employer identification|tax\s*id|uei|sam\.gov|duns|cage code)\b", re.I)),
     ("payment", re.compile(r"\b(bank account|routing number|account number|wire|ach|payment details)\b", re.I)),
 )

@@ -282,7 +282,12 @@ class Assessment(Mutable):
 
 
 class ApplicationField(Frozen):
-    """One question on a real application form, modelled as structured JSON."""
+    """One question on a real application form, modelled as structured JSON.
+
+    `label` is copied verbatim from the source form. The Section 10.1
+    blocklist matches on label text, so paraphrasing a label is how a
+    certification field stops looking like one.
+    """
 
     field_id: str
     label: str
@@ -291,6 +296,16 @@ class ApplicationField(Frozen):
     max_chars: int | None = None
     options: list[str] | None = None
     help_text: str = ""
+    #: A limit the form states in units other than characters — pages,
+    #: minutes, slides. Recorded verbatim because "20 pages, double-spaced"
+    #: is not expressible as `max_chars` and rounding it into one would be
+    #: inventing a rule the form did not state.
+    stated_limit: str = ""
+    #: Set when the curator judged this field to be one the agent must never
+    #: fill. Advisory and additive only: `guardrails.blocklisted()` decides
+    #: independently from the label, and a field it catches is blocked
+    #: whatever this flag says.
+    protected: bool = False
 
 
 class ApplicationForm(Frozen):
@@ -298,6 +313,15 @@ class ApplicationForm(Frozen):
     name: str
     source_url: str
     fields: list[ApplicationField]
+    #: When the form was read off the page. A transcription is a claim about
+    #: a moment; forms change between cycles.
+    retrieved_at: date | None = None
+    #: False when the public page states only part of the form — a portal
+    #: behind a login, a PDF the page links but does not show. A partial form
+    #: must be visibly partial or it reads as the whole application.
+    complete: bool = True
+    #: What is missing, and why, when `complete` is False.
+    completeness_note: str = ""
 
 
 class DraftField(Mutable):
