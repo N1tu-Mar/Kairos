@@ -49,7 +49,7 @@ in a week that already has a problem set due.
 |---|---|
 | Discovery | Three sources. A curated seed catalog of **40 rows, 34 of them verified quote-by-quote against their live pages**; live Grants.gov `search2`/`fetchOpportunity` with pagination, profile-aware keywords, client-side `since` filtering and per-page failure reporting; and an optional campus source behind `KAIROS_ENABLE_BROWSER` that loads only human-`ACCEPTED` scraped rows. |
 | Campus research | An operator-run, robots-aware Rutgers scraper with rate limiting, raw-page archives, deterministic extraction, exact evidence spans, explicit `UNKNOWN` fields, deduplication and stale-deadline warnings. Its seven rows have now been audited against their live pages: 1 accepted and promoted, 3 rejected with reasons, 3 still `NEEDS_HUMAN_REVIEW`. |
-| Measurement | A 20-program discovery-recall benchmark with hand-authored ground truth and 6 deliberate negatives: **85.7% retrieval recall, 72.2% eligibility coverage at 100% precision, 0 wrong deadlines.** Separate from the drafting golden set. |
+| Measurement | A 20-program discovery-recall benchmark with hand-authored ground truth and 6 deliberate negatives: **85.7% retrieval recall, 83.3% eligibility coverage at 100% precision, 0 wrong deadlines.** Separate from the drafting golden set. |
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
 | Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
 | Decision loop | Deterministic eligibility filtering, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
@@ -361,7 +361,7 @@ Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
 
-Current local result (2026-08-27): **776 Python tests passed, no xfail
+Current local result (2026-08-27): **811 Python tests passed, no xfail
 remaining; 54 frontend tests passed; typecheck, lint and the production build
 passed.** The three previously-planned behaviours — semantic recall and the
 two scheduler/overlap ones — are implemented, and their tests converted from
@@ -374,10 +374,21 @@ with live rows that have to survive adoption.
 Everything above is offline. It says nothing about AWS, which nothing here
 has ever touched.
 
-The tests that matter most are the adversarial ones in
-`tests/test_grounding.py` — all six cases the spec requires, including an
-injected instruction inside an opportunity description asserting that the
-deterministic filter's result is unchanged.
+The tests that matter most are the adversarial ones. `tests/test_grounding.py`
+holds all six cases the spec requires, including an injected instruction inside
+an opportunity description asserting that the deterministic filter's result is
+unchanged. Three suites extend that:
+
+- `tests/test_adversarial.py` — 35 cases covering what happens when the
+  *model* misbehaves rather than the input: fabricated citations, a real
+  citation that supports nothing, malformed structured output, abstention,
+  safety-layer exceptions failing closed, and partial usage at budget
+  crossings. Verified by mutation — disabling a check fails specific tests —
+  because a suite that passes against broken code is not testing anything.
+- `tests/test_negation_grounding.py` — the 27-case polarity matrix, written
+  before the fix it validates.
+- `tests/test_spelled_numbers.py` — 32 cases pinning that "four hundred users"
+  is checked exactly as "400 users" is.
 
 ---
 
@@ -389,10 +400,10 @@ Section 11.11 asks for a golden set and says to publish the result, whatever it
 is. This is the result.
 
 ```
-15 cases, 8 with traps · 20 fields scored · 10 shipped · 3 drafts blocked
+15 cases, 8 with traps · 20 fields scored · 8 shipped · 5 drafts blocked
 
-groundedness             80.0%   (8/10 shipped claims supported)
-abstention accuracy      81.8%   (9/11 unsupported claims withheld)
+groundedness             100.0%  (8/8 shipped claims supported)
+abstention accuracy      100.0%  (11/11 unsupported claims withheld)
 unnecessary questions    11.1%   (1/9 supported claims withheld anyway)
   of those, collateral   100%    (blocked by another field in the same draft)
 ```
@@ -410,25 +421,42 @@ Ground truth is declared by hand per field in
 nothing from `guardrails`. A scorer that asks the gate whether the gate was
 right is marking its own homework.
 
-### What it found on its first run
+### What it found on its first run, and what happened next
 
-Two leaks, one cause: **the forbidden-claims evidence check cannot tell a
-statement from its negation.** `agent/guardrails.py` pairs a trigger regex with
-an evidence regex and treats a match anywhere in the knowledge base as support.
+The first run scored **80% groundedness** and leaked two claims, both the same
+cause: **the forbidden-claims evidence check could not tell a statement from
+its negation.** `agent/guardrails.py` paired a trigger regex with an evidence
+regex and treated a match anywhere in the knowledge base as support.
 
-- A draft claiming *"we work closely with a faculty advisor"* is supported by
-  the deck line *"there is no faculty advisor"* — the evidence pattern matches
+- A draft claiming *"we work closely with a faculty advisor"* was supported by
+  the deck line *"there is no faculty advisor"* — the evidence pattern matched
   the negation.
-- A draft claiming *"incorporated as a Delaware C-Corporation"* is supported by
-  *"No legal entity has been formed"* — same shape.
+- A draft claiming *"incorporated as a Delaware C-Corporation"* was supported
+  by *"No legal entity has been formed"* — same shape.
 
 Both are claims Section 10.2 names as never-invent. Both shipped.
 
-They are **not fixed**, deliberately. The obvious patch — reject an evidence
-match sitting near a negation marker — would make exactly these two cases pass,
-and tuning a check until it satisfies the eval that measures it is how an eval
-stops meaning anything. The fix needs adversarial cases written without looking
-at this scoreboard. Until then the number stands at 80% and says why.
+They were left unfixed at first, deliberately. The obvious patch — reject an
+evidence match sitting near a negation marker — would have made exactly these
+two cases pass, and tuning a check until it satisfies the eval that measures it
+is how an eval stops meaning anything.
+
+So the order was: adversarial cases first, written without this scoreboard in
+view ([`tests/test_negation_grounding.py`](tests/test_negation_grounding.py),
+27 cases across every forbidden-claim category, both polarities, mixed
+evidence, punctuation and contractions), then the fix against them.
+
+`evidence_supports_claim` is polarity-aware rather than proximity-based:
+evidence splits into clauses at sentence punctuation, commas and contrast
+conjunctions, each clause carries a negation polarity, and a match supports a
+claim only at the same polarity. The comma boundary is what keeps *"no revenue
+yet, but 40 users"* from blocking the supported half — the false positive
+[`DECISIONS.md`](DECISIONS.md) predicted, now a test of its own.
+
+Both traps block at `FORBIDDEN_CLAIMS`, no clean case regressed, and the
+numbers above are the post-fix figures. **The 80% is kept in this README on
+purpose**: an eval whose bad result quietly disappears once it is fixed is an
+eval nobody can audit.
 
 ---
 
@@ -467,7 +495,7 @@ Written before the deadline pressure, so it stays honest.
   fact. `agent/tools/extraction.py` is the boundary that lets prose become
   structure safely — every field needs a verbatim span re-found in the
   source — but nothing model-driven runs through it yet. The benchmark's
-  72.2% eligibility coverage is curation, not extraction.
+  83.3% eligibility coverage is curation, not extraction.
 - **The AWS deployment is written, not applied.** `infra/` holds Terraform
   for ECS Fargate, EFS-backed SQLite, an EventBridge schedule, five alarms
   and a dead-letter queue. It has never met a live account — never applied,
@@ -509,13 +537,14 @@ Written before the deadline pressure, so it stays honest.
 - **The groundedness number covers the defense layer, not the model.** See
   [The number](#the-number). The live figure needs Bedrock and does not exist
   yet.
-- **Two known leaks, both the same bug.** An evidence regex that matches the
-  negation of the claim it is checking. Reproduced by
-  `uv run python scripts/run_eval.py`, written up in
-  [`tests/golden_set/README.md`](tests/golden_set/README.md), and pinned by
-  `tests/test_golden_set.py` so a third one fails the build.
-- **The daily spend ledger is a JSON file**, correct for one process and not
-  safe across several.
+- **The two known leaks are fixed; the check that fixed them is still
+  lexical.** `evidence_supports_claim` reads clause polarity, not meaning, so
+  it will misjudge sentences whose negation is carried by structure rather
+  than by a marker word ("far from settled", "we would have an advisor if").
+  Every such misjudgment pushes a field to *you answer this*, which is the
+  safe direction. Reproduced by `uv run python scripts/run_eval.py`, written
+  up in [`tests/golden_set/README.md`](tests/golden_set/README.md), and pinned
+  by `tests/test_golden_set.py` so a new leak fails the build.
 - **Nothing here has run against live Bedrock yet.** Every model path is
   exercised by fakes. The suite passing tells you the orchestration is
   correct, not that the model IDs in your `.env` resolve or that the models

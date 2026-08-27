@@ -390,16 +390,44 @@ Idempotency is a **unique index** on `founder_id::opportunity_id`, not a
 check-then-act in Python. Double-notifying should be impossible rather than
 unlikely.
 
-### D10 — `recall` matches normalised text, not semantics
+### D10 — `recall` matches meaning as well as text, offline
 
-Section 6 asks whether the founder answered a *semantically equivalent*
-question before. Implemented as exact match after lowercasing and stripping
-punctuation, which needs no model call and no vector store.
+**Superseded 2026-08-27.** It was exact match after lowercasing and stripping
+punctuation: no model call, no vector store, and no recognition that
+"Describe your current traction" and "How many users or interviews do you
+have" are the same question. That undercounted reuse, which is the safe
+direction, but it left the "Application 1 needed 15 answers, this one needs 3"
+number more conservative than it had to be.
 
-**TODO:** back it with Bedrock Titan embeddings and a cosine threshold once
-the golden set shows how often near-duplicate phrasings actually appear.
-Until then the "Application 1 needed 15 answers, this one needs 3" number is
-real but conservative — it undercounts reuse rather than overcounting it.
+Now two tiers in `agent/semantic.py`, and the ordering is the design:
+
+1.  **Exact after normalisation**, unchanged, tried first and always winning.
+    A high-confidence path is never replaced by a probabilistic one.
+2.  **Semantic**, only reached when tier 1 finds nothing.
+
+The default backend is `LexicalMatcher`: deterministic, offline, no model
+call, no network — which is what keeps the whole suite runnable with no AWS
+account. Similarity is overlap coverage of the shorter question after
+stopword removal and synonym folding, diluted by the topics the longer
+question adds. That last term is what separates a rephrasing from a compound
+question that merely shares a subject.
+
+Threshold 0.65, set from measured separation rather than taste: the highest
+scoring true negative in `tests/test_semantic_recall.py` is 0.562 (a question
+asking about traction *and three other things*), the lowest real rephrasing is
+0.667, and a test pins that gap so a change which narrows it fails first.
+
+Two things are deliberately not here. There is no live embedding backend:
+`BedrockEmbeddingMatcher` implements the interface and is exercised offline
+with injected vectors, but constructing it without an `embed` callable raises,
+because no Titan model ID has been confirmed against a real account and
+guessing one is the failure `agent/config.py` exists to prevent. And reuse is
+gated separately from matching — `is_reusable` refuses empty answers,
+non-reusable statuses, `UNSUPPORTED`/`UNVERIFIABLE` audit verdicts, and every
+protected field family via the same `FIELD_BLOCKLIST` that governs drafting,
+checked against both the stored and the incoming question. It runs on the
+exact path too, so a certification is re-asked even on a character-for-
+character match.
 
 ### D11 — The daily spend ledger is SQLite, not a JSON file
 
@@ -425,14 +453,41 @@ as its own backup, never rewritten and never deleted.
 the answer if runners ever span machines. SQLite's writer lock is a
 single-filesystem guarantee.
 
-### D12 — Bedrock prices default to zero
+### D12 — Bedrock prices default to zero, and the system now says what that costs
 
 `.env.example` ships `KAIROS_PRICE_*_PER_MTOK=0`, so `usd_estimate` reads
 `0.0` until someone confirms live pricing for the region. Visibly wrong beats
 quietly wrong, and the per-run token ceiling still enforces regardless.
 
+**Amended 2026-08-27.** Visibly wrong was not visible enough. The consequence
+is arithmetic: at $0.00 per call the ledger records nothing, so
+`KAIROS_DAILY_USD_CAP` can never trip. An operator who set a $3 cap and left
+the prices alone believed three dollars was the most a runaway loop could cost
+them, and nothing in the system contradicted that belief.
+
+Three additions, none of which invent a price:
+
+- `RunBudget.enforcement_status()` reports which caps are actually doing work,
+  with a summary line every surface reads, so `/ready`, the CLI and the run
+  report cannot drift into telling different stories.
+- `prices_configured()` treats *partial* pricing as unconfigured. One tier
+  priced and the other at zero under-counts every call the unpriced tier
+  makes, and a cap computed from half the spend is not a cap.
+- `require_enforceable_spend_cap()` raises `UnenforceableSpendCap` before the
+  first model call when a configured cap cannot be calculated. Wired into both
+  live paths: `api/jobs.py` fails the job closed at startup and records why,
+  `scripts/run_scout.py` refuses with exit code 2. `calls_models=False`
+  exempts the dry run and the fixture eval, which spend nothing.
+
+There is still deliberately **no default price table anywhere in this
+repository**. A stale guess would silently under-count spend against a real
+cap, which is the same failure in a more convincing disguise. The refusal
+names the two environment variables and where to find real numbers; it does
+not suggest a value.
+
 **TODO:** fill these from the Bedrock pricing page before the first
-scheduled run.
+scheduled run. Until then a live run either has prices or has no dollar cap —
+it can no longer have a dollar cap that does nothing.
 
 ### D13 — The seed catalog is a stub
 
@@ -707,7 +762,7 @@ Both are Section 10.2 never-invent categories. Both shipped. Neither the
 numeric whitelist, the entity check nor the closed-world check applies, because
 neither claim contains a number or a name.
 
-**Not fixed, deliberately.** The obvious patch is a negation window — refuse an
+**Not fixed at the time, deliberately.** The obvious patch is a negation window — refuse an
 evidence match within N tokens of "no", "not", "without", "none". It would make
 exactly these two cases pass, and a check tuned until it satisfies the eval
 that measures it has stopped measuring anything. The real fix needs its own
@@ -719,6 +774,63 @@ Recorded rather than patched so the number in the README stays true.
 
 **TODO:** write the negation cases first, then the fix, then re-run the eval
 and update `tests/test_golden_set.py` in the same commit.
+
+---
+
+### 2026-08-27 — Fixed, in that order
+
+The TODO above was followed literally, because the order was the point.
+
+**First**, `tests/test_negation_grounding.py`: 27 cases written against the
+*categories* rather than the two known sentences — advisor, incorporation,
+funding, award, partnership, credential, patent, IP status — crossing positive
+and negative claims against positive, negative and mixed evidence, with
+punctuation-separated negation, contractions, and unrelated keyword overlap.
+The two golden-set sentences appear nowhere in it.
+
+**Then** `evidence_supports_claim`. Not the negation window this entry warned
+about. Evidence text splits into clauses at sentence punctuation, commas, and
+contrast conjunctions (`but`, `however`, `although`, `whereas`); each clause
+carries a polarity from a marker set (`no`, `not`, `never`, `neither`, `nor`,
+`none`, `cannot`, `without`, `lack*`, `n't` contractions, `yet to`); and an
+evidence match supports a claim only at the polarity the claim asserts. A
+claim of absence needs negated evidence; a positive claim needs a non-negated
+clause. Unestablished polarity fails closed.
+
+The clause boundary is what a proximity window could not have done. This entry
+named `"no revenue yet, but 40 users"` as the sentence a naive window would
+break; the comma and the `but` are both boundaries, so the negation stays on
+`revenue` and the `40 users` clause still supports its claim. That sentence is
+now a test.
+
+**Then** the eval, and only then the pins. Golden set went 80% → **100%
+groundedness**, 81.8% → **100% abstention accuracy**, unnecessary questions
+unchanged at 11.1% (1/9, still entirely collateral). `trap_04` and `trap_05`
+both block at `FORBIDDEN_CLAIMS`; no clean case regressed.
+
+The 80% stays in the README next to the 100%. An eval whose bad result quietly
+disappears once it is fixed is an eval nobody can audit.
+
+---
+
+### 2026-08-27 — Spelled-out numbers walked past the numeric whitelist
+
+The same shape as the negation bug and found by reading the check rather than
+by an eval: `_NUMBER` matched digits, so `"we have 400 users"` was caught and
+`"we have four hundred users"` was not. Every word-form quantity reached a
+real application unchecked.
+
+`extract_numbers` now reduces three forms to one comparable float: digit forms
+(unchanged), spelled forms (units, teens, tens, hyphenated and space-joined
+compounds, hundred/thousand/million/billion scales, `and` continuations), and
+digit-plus-scale-word (`1.5 million`) as a **single** value — the bare `1.5`
+must not leak in as a second asserted number.
+
+Two exclusions keep ordinary prose from reading as a quantity claim: a
+standalone `one`/`zero` ("one of the first", "no one"), and imprecise plurals
+("hundreds of students") which assert no specific number to check. The
+whitelist is symmetric, so `"Forty students"` in the deck permits `40` in the
+draft and vice versa.
 
 ---
 

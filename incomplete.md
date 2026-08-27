@@ -2,7 +2,7 @@
 
 Current as of 2026-08-27.
 
-**Local health.** 776 Python tests pass with no `xfail` remaining; 54
+**Local health.** 811 Python tests pass with no `xfail` remaining; 54
 frontend tests, TypeScript checking, ESLint and the production build all
 pass. Migrations are covered by 20 tests against both a fresh database and a
 representative existing one.
@@ -57,7 +57,7 @@ describe any of these as working.**
 | CloudWatch alarms and SNS delivery | A deployment, plus a confirmed email subscription |
 | Deploy, rollback, backup restore, credential rotation | A deployment. Each is written in `docs/runbooks.md` and marked WRITTEN |
 | `scripts/smoke_bedrock.py` against live Bedrock | AWS credentials and per-model access grants |
-| Live golden-set result | The above. The current 80% groundedness figure is an offline defense-layer number, not a live-model one |
+| Live golden-set result | The above. The current 100% groundedness figure is an offline defense-layer number, not a live-model one — it measures what the deterministic layer does with a stated model output, not what a real Drafter says |
 
 ### Blocked on credentials or approval
 
@@ -117,7 +117,7 @@ Numbered below.
    is operator-run, so nothing refreshes those rows on a schedule.
 
 6. **Close the discovery-recall gap.**
-   The benchmark exists and reports 85.7% retrieval recall and 72.2%
+   The benchmark exists and reports 85.7% retrieval recall and 83.3%
    eligibility coverage at 100% precision. The number to move is the second
    one — Grants.gov preserves eligibility prose but leaves most structured
    fields `UNKNOWN`, which limits the deterministic filter to fewer decisions
@@ -198,6 +198,31 @@ Closed, and regression-tested. These should stay true.
   corrections are a new run, never a rewrite.
 - The frontend keeps every credential server-side and holds no
   `NEXT_PUBLIC_*` secret; CI fails if one appears.
+- Every path, query and body parameter is bounded: list limits are
+  `1..1000`, identifiers are non-empty and length-capped, enum-like inputs
+  are closed sets, and the request bodies forbid unknown fields. A malformed
+  request is a 4xx, never a 500, and a sweep asserts that so a route added
+  later inherits the property.
+- The adversarial suite covers what happens when the *model* misbehaves, not
+  just when the input is hostile: fabricated citations, a real citation that
+  supports nothing, negated evidence, spelled-out quantities, cross-founder
+  recall isolation, safety-layer exceptions failing closed, malformed model
+  output, abstention, and partial usage at budget crossings. It is verified
+  by mutation — disabling a check fails specific tests — because a suite that
+  passes against broken code is not testing anything.
+
+### Two limits worth keeping in view
+
+Both are fixed bugs whose *fixes* are still lexical, so both will misjudge
+some inputs. Every misjudgment pushes a field to "you answer this", which is
+the safe direction, and neither can produce an invented fact:
+
+- `evidence_supports_claim` reads clause polarity, not meaning. Negation
+  carried by structure rather than by a marker word ("far from settled")
+  reads as positive.
+- `extract_numbers` normalises digit and word forms to comparable values. It
+  deliberately ignores standalone `one`/`zero` and imprecise plurals
+  ("hundreds of students"), which assert no specific number to check.
 - A run is a durable job, not a held-open connection. Crashes cannot leave
   one "running" forever.
 - Two runs for the same founder cannot overlap.
