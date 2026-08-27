@@ -502,7 +502,83 @@ invocation.
 
 ---
 
-## 13. What has never been verified
+## 13. Keeping CI green
+
+**LOCAL.** Every check below was run on a developer machine against the
+committed configuration, and each was confirmed to fail when the corresponding
+fault was reintroduced.
+
+### Before pushing a change to `.github/workflows/` or `frontend/package.json`
+
+```bash
+# Structure: every action pinned to a SHA, every pin carrying a version
+# comment, every job runnable. No network.
+uv run python scripts/check_workflows.py
+
+# Do those SHAs exist upstream? This is the one that matters — see below.
+uv run python scripts/check_workflows.py --online
+
+# Would `npm ci` succeed on ubuntu-latest with the committed lockfile?
+uv run python scripts/check_lockfiles.py
+```
+
+The same three run as the `preflight` job in CI, and `tests/test_ci_workflows.py`
+covers the offline half so a plain `pytest` catches most of it.
+
+### The failure this exists to prevent
+
+On 2026-08-27 five of seven jobs failed at once. Not one of them ran a step:
+
+```
+Error: Unable to resolve action `astral-sh/setup-uv@f0ec1fc3b38f5e7cd3d55efdaa1823247dc376a3`,
+unable to find version `f0ec1fc3b38f5e7cd3d55efdaa1823247dc376a3`
+```
+
+The pin was well-formed, correctly commented `# v5.4.1`, and not a commit that
+had ever been pushed. A SHA cannot be reviewed by reading it, which is why
+`--online` exists.
+
+### Updating a pinned action
+
+Resolve the tag to a **commit**, not to the tag object. For an annotated tag
+`git ls-remote` prints the tag object's SHA, and while the runner accepts it,
+the GitHub commits API does not — so prefer the peeled `^{}` ref:
+
+```bash
+repo=astral-sh/setup-uv
+tag=v7.6.0
+git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag" "refs/tags/$tag^{}"
+# Take the SHA on the `^{}` line when there is one; otherwise the plain line.
+```
+
+Then update the `# vX.Y.Z` comment to match and re-run `--online`.
+
+### After changing `frontend/package.json`
+
+`npm install` on macOS writes a lockfile with the linux-only optional
+dependencies pruned, because npm resolves optional platform packages for the
+host it runs on. `npm ci` on ubuntu-latest then refuses to install:
+
+```
+npm error `npm ci` can only install packages when your package.json and
+package-lock.json are in sync.
+npm error Missing: @emnapi/runtime@1.11.3 from lock file
+```
+
+Nothing shows this locally — `npm ci` on the machine that wrote the lockfile
+passes. Regenerate for the runner instead:
+
+```bash
+uv run python scripts/check_lockfiles.py --fix   # then commit the lockfile
+```
+
+It resolves in a clean directory on purpose: npm consults an existing
+`node_modules` when deciding which optional dependencies are reachable, so
+re-resolving next to a macOS-populated tree reproduces the macOS answer.
+
+---
+
+## 14. What has never been verified
 
 Repeating this because it is the most important thing on the page.
 
@@ -512,8 +588,11 @@ Repeating this because it is the most important thing on the page.
 | Migrations (fresh, adoption, idempotency, rollback of schema) | **LOCAL** — 20 tests |
 | Python test suite | **LOCAL** |
 | Frontend tests, typecheck, lint, build | **LOCAL** |
-| `terraform fmt` / `validate` / `plan` | **NOT RUN** — no Terraform binary available |
-| `docker build` | **NOT RUN** — no Docker available |
+| `terraform fmt` / `validate` | **LOCAL** — both clean under Terraform 1.9.8, the version CI pins |
+| `terraform plan` | **NOT RUN** — needs an AWS account |
+| `docker build` | **NOT RUN** — no Docker available locally; the CI job builds it and passes |
+| CI workflow pins resolve upstream | **LOCAL** — all 10 verified via the commits API |
+| `npm ci` on a linux-resolved lockfile | **LOCAL** — 605 packages, verified under Node 20 and 22 |
 | Any AWS resource | **NEVER APPLIED** |
 | Live Bedrock call | **NEVER MADE** |
 | HTTPS path, scheduled invocation, alarms, DLQ | **NEVER EXERCISED** |

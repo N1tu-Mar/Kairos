@@ -249,7 +249,13 @@ uv run fastapi dev api/main.py
 # the dashboard (see frontend/README.md; needs the API running).
 # `npm ci`, not `npm install` — it installs exactly the lockfile. Re-run it
 # after any pull that touches frontend/package-lock.json; the Next 15 -> 16
-# move on 2026-08-27 rewrote most of it. Node 20.9+.
+# move on 2026-08-27 rewrote most of it. Node 20.9+ (CI builds on 22).
+#
+# If you change package.json, do NOT commit the lockfile `npm install` leaves
+# behind: on macOS it prunes the linux-only optional dependencies that
+# `npm ci` then demands on the runner. Regenerate it for CI instead —
+#   uv run python scripts/check_lockfiles.py --fix
+# See docs/runbooks.md §13.
 cd frontend && npm ci && npm run dev
 ```
 
