@@ -540,16 +540,34 @@ had ever been pushed. A SHA cannot be reviewed by reading it, which is why
 
 ### Updating a pinned action
 
-Resolve the tag to a **commit**, not to the tag object. For an annotated tag
-`git ls-remote` prints the tag object's SHA, and while the runner accepts it,
-the GitHub commits API does not — so prefer the peeled `^{}` ref:
+**Pick the newest tag numerically.** `sort`, `tail` and the eye all order tags
+as text, where `v0.9.2` lands after `v0.30.0`. That is how a 2023 release of
+trivy-action was mistaken for the current one and shipped — it pinned a trivy
+old enough that its vulnerability database endpoint had been retired, so the
+scan exited in 8s and the SARIF upload got a truncated file:
+
+```
+Error: Invalid SARIF. JSON syntax error: Unexpected end of JSON input
+```
+
+`scripts/check_workflows.py --online` now reports any pin behind the newest
+release, so let it tell you rather than reading a tag list yourself.
+
+**Resolve the tag to a commit, not to the tag object.** For an annotated tag
+`git ls-remote` prints the tag object's SHA; the runner accepts it, the GitHub
+commits API does not. Prefer the peeled `^{}` ref:
 
 ```bash
 repo=astral-sh/setup-uv
-tag=v7.6.0
+tag=v10.0.1
 git ls-remote --tags "https://github.com/$repo.git" "refs/tags/$tag" "refs/tags/$tag^{}"
 # Take the SHA on the `^{}` line when there is one; otherwise the plain line.
 ```
+
+**On a major-version jump, check the inputs before pinning.** An action can
+rename or drop one, and nothing in the workflow will say so until the job
+fails. Read the new `action.yml` and confirm every input this repository
+actually passes is still declared.
 
 Then update the `# vX.Y.Z` comment to match and re-run `--online`.
 
