@@ -43,6 +43,7 @@ from agent.models import ApplicationForm, RunJob
 from agent.runtime import SubAgents
 from agent.scheduler import Lease, RunLock, ScheduledRunFailureLog
 from agent.scout import new_run_context, run_once
+from agent.tools.campus import CampusDiscoverySource
 from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
 
 log = logging.getLogger("kairos.jobs")
@@ -104,6 +105,13 @@ def build_sources(job: RunJob):
                 GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s)
             )
         )
+    # The same Tier 3 source the CLI builds. Without this line the flag would
+    # mean one thing from a terminal and another from the dashboard, which is
+    # worse than the flag not existing. No live sweep is ever run from a job:
+    # a scheduled request must not start a crawl.
+    sources.append(
+        CampusDiscoverySource(enabled=config.enable_browser, allow_live_scrape=False)
+    )
     return sources
 
 
