@@ -24,6 +24,7 @@ from agent.config import REPO_ROOT, settings, stamp_placeholder_models  # noqa: 
 from agent.models import ApplicationForm, FounderProfile  # noqa: E402
 from agent.runtime import SubAgents  # noqa: E402
 from agent.scout import new_run_context, run_once  # noqa: E402
+from agent.tools.campus import CampusDiscoverySource  # noqa: E402
 from agent.tools.discovery import (  # noqa: E402
     GrantsGovClient,
     GrantsGovSource,
@@ -33,7 +34,12 @@ from agent.tools.discovery import (  # noqa: E402
 from api.repository import SqliteRepository  # noqa: E402
 
 
-def build_sources(demo: bool, grants_gov: bool, profile: FounderProfile | None = None):
+def build_sources(
+    demo: bool,
+    grants_gov: bool,
+    profile: FounderProfile | None = None,
+    live_campus_scrape: bool = False,
+):
     config = settings()
     catalog = "opportunities.demo.json" if demo else "opportunities.seed.json"
     sources = [
@@ -54,6 +60,15 @@ def build_sources(demo: bool, grants_gov: bool, profile: FounderProfile | None =
                 keywords=keywords,
             )
         )
+    # Tier 3. Off unless KAIROS_ENABLE_BROWSER is set, and even then it adds
+    # only campus rows a human marked ACCEPTED. A live sweep needs a second,
+    # explicit opt-in because it makes network requests during a run.
+    sources.append(
+        CampusDiscoverySource(
+            enabled=config.enable_browser,
+            allow_live_scrape=config.enable_browser and live_campus_scrape,
+        )
+    )
     return sources
 
 
@@ -105,7 +120,13 @@ async def one_run(args) -> int:
         ctx.agents = SubAgents.build()
 
     report = await run_once(
-        ctx, build_sources(args.demo, not args.no_grants_gov, profile=profile)
+        ctx,
+        build_sources(
+            args.demo,
+            not args.no_grants_gov,
+            profile=profile,
+            live_campus_scrape=args.campus_scrape,
+        ),
     )
 
     print()
@@ -132,6 +153,13 @@ def main() -> int:
         action="store_true",
         help="run the pipeline with stub judgment and no AWS account. Never "
              "falls back to this automatically; output is labelled [DRY RUN].",
+    )
+    parser.add_argument(
+        "--campus-scrape",
+        action="store_true",
+        help="also run a live campus sweep during the run. Needs "
+             "KAIROS_ENABLE_BROWSER=true. What it collects lands in the review "
+             "file as NEEDS_HUMAN_REVIEW and cannot affect this run.",
     )
     parser.add_argument("--schedule", action="store_true", help="run on a local cron loop")
     parser.add_argument("--hour", type=int, default=6, help="local schedule hour")
