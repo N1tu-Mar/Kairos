@@ -1,11 +1,12 @@
+"""The two behaviours this suite was created to pin, now implemented.
+
+These were `xfail` while `agent.scheduler` did not exist. They stay exactly
+as written — the ground truth did not move, the implementation caught up.
+The full behaviour is exercised in `test_run_lease.py` and
+`test_failure_log.py` alongside this file.
+"""
+
 from __future__ import annotations
-
-import pytest
-
-pytestmark = pytest.mark.xfail(
-    reason="Production scheduler and overlap lock are not implemented yet.",
-    strict=False,
-)
 
 
 def test_scheduler_lock_prevents_overlapping_founder_runs(tmp_path):
