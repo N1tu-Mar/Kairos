@@ -1,0 +1,76 @@
+{
+  "errorcode": 0,
+  "msg": "Webservice Succeeds",
+  "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.Im0vYzF3TjhhSys0ZkxEdGZyNW1UdU93MWd1U0VHYysrTnF3WTN3UENBV2s9Ig.zdnwPNEiZaouysGxkKpdMl_lLhYJkGqaeNCqmYZaGW0",
+  "data": {
+    "searchParams": {
+      "resultType": "json",
+      "searchOnly": false,
+      "oppNum": "",
+      "cfda": "",
+      "sortBy": "",
+      "oppStatuses": "posted",
+      "startRecordNum": 0,
+      "eligibilities": "",
+      "fundingInstruments": "",
+      "fundingCategories": "",
+      "agencies": "",
+      "rows": 3,
+      "keyword": "student",
+      "keywordEncoded": true
+    },
+    "hitCount": 228,
+    "startRecord": 0,
+    "oppHits": [
+      {
+        "id": "348985",
+        "number": "23-601",
+        "title": "Research Experiences for Undergraduates (REU)",
+        "agencyCode": "NSF",
+        "agency": "U.S. National Science Foundation",
+        "openDate": "06/29/2023",
+        "closeDate": "08/18/2027",
+        "oppStatus": "posted",
+        "docType": "synopsis",
+        "cfdaList": [
+          "47.075",
+          "47.070",
+          "47.050",
+          "47.074",
+          "47.041",
+          "47.076",
+          "47.084",
+          "47.049"
+        ]
+      },
+      {
+        "id": "334326",
+        "number": "21-595",
+        "title": "Tribal Colleges and Universities Program",
+        "agencyCode": "NSF",
+        "agency": "U.S. National Science Foundation",
+        "openDate": "06/24/2021",
+        "closeDate": "09/01/2026",
+        "oppStatus": "posted",
+        "docType": "synopsis",
+        "cfdaList": [
+          "47.076"
+        ]
+      },
+      {
+        "id": "363101",
+        "number": "FA-NOFO0027-001",
+        "title": "Department of Interior Wildland Fire Service BLM-National Interagency Fire Center (NIFC) Joint Fire Science Program (JFSP)Fire Leaders And Managers, Emerging Scientists (FLAMES)",
+        "agencyCode": "DOI-BLM",
+        "agency": "Bureau of Land Management",
+        "openDate": "07/07/2026",
+        "closeDate": "09/17/2026",
+        "oppStatus": "posted",
+        "docType": "synopsis",
+        "cfdaList": [
+          "15.232"
+        ]
+      }
+    ]
+  }
+}

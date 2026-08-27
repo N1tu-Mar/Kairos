@@ -24,11 +24,16 @@ from agent.config import REPO_ROOT, settings, stamp_placeholder_models  # noqa: 
 from agent.models import ApplicationForm, FounderProfile  # noqa: E402
 from agent.runtime import SubAgents  # noqa: E402
 from agent.scout import new_run_context, run_once  # noqa: E402
-from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog  # noqa: E402
+from agent.tools.discovery import (  # noqa: E402
+    GrantsGovClient,
+    GrantsGovSource,
+    SeedCatalog,
+    keywords_for_profile,
+)
 from api.repository import SqliteRepository  # noqa: E402
 
 
-def build_sources(demo: bool, grants_gov: bool):
+def build_sources(demo: bool, grants_gov: bool, profile: FounderProfile | None = None):
     config = settings()
     catalog = "opportunities.demo.json" if demo else "opportunities.seed.json"
     sources = [
@@ -38,9 +43,15 @@ def build_sources(demo: bool, grants_gov: bool):
         )
     ]
     if grants_gov:
+        keywords = (
+            keywords_for_profile(profile)
+            if profile is not None
+            else ("student", "undergraduate", "entrepreneurship")
+        )
         sources.append(
             GrantsGovSource(
-                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s)
+                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s),
+                keywords=keywords,
             )
         )
     return sources
@@ -93,7 +104,9 @@ async def one_run(args) -> int:
     else:
         ctx.agents = SubAgents.build()
 
-    report = await run_once(ctx, build_sources(args.demo, not args.no_grants_gov))
+    report = await run_once(
+        ctx, build_sources(args.demo, not args.no_grants_gov, profile=profile)
+    )
 
     print()
     print(report.headline())
