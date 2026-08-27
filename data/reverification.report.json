@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-08-27T12:10:34.287132+00:00",
-  "rows_in_catalog": 40,
-  "rows_checked": 40,
+  "generated_at": "2026-08-27T12:43:31.774857+00:00",
+  "rows_in_catalog": 49,
+  "rows_checked": 49,
   "rows_still_fresh": 0,
   "max_age_days": null,
   "by_status": {
-    "UNCHANGED": 24,
+    "UNCHANGED": 32,
     "DEAD": 3,
-    "DEADLINE_PASSED": 8,
+    "DEADLINE_PASSED": 9,
     "EVIDENCE_LOST": 3,
     "REDIRECTED": 2
   },
@@ -46,7 +46,7 @@
       "id": "mit-solve-ai-for-a-better-world-2026",
       "title": "AI for a Better World Challenge (MIT Solve)",
       "source_url": "https://solve.mit.edu/challenges/ai-for-a-better-world",
-      "verified_at": "2026-08-27T07:49:53.804211+00:00",
+      "verified_at": "2026-08-27T12:35:12.933221+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -61,7 +61,7 @@
       "id": "hello-tomorrow-global-challenge-11th-edition",
       "title": "Hello Tomorrow Global Challenge (11th Edition)",
       "source_url": "https://hello-tomorrow.org/global-challenge/",
-      "verified_at": "2026-08-27T07:49:55.665437+00:00",
+      "verified_at": "2026-08-27T12:35:14.919752+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -76,7 +76,7 @@
       "id": "xprize-connect-2026-global-pitch-competition",
       "title": "XPRIZE Connect 2026 Global Pitch Competition",
       "source_url": "https://competition.xpconnect.org/global",
-      "verified_at": "2026-08-27T07:49:56.755544+00:00",
+      "verified_at": "2026-08-27T12:35:16.488219+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -151,7 +151,7 @@
       "id": "oshaughnessy-fellowships",
       "title": "O'Shaughnessy Fellowships",
       "source_url": "https://www.osv.llc/fellowships",
-      "verified_at": "2026-08-27T07:49:58.344155+00:00",
+      "verified_at": "2026-08-27T12:35:18.642216+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -199,7 +199,7 @@
       "id": "epa-p3-student-design-competition",
       "title": "EPA People, Prosperity and the Planet (P3) Student Design Competition",
       "source_url": "https://www.epa.gov/P3",
-      "verified_at": "2026-08-27T07:50:00.025540+00:00",
+      "verified_at": "2026-08-27T12:35:20.721847+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -214,7 +214,7 @@
       "id": "nasa-minds",
       "title": "NASA MINDS (MUREP Innovative New Designs for Space)",
       "source_url": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/nasa-minds/",
-      "verified_at": "2026-08-27T07:50:00.286538+00:00",
+      "verified_at": "2026-08-27T12:35:21.089814+00:00",
       "changes": [
         {
           "field": "source_url",
@@ -284,7 +284,7 @@
       "id": "diu-dual-use-university-accelerator-challenge",
       "title": "DIU Dual-Use University Accelerator Challenge",
       "source_url": "https://www.diu.mil/latest/diu-presents-dual-use-university-accelerator-challenge",
-      "verified_at": "2026-08-27T07:50:02.517140+00:00",
+      "verified_at": "2026-08-27T12:35:23.475966+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -299,7 +299,7 @@
       "id": "rice-business-plan-competition",
       "title": "Rice Business Plan Competition",
       "source_url": "https://rbpc.rice.edu/eligibility",
-      "verified_at": "2026-08-27T07:50:05.195408+00:00",
+      "verified_at": "2026-08-27T12:35:25.241459+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -314,7 +314,7 @@
       "id": "princeton-keller-elab-incubator",
       "title": "eLab Incubator (Keller Center)",
       "source_url": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/elab-incubator",
-      "verified_at": "2026-08-27T07:50:12.053107+00:00",
+      "verified_at": "2026-08-27T12:35:32.440412+00:00",
       "changes": [
         {
           "field": "deadline",
@@ -329,7 +329,7 @@
       "id": "seton-hall-pirates-pitch",
       "title": "Pirates Pitch Startup Competition",
       "source_url": "https://www.shu.edu/business/pirates-pitch/index.html",
-      "verified_at": "2026-08-27T07:50:12.684608+00:00",
+      "verified_at": "2026-08-27T12:35:33.063934+00:00",
       "changes": [
         {
           "field": "source_url",
@@ -339,6 +339,21 @@
         }
       ],
       "status": "REDIRECTED"
+    },
+    {
+      "id": "asu-venture-devils",
+      "title": "ASU Venture Devils",
+      "source_url": "https://entrepreneurship.asu.edu/programs/venture-devils/",
+      "verified_at": "2026-08-27T12:35:36.568916+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2026-03-01",
+          "now": "passed 179 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
     }
   ],
   "unchanged": [
@@ -365,7 +380,15 @@
     "tcnj-mayo-business-plan-competition",
     "montclair-fcei-pitch-day",
     "rowan-rohrer-new-venture-competition",
-    "stevens-scholl-launchpad-awards"
+    "stevens-scholl-launchpad-awards",
+    "davis-projects-for-peace",
+    "awesome-foundation-microgrants",
+    "pollination-project-daily-grant",
+    "halcyon-fellowship",
+    "roddenberry-fellowship",
+    "national-geographic-society-grants-program",
+    "penn-state-nittany-ai-challenge",
+    "ut-austin-tvl-investment-competition"
   ],
   "note": "Nothing in the catalog was modified. Every entry under needs_review is a question for a person: open the page, decide, and edit data/opportunities.candidates.json by hand. Re-running scripts/verify_seed.py afterwards is what updates verified_at."
 }

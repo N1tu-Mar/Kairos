@@ -75,8 +75,8 @@ with the specific change recorded.
 
 **Nothing in it has been applied.** The script does not edit the catalog, does
 not flip `verified`, and does not update a deadline. It reports; a person
-decides and edits by hand. First run over the 40 rows then in the catalog: 24 unchanged, 8 with
-passed deadlines, 3 dead, 3 with lost evidence, 2 redirected.
+decides and edits by hand. Latest run over all 49 rows: 32 unchanged, 9 with passed deadlines, 3 dead,
+3 with lost evidence, 2 redirected.
 
 ## `opportunities.demo.json`
 
