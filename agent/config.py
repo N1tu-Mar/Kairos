@@ -98,13 +98,29 @@ class Prices:
     """USD per 1M tokens. Left at 0 until confirmed against live pricing.
 
     A 0 price makes `usd_estimate` read 0.0, which is visibly wrong rather
-    than quietly wrong. The daily cap still enforces on raw token counts.
+    than quietly wrong. Prices are never invented: there is no default table
+    of "roughly what Anthropic charges" in this repository, because a stale
+    guess would silently under-count spend against a real cap.
+
+    The consequence is worth naming: with prices at 0 the daily USD cap can
+    never trip, since every call costs $0.00. Only the per-run token ceiling
+    is doing work. `/ready` reports that as `spend_cap: unenforceable` in
+    production mode, and `configured` is the predicate it uses.
     """
 
     reasoning_in: float
     reasoning_out: float
     classify_in: float
     classify_out: float
+
+    @property
+    def configured(self) -> bool:
+        """True when a live price has been supplied for both tiers.
+
+        Output prices only: every call this system makes produces output, so
+        a nonzero output price is enough to make the dollar cap real.
+        """
+        return self.reasoning_out > 0 and self.classify_out > 0
 
 
 @dataclass(frozen=True)
@@ -131,6 +147,15 @@ class Settings:
     state_dir: Path
     enable_otel: bool
     api_token: str
+    #: Production mode. Off by default so a clean clone stays runnable with
+    #: no credentials. On, it stops being advisory: `/ready` fails without a
+    #: token or without live prices, and the auth layer refuses anonymous
+    #: identity outright. Set `KAIROS_ENV=production` to turn it on.
+    environment: str
+
+    @property
+    def production(self) -> bool:
+        return self.environment == "production"
 
     @property
     def data_dir(self) -> Path:
@@ -188,7 +213,8 @@ def settings() -> Settings:
         db_url=os.getenv("KAIROS_DB_URL", "sqlite:///./kairos.db"),
         state_dir=state_dir,
         enable_otel=_bool("KAIROS_ENABLE_OTEL", False),
-        # Empty means the API runs open — acceptable only on localhost.
-        # api/main.py refuses nothing but logs the exposure at startup.
+        # Empty means the API runs open — acceptable only on localhost, and
+        # only outside production mode, where `/ready` fails without it.
         api_token=os.getenv("KAIROS_API_TOKEN", "").strip(),
+        environment=os.getenv("KAIROS_ENV", "local").strip().lower(),
     )

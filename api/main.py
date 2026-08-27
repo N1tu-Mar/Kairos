@@ -21,6 +21,7 @@ from __future__ import annotations
 import logging
 import secrets
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -102,9 +103,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Kairos", lifespan=lifespan)
 
 
-#: Paths that stay reachable without a token. /health exists so a load
-#: balancer can probe liveness without holding a credential.
-AUTH_EXEMPT_PATHS = {"/health"}
+#: Paths that stay reachable without a token, so a load balancer can probe
+#: without holding a credential. Both are deliberately uninformative about
+#: the deployment: liveness is a constant, readiness names which check failed
+#: and never what it was configured with.
+AUTH_EXEMPT_PATHS = {"/health", "/ready"}
 
 
 @app.middleware("http")
@@ -188,7 +191,81 @@ def _run_for_founder(founder_id: str, run_id: str) -> RunReport:
 
 @app.get("/health")
 def health() -> dict:
+    """Liveness. The process is up and serving; nothing more is claimed.
+
+    Deliberately dependency-free. A liveness probe that checks the database
+    is a liveness probe that restarts a healthy container because storage
+    hiccuped, and restarting rarely fixes storage.
+    """
     return {"status": "ok"}
+
+
+@app.get("/ready")
+def ready(response: Response) -> dict:
+    """Readiness: can this process actually serve a request right now?
+
+    Checks what a request needs and nothing that costs money:
+
+    *   **storage** — one trivial query against the database, and a write
+        probe against the state directory. Both are the failure modes an
+        EFS mount produces, and neither is visible from `/health`.
+    *   **configuration** — that model IDs resolve at all, and in production
+        mode that the deployment is not accidentally open or unpriced.
+
+    No model is invoked. A readiness check that costs a Bedrock call is a
+    readiness check that bills you per probe interval.
+
+    The body names *which* check failed and never what it was configured
+    with: no model IDs, no paths, no token. `/ready` is reachable without a
+    credential, so it must not describe the deployment to a stranger.
+    """
+    checks: dict[str, str] = {}
+
+    try:
+        app.state.repo.get_profile("__readiness_probe__")
+        checks["database"] = "ok"
+    except Exception:  # noqa: BLE001
+        checks["database"] = "unavailable"
+
+    try:
+        config = settings()
+    except Exception:  # noqa: BLE001
+        # A missing model ID raises here by design — the process is up but
+        # cannot run anything.
+        checks["configuration"] = "invalid"
+        response.status_code = 503
+        return {"status": "not_ready", "checks": checks}
+
+    try:
+        state_dir = Path(config.state_dir)
+        state_dir.mkdir(parents=True, exist_ok=True)
+        probe = state_dir / ".readiness"
+        probe.write_text("ok")
+        probe.unlink(missing_ok=True)
+        checks["state_storage"] = "ok"
+    except OSError:
+        checks["state_storage"] = "unwritable"
+
+    checks["configuration"] = "ok"
+
+    # Production mode is opt-in and strict. In local single-founder mode an
+    # open API and zero prices are the documented demo posture, not a fault.
+    if config.production:
+        if not config.api_token:
+            checks["authentication"] = "missing"
+        else:
+            checks["authentication"] = "ok"
+        if config.daily_usd_cap > 0 and not config.prices.configured:
+            # Zero prices make the daily USD cap unenforceable: every call
+            # costs $0.00, so the cap can never trip.
+            checks["spend_cap"] = "unenforceable"
+        else:
+            checks["spend_cap"] = "ok"
+
+    ok = all(value == "ok" for value in checks.values())
+    if not ok:
+        response.status_code = 503
+    return {"status": "ready" if ok else "not_ready", "checks": checks}
 
 
 @app.get("/founders/{founder_id}")

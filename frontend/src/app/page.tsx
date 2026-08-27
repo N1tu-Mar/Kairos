@@ -4,11 +4,22 @@ import { ApiErrorState } from "@/components/api-error-state";
 import { InboxItemCard } from "@/components/inbox-item-card";
 import { ManualRunControl } from "@/components/manual-run";
 import { RunSummary } from "@/components/run-summary";
+import { SchedulerFailures } from "@/components/scheduler-failures";
 import { EmptyState, Note } from "@/components/states";
 import { Page, PageHeader, Section } from "@/components/primitives";
-import { getInbox, getLatestRun, getOpportunities } from "@/lib/api";
+import {
+  getInbox,
+  getLatestRun,
+  getOpportunities,
+  listSchedulerFailures,
+} from "@/lib/api";
 import { formatRelative, runHeadline } from "@/lib/format";
-import type { InboxItem, Opportunity, RunReport } from "@/lib/types";
+import type {
+  InboxItem,
+  Opportunity,
+  RunReport,
+  SchedulerFailure,
+} from "@/lib/types";
 
 /**
  * The briefing.
@@ -24,9 +35,12 @@ export default async function BriefingPage() {
   let runError: unknown = null;
   let inboxError: unknown = null;
 
-  const [runResult, inboxResult] = await Promise.allSettled([
+  let failures: SchedulerFailure[] = [];
+
+  const [runResult, inboxResult, failureResult] = await Promise.allSettled([
     getLatestRun(),
     getInbox(),
+    listSchedulerFailures(),
   ]);
 
   if (runResult.status === "fulfilled") report = runResult.value;
@@ -34,6 +48,10 @@ export default async function BriefingPage() {
 
   if (inboxResult.status === "fulfilled") inbox = inboxResult.value;
   else inboxError = inboxResult.reason;
+
+  // A failure to read the failure log is not itself worth an alarm on the
+  // briefing — the run summary below already reports a backend that is down.
+  if (failureResult.status === "fulfilled") failures = failureResult.value;
 
   const active = inbox.filter((item) => !item.passive);
   const passive = inbox.filter((item) => item.passive);
@@ -70,6 +88,12 @@ export default async function BriefingPage() {
           ) : null
         }
       />
+
+      {failures.length > 0 ? (
+        <Section title="Runs that did not happen">
+          <SchedulerFailures failures={failures} />
+        </Section>
+      ) : null}
 
       <Section
         title="Latest run"
