@@ -63,7 +63,7 @@ output "api_token_secret_arn" {
       aws secretsmanager get-secret-value --secret-id <arn> \
         --query SecretString --output text
   EOT
-  value = aws_secretsmanager_secret.api_token.arn
+  value       = aws_secretsmanager_secret.api_token.arn
 }
 
 output "log_group" {
