@@ -1501,5 +1501,338 @@
       }
     ],
     "_curation_note": "researched 2026-08-26; no open application URL \u2014 awards are selected annually from Launchpad@Stevens participants; official pages publish NO award amounts, deadlines, or formal eligibility criteria as of 2026-08-26; included as optional per brief since a current official Launchpad page exists; recipients in official news coverage are Stevens students/recent alumni"
+  },
+  {
+    "id": "davis-projects-for-peace",
+    "title": "Projects for Peace Summer Grants",
+    "funder": "Kathryn Wasserman Davis Projects for Peace (administered by Middlebury College)",
+    "source_url": "https://www.middlebury.edu/projects-for-peace/summer-grants",
+    "award_min": 10000,
+    "award_max": 10000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "Every year, 125 or more student leaders are each awarded $10,000 grants to implement a Project for Peace",
+        "source_doc": "https://www.middlebury.edu/projects-for-peace/summer-grants"
+      },
+      {
+        "text": "Eligibility is strictly limited to students enrolled at one of our participating partner institutions.",
+        "source_doc": "https://www.middlebury.edu/projects-for-peace/summer-grants"
+      },
+      {
+        "text": "U.S. or international students are eligible; Students may be of any age, any major, or any year in school",
+        "source_doc": "https://www.middlebury.edu/projects-for-peace/summer-grants"
+      },
+      {
+        "text": "Students may implement the project alone or with others; The project may take place anywhere in the world, including in the U.S.",
+        "source_doc": "https://www.middlebury.edu/projects-for-peace/summer-grants"
+      },
+      {
+        "text": "Winning proposal and nominated alternate due to Projects for Peace headquarters.",
+        "source_doc": "https://www.middlebury.edu/projects-for-peace/summer-grants/grant-timetable"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://www.middlebury.edu/projects-for-peace/summer-grants; davisprojectsforpeace.org now 301-redirects to middlebury.edu/projects-for-peace, so all facts are cited from the Middlebury domain. No student-facing deadline is published nationally: the site states student deadlines are set per campus ('Student applicants learn about any institution-specific requirements and deadlines by contacting the Projects for Peace campus liaison at their college or university'), so deadline is null. The published national timetable for the 2027 cycle has campus nominations due to headquarters 2027-02-03 and the final cohort announced 2027-03-31. Eligibility is limited to enrolled students at unnamed 'participating partner institutions' (list is behind a separate partners page), so no institutions list is asserted. No degree-level, citizenship, or equity rule is stated explicitly, so those keys are omitted."
+  },
+  {
+    "id": "awesome-foundation-microgrants",
+    "title": "Awesome Foundation Micro-Grants",
+    "funder": "The Awesome Foundation",
+    "source_url": "https://www.awesomefoundation.org/en/about_us",
+    "award_min": 1000,
+    "award_max": 1000,
+    "deadline": null,
+    "rolling": true,
+    "eligibility": {
+      "takes_equity": false
+    },
+    "criteria": [
+      {
+        "text": "The Awesome Foundation is a global community advancing the interest of awesome in the universe, $1000 at a time.",
+        "source_doc": "https://www.awesomefoundation.org/en/about_us"
+      },
+      {
+        "text": "Each fully autonomous chapter supports awesome projects through micro-grants, usually given out monthly.",
+        "source_doc": "https://www.awesomefoundation.org/en/about_us"
+      },
+      {
+        "text": "Anyone is eligible for a grant \u2014 individuals, groups, and organizations alike.",
+        "source_doc": "https://www.awesomefoundation.org/en/faq"
+      },
+      {
+        "text": "All chapters provide grants with no strings attached and claim no ownership over the projects they support.",
+        "source_doc": "https://www.awesomefoundation.org/en/faq"
+      },
+      {
+        "text": "Most chapters meet monthly to review applications and decide on a recipient",
+        "source_doc": "https://www.awesomefoundation.org/en/faq"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://www.awesomefoundation.org/en/submissions/new; takes_equity false is asserted only because the FAQ explicitly says chapters 'claim no ownership over the projects they support' and 'We do not wish for the funds to be repaid'. Grants are per-chapter and reviewed monthly with no published deadline, so rolling true / deadline null. Not student-specific; students are eligible under the blanket 'Anyone is eligible' statement. Amount is stated as '$1000 or the local equivalent' so non-USD chapters may differ."
+  },
+  {
+    "id": "pollination-project-daily-grant",
+    "title": "The Pollination Project Daily Grant",
+    "funder": "The Pollination Project Foundation",
+    "source_url": "https://thepollinationproject.org/funding-eligibility/",
+    "award_min": null,
+    "award_max": 500,
+    "deadline": null,
+    "rolling": true,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "We accept applications from individuals, groups, and startup not-for-profit organizations based anywhere in the world as long as the work is volunteer-led",
+        "source_doc": "https://thepollinationproject.org/funding-eligibility/"
+      },
+      {
+        "text": "You can request up to $500 USD in TPP grant funding.",
+        "source_doc": "https://thepollinationproject.org/funding-eligibility/"
+      },
+      {
+        "text": "Your project\u2019s total budget must be under $10,000 USD.",
+        "source_doc": "https://thepollinationproject.org/funding-eligibility/"
+      },
+      {
+        "text": "Annual budget must not exceed $50,000.",
+        "source_doc": "https://thepollinationproject.org/funding-eligibility/"
+      },
+      {
+        "text": "No paid staff (occasional professional services such as web design, accounting, etc. are allowed).",
+        "source_doc": "https://thepollinationproject.org/funding-eligibility/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://thepollinationproject.org/apply/; IMPORTANT correction to common third-party listings: the official eligibility page now caps a request at $500 USD, not the widely-cited $1,000. The program is branded 'Daily Grant' and the official eligibility page publishes no deadline, hence rolling true / deadline null. Work must be volunteer-led with no paid staff, which excludes most funded/for-profit student ventures. No degree-level, citizenship, age, or equity rule is stated, so those keys are omitted."
+  },
+  {
+    "id": "halcyon-fellowship",
+    "title": "Halcyon Fellowship / Accelerator Programs",
+    "funder": "Halcyon (formerly Halcyon House / Halcyon Incubator)",
+    "source_url": "https://halcyonaccelerator.org/applicants/",
+    "award_min": null,
+    "award_max": null,
+    "deadline": null,
+    "rolling": true,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "We are looking for ventures who are at least at the MVP (Minimum Viable Product) stage",
+        "source_doc": "https://halcyonaccelerator.org/applicants/"
+      },
+      {
+        "text": "which Halcyon defines as a for-profit, scalable company where impact forms a non-negotiable part of the business model",
+        "source_doc": "https://halcyonaccelerator.org/applicants/"
+      },
+      {
+        "text": "founders can submit a short eligibility survey designed to assess whether you would fit Halcyon and our programs",
+        "source_doc": "https://halcyonaccelerator.org/applicants/"
+      },
+      {
+        "text": "Many of Halcyon\u2019s programs are open to global candidates and/or are based in specific regions outside the United States.",
+        "source_doc": "https://halcyonaccelerator.org/applicants/"
+      },
+      {
+        "text": "Founders should only submit one eligibility application per venture.",
+        "source_doc": "https://halcyonaccelerator.org/applicants/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://halcyonaccelerator.org/applicants/ (year-round eligibility form); halcyonhouse.org 301-redirects to halcyonaccelerator.org, so all facts are cited from halcyonaccelerator.org. The old halcyonhouse.org/apply/eligibility-requirements-halcyon-incubator/ and /programs/global-climate-fellowship-2026/ URLs now 404 after the redirect. No dollar figure, equity policy, deadline, or citizenship rule appears on any official page I could load \u2014 the applicants page only says 'Stipends will be distributed at multiple points during the fellowship' \u2014 so award_min/max and takes_equity are omitted despite third-party sources citing ~US$25k and 'equity-free'. Eligibility form is accepted at any time and reviewed on a rolling basis; individual programs open in multi-week windows. Not student-specific; requires founders working full-time on the venture. /programs/ lists 2026 cohorts including Global EquityTech (Feb\u2013June 2026), Global Climate (Apr\u2013Sept 2026) and US Health Accelerator (June\u2013Nov 2026)."
+  },
+  {
+    "id": "roddenberry-fellowship",
+    "title": "Roddenberry Fellowship",
+    "funder": "Roddenberry Foundation",
+    "source_url": "https://apply.roddenberryfoundation.org/app/fellowship",
+    "award_min": 50000,
+    "award_max": 50000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "The Roddenberry Fellowship is a 12-month program that offers Fellows $50,000 to take an existing initiative",
+        "source_doc": "https://apply.roddenberryfoundation.org/app/fellowship"
+      },
+      {
+        "text": "Fellows must be working on a project, organization, or initiative with direct impact in one of five areas",
+        "source_doc": "https://apply.roddenberryfoundation.org/app/fellowship"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://apply.roddenberryfoundation.org/app/fellowship; STALE / PREVIOUS CYCLE \u2014 flag before relying on this row. roddenberryfoundation.org has been redesigned and https://roddenberryfoundation.org/our-work/roddenberry-fellowship/ now serves generic Foundation homepage copy with zero fellowship detail; the only official page still carrying program facts is the application portal, whose footer reads 'Copyright Roddenberry Foundation \u00a9 2023'. No open deadline or cycle is published. Third-party listings report the Fellowship is paused beginning 2026; I could NOT verify that statement on any official page, so it is not recorded as fact. The portal states no citizenship, age, or degree rule on the page I could load, so eligibility keys are omitted (third-party sources cite US citizen/PR/DACA/visa holder and 18+, unverified officially)."
+  },
+  {
+    "id": "national-geographic-society-grants-program",
+    "title": "National Geographic Society Grants Program (RFP-based)",
+    "funder": "National Geographic Society",
+    "source_url": "https://www.nationalgeographic.org/explore/grants-investments",
+    "award_min": null,
+    "award_max": null,
+    "deadline": "2026-09-23",
+    "rolling": false,
+    "eligibility": {},
+    "criteria": [
+      {
+        "text": "the National Geographic Society has transitioned from an open-call model to a specific Request for Proposals (RFP) style Grants Program",
+        "source_doc": "https://www.nationalgeographic.org/explore/grants-investments"
+      },
+      {
+        "text": "You must be 18 or older to apply for a National Geographic Society grant.",
+        "source_doc": "https://www.nationalgeographic.org/explore/grants-investments"
+      },
+      {
+        "text": "Because every RFP is unique, eligibility requirements, geographic focuses and submission deadlines will vary by opportunity.",
+        "source_doc": "https://www.nationalgeographic.org/explore/grants-investments"
+      },
+      {
+        "text": "Apply by September 23, 2026",
+        "source_doc": "https://www.nationalgeographic.org/explore/grants-investments"
+      },
+      {
+        "text": "Rather than applying to generic tiers (like our historical Level I or Level II funding levels), project budgets and funding amounts are tailored to the parameters specified within each active RFP.",
+        "source_doc": "https://www.nationalgeographic.org/explore/grants-investments"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://funding.nationalgeographic.org/; the requested 'Early Career Grants' program NO LONGER EXISTS as a named open-call opportunity \u2014 the old eligibility URL https://www.nationalgeographic.org/funding-opportunities/grants/how-to-apply/eligibility/ now 302-redirects to the NGS homepage, and the grants page states the Society moved from open call to RFP-only. This row therefore describes the successor RFP Grants Program. Award amounts are set per RFP so award_min/max are null. The single deadline recorded (2026-09-23) belongs to the only RFP open at time of research, 'Understanding Ecosystem Dynamics and the Ecology of the Okavango River Basin' \u2014 it is an ecology research RFP, not a student-venture fund. No degree, citizenship, or institution rule is stated at the program level."
+  },
+  {
+    "id": "penn-state-nittany-ai-challenge",
+    "title": "Nittany AI Challenge",
+    "funder": "Nittany AI Alliance, The Pennsylvania State University",
+    "source_url": "https://nittanyai.psu.edu/programs/challenge",
+    "award_min": 300,
+    "award_max": 500,
+    "deadline": "2026-12-11",
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "institutions": [
+        "The Pennsylvania State University"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "All participants must be current Penn State graduate or undergraduate students at the time of the Prototype Phase deadline",
+        "source_doc": "https://nittanyai.psu.edu/programs/challenge/terms-and-conditions"
+      },
+      {
+        "text": "There is no limit to the number of individuals on a team.",
+        "source_doc": "https://nittanyai.psu.edu/programs/challenge/terms-and-conditions"
+      },
+      {
+        "text": "up to 15 teams will be awarded $300 each based on how they scored against the rubric",
+        "source_doc": "https://nittanyai.psu.edu/programs/challenge/prizes"
+      },
+      {
+        "text": "Up to 10 eligible teams will be awarded $500 each based on how their MVP scores against the rubric.",
+        "source_doc": "https://nittanyai.psu.edu/programs/challenge/prizes"
+      },
+      {
+        "text": "Deadline for teams to submit prototypes.",
+        "source_doc": "https://nittanyai.psu.edu/programs/challenge"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://nittanyai.psu.edu/programs/challenge; deadline 2026-12-11 is the Prototype submission deadline in the published 2026-2027 timeline (MVP code 2027-03-16, Pitch Contest 2027-04-15). PARTIAL STALE FLAG: the Terms and Conditions sub-page has not been refreshed for the new cycle \u2014 it still says the Prototype Phase deadline is 'January 19, 2026' and that 'There will not be a competitive Idea Phase in 2025-2026', i.e. previous cycle text, even though the eligibility rule it states is the operative one. degree_levels derives from the explicit phrase 'graduate or undergraduate students'. Explicit per-phase prizes are $300 (Prototype) and $500 (MVP); the page also mentions unquantified 'additional funding' for continued MVP development and 'various sub-prizes', so the real ceiling may be higher. No equity is taken (competition prize), but the pages do not say so explicitly, so takes_equity is omitted. Prizes are taxable to individuals per the prizes page."
+  },
+  {
+    "id": "asu-venture-devils",
+    "title": "ASU Venture Devils",
+    "funder": "J. Orin Edson Entrepreneurship + Innovation Institute, Arizona State University",
+    "source_url": "https://entrepreneurship.asu.edu/programs/venture-devils/",
+    "award_min": 1000,
+    "award_max": 50000,
+    "deadline": "2026-03-01",
+    "rolling": true,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd",
+        "postdoc"
+      ],
+      "institutions": [
+        "Arizona State University",
+        "Maricopa Community Colleges"
+      ],
+      "min_team_size": 1
+    },
+    "criteria": [
+      {
+        "text": "New or existing ventures must have at least one current ASU or Maricopa Community College student as a lead founding team member.",
+        "source_doc": "https://entrepreneurship.asu.edu/programs/venture-devils/"
+      },
+      {
+        "text": "The lead founder may be an undergraduate, graduate, postdoctoral or part-time student enrolled in any in-person or online program or course(s).",
+        "source_doc": "https://entrepreneurship.asu.edu/programs/venture-devils/"
+      },
+      {
+        "text": "Students must be currently enrolled in a degree-seeking program and are taking at least one credit-earning course.",
+        "source_doc": "https://entrepreneurship.asu.edu/programs/venture-devils/"
+      },
+      {
+        "text": "secure competitive funding with awards often ranging from $1k-$50k",
+        "source_doc": "https://entrepreneurship.asu.edu/programs/venture-devils/"
+      },
+      {
+        "text": "Submit your Venture Devils form before March 1, 2026, in order to participate in Spring 2026 Venture Devils Demo Day.",
+        "source_doc": "https://entrepreneurship.asu.edu/programs/venture-devils/"
+      },
+      {
+        "text": "You can join Venture Devils any time.",
+        "source_doc": "https://entrepreneurship.asu.edu/programs/venture-devils/"
+      },
+      {
+        "text": "currently enrolled Arizona State University or Maricopa Community Colleges students",
+        "source_doc": "https://entrepreneurship.asu.edu/funding-resources/venture-devils-demo-day/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://entrepreneurship.asu.edu/programs/venture-devils/ (Join Now form); STALE DEADLINE \u2014 the only date published on the program page is 'before March 1, 2026' for the Spring 2026 Demo Day, which is already past as of 2026-08-27; the equivalent Fall 2026 cut-off is not published, though the Demo Day page dates Fall 2026 Demo Day to 'Saturday, November 14th'. Program intake itself is rolling ('You can join Venture Devils any time'), hence rolling true alongside the stale dated deadline. min_team_size 1 is asserted only from 'at least one current ASU or Maricopa Community College student as a lead founding team member'; no maximum is stated. degree_levels derives from the explicit 'undergraduate, graduate, postdoctoral or part-time student' list. Equity is not addressed on any page loaded, so takes_equity is omitted. Demo Day page adds that ventures must not have 'met or exceeded our $50k threshold in funding'. [stale] deadline 2026-03-01 passed 179 days ago."
+  },
+  {
+    "id": "ut-austin-tvl-investment-competition",
+    "title": "Texas Venture Labs Investment Competition (TVLIC)",
+    "funder": "Jon Brumley Texas Venture Labs, McCombs School of Business, The University of Texas at Austin",
+    "source_url": "https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/",
+    "award_min": 1000,
+    "award_max": 15000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "masters",
+        "phd"
+      ],
+      "institutions": [
+        "University of Texas System"
+      ]
+    },
+    "criteria": [
+      {
+        "text": "Graduate students from the University of Texas System present their ideas for new businesses and receive invaluable feedback from entrepreneurs and investors.",
+        "source_doc": "https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/"
+      },
+      {
+        "text": "The date of the next Fall 2026 competition is Friday, December 11th, 2026. The application deadline is Sunday, November 8th.",
+        "source_doc": "https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/"
+      },
+      {
+        "text": "The Sustainability Innovation Award of $5,000 for the top sustainability-related venture.",
+        "source_doc": "https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/"
+      },
+      {
+        "text": "Our Commercialization Award prize of $10,000 is given to the top venture that is working with University of Texas intellectual property.",
+        "source_doc": "https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/"
+      },
+      {
+        "text": "the cofounders of RideScout set up an endowment to fund a $1000 cash prize for the top TVLIC team with one or more U.S. military veteran cofounders",
+        "source_doc": "https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/"
+      }
+    ],
+    "_curation_note": "researched 2026-08-27; https://www.mccombs.utexas.edu/centers-initiatives/brumley-institute/tvl-investment-competition/ ('Apply now' link on that page); the utexas.edu URL surfaced in search (/jon-brumley-texas-venture-labs/students/investment-competition/) 301-redirects to the /brumley-institute/ path used here, which is where every quote lives. Deadline 2026-11-08 is derived from the page's 'The application deadline is Sunday, November 8th' read against the stated Fall 2026 competition date of Friday, December 11th, 2026 \u2014 November 8, 2026 is indeed a Sunday and December 11, 2026 a Friday, so the year is unambiguous, but note the page itself prints no year on the deadline. award_max 15000 is the Texas Champion cash award; award_min 1000 is the Pippin Veteran award, the smallest single named cash prize (the Experian pitch award's third place is also $1,000). Stacked awards could exceed $15,000. degree_levels derives from the explicit 'Graduate students from the University of Texas System' / 'University of Texas graduate students'; undergraduates are not mentioned as eligible or ineligible. No citizenship, team-size, or equity rule is stated. [deadline withheld] The page prints the deadline without a year; the researcher derived 2026 by matching the weekday. That is inference, not evidence, so the deadline stays UNKNOWN \u2014 the verbatim date text remains in criteria for a human to resolve."
   }
 ]
