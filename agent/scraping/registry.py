@@ -20,6 +20,8 @@ Rather than quietly widening the rule, the two ideas are kept apart:
 *   `PROVIDED_EXTERNAL` — a specific page the operator named. Fetched
     exactly once, at exactly that URL, never crawled, and flagged in the
     output so a reviewer sees immediately that it is off-domain.
+*   `WEB_SEARCH` — a page discovered by a search API. Fetched exactly once,
+    never promoted automatically, and labelled as unreviewed search output.
 
 Nothing else is reachable. There is no code path that follows a link off a
 Rutgers host.
@@ -30,7 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-Tier = Literal["RUTGERS", "PROVIDED_EXTERNAL"]
+Tier = Literal["RUTGERS", "PROVIDED_EXTERNAL", "WEB_SEARCH"]
 
 #: Link discovery never leaves this set, and only runs when asked for.
 RUTGERS_DOMAINS = frozenset(
