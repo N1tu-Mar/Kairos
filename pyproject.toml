@@ -25,6 +25,12 @@ js = ["playwright>=1.49.0"]
 dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    # starlette>=1.6 deprecated its httpx-backed TestClient and names httpx2
+    # as the replacement in the warning itself. Test-only: `starlette.
+    # testclient` imports it if present and falls back to httpx otherwise.
+    # Runtime code (agent/scraping, agent/tools/discovery, scripts/) keeps
+    # using httpx directly and is untouched by this.
+    "httpx2>=2.12.0",
 ]
 
 [tool.pytest.ini_options]

@@ -151,11 +151,14 @@ def test_a_hostile_identifier_is_a_4xx_never_a_500(client, identifier):
 def test_a_nul_byte_never_reaches_the_application(client):
     """A NUL cannot be expressed in a URL, so this is rejected before the
     server sees it. Asserted rather than assumed, because "the layer below
-    handles it" is exactly the belief that is wrong often enough to test."""
-    import httpx
+    handles it" is exactly the belief that is wrong often enough to test.
 
-    with pytest.raises(httpx.InvalidURL):
+    The exception type is looked up on the client rather than imported, so
+    this keeps working across the httpx -> httpx2 test-client change."""
+    with pytest.raises(Exception) as exc:
         client.get("/founders/founder\x00demo")
+
+    assert "InvalidURL" in type(exc.value).__name__
 
 
 @pytest.mark.parametrize(
