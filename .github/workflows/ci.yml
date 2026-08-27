@@ -1,0 +1,288 @@
+# Required checks. Everything here runs on a pull request with no
+# credentials at all — no AWS, no Bedrock, no API keys. That is a
+# correctness property, not a cost saving: a check that needs a production
+# secret is a check that cannot run on a fork's pull request, and one that
+# leaks a secret to whoever opens one.
+#
+# Credentialed integration tests live in integration.yml and are deliberately
+# not part of this workflow.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes the run in flight. Cancelling the old one is free;
+# letting both finish just means the older result lands second and confuses
+# whoever is reading the checks.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only by default. A workflow that can write to the repository is a
+# workflow whose compromise rewrites the repository.
+permissions:
+  contents: read
+
+env:
+  # Every offline test stamps these itself, but a missing value here would
+  # surface as a confusing ConfigError rather than a test failure.
+  KAIROS_ENV: local
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd3d55efdaa1823247dc376a3 # v5.4.1
+        with:
+          # Keyed on the lockfile: a dependency change invalidates it, a
+          # code change does not.
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install Python
+        run: uv python install 3.13
+
+      - name: Sync dependencies
+        run: uv sync --frozen --all-extras --dev
+
+      - name: Run tests
+        # Deterministic and offline. Every model call is replaced by a fake
+        # that mirrors the real AgentResult shape, so this never reaches
+        # Bedrock and never needs a credential.
+        run: uv run pytest -q --junit-xml=pytest.xml
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pytest-report
+          path: pytest.xml
+          retention-days: 7
+
+  migrations:
+    name: Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd3d55efdaa1823247dc376a3 # v5.4.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - run: uv python install 3.13
+      - run: uv sync --frozen --dev
+
+      - name: Migration tests
+        # Fresh database, and a representative existing one built by
+        # create_all() before the jobs table existed, with live rows that
+        # must survive adoption.
+        run: uv run pytest tests/test_migrations.py -q
+
+      - name: Models and migrations agree
+        # Catches the commit that changes a SQLModel table and forgets the
+        # revision. Without this, the drift is found by a deploy.
+        run: |
+          export KAIROS_DB_URL="sqlite:///${RUNNER_TEMP}/ci_check.db"
+          uv run alembic upgrade head
+          uv run alembic check
+
+      - name: Exactly one head
+        # Two heads means somebody branched the migration history and did
+        # not merge it, which fails on the machine that applies it.
+        run: |
+          export KAIROS_DB_URL="sqlite:///${RUNNER_TEMP}/ci_heads.db"
+          test "$(uv run alembic heads | grep -c .)" -eq 1
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        # `ci`, not `install`: it installs exactly the lockfile and fails if
+        # package.json and the lockfile disagree.
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        # A type-correct app that does not build is still a broken deploy.
+        # No KAIROS_* values are set: the build must not need the backend.
+        run: npm run build
+
+  hygiene:
+    name: Whitespace and secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # `git diff --check` needs the base commit to diff against.
+          fetch-depth: 0
+
+      - name: Whitespace errors
+        run: |
+          base="${{ github.event.pull_request.base.sha || 'HEAD~1' }}"
+          git diff --check "$base" HEAD
+
+      - name: No committed credential files
+        # Belt and braces over .gitignore: a file added with `git add -f`
+        # ignores the ignore file.
+        run: |
+          if git ls-files | grep -E '(^|/)(\.env$|\.env\.local$|credentials\.json$|.*\.tfvars$|.*\.tfstate.*)'; then
+            echo "::error::A credential or state file is tracked in git."
+            exit 1
+          fi
+
+      - name: No NEXT_PUBLIC_ secrets
+        # NEXT_PUBLIC_ is client-visible by design. A token behind that
+        # prefix is a token shipped to every browser.
+        run: |
+          if grep -rn "NEXT_PUBLIC_.*\(TOKEN\|SECRET\|KEY\|PASSWORD\)" frontend/src frontend/*.json 2>/dev/null; then
+            echo "::error::A credential is behind a NEXT_PUBLIC_ prefix."
+            exit 1
+          fi
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+
+      - name: Format
+        run: terraform -chdir=infra fmt -check -recursive -diff
+
+      - name: Validate
+        # -backend=false: no S3, no credentials, no state. Validation is a
+        # syntax and type check, and it must not need an AWS account.
+        run: |
+          terraform -chdir=infra init -backend=false
+          terraform -chdir=infra validate
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
+
+      - name: Build
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
+        with:
+          context: .
+          push: false
+          load: true
+          tags: kairos-backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: The image runs as a non-root user
+        # UID 1000 is not cosmetic: it has to match the EFS access point's
+        # owner or the task starts and then cannot write its own database.
+        run: |
+          uid="$(docker run --rm --entrypoint id kairos-backend:ci -u)"
+          test "$uid" = "1000" || { echo "::error::image runs as uid $uid, expected 1000"; exit 1; }
+
+      - name: The image can import the application
+        # Catches a missing COPY — the migrations directory, for one, which
+        # nothing else in CI would notice was absent from the image.
+        run: |
+          docker run --rm kairos-backend:ci uv run python -c "
+          import api.main, alembic.config, pathlib
+          assert pathlib.Path('/app/migrations/versions').is_dir()
+          assert pathlib.Path('/app/alembic.ini').is_file()
+          print('ok')"
+
+  scan:
+    name: Dependency and image scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # Findings go to the Security tab rather than a log nobody reads.
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Scan the filesystem
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # 0.30.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,config
+          format: sarif
+          output: trivy.sarif
+          severity: CRITICAL,HIGH
+          # Do not fail the build here. See RESPONSE POLICY below.
+          exit-code: '0'
+
+      - name: Upload findings
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy.sarif
+
+      # RESPONSE POLICY — docs/security.md holds the full version.
+      #
+      # The scan reports; it does not gate. A scanner that fails the build on
+      # every new CVE in a transitive dependency teaches people to merge past
+      # it, and a check everyone bypasses protects nothing.
+      #
+      # What is actually required:
+      #   CRITICAL, reachable    fix or pin within 48h; may block a release
+      #   HIGH, reachable        fix within 7 days
+      #   any severity, not reachable from our code paths
+      #                          record it, revisit at the next dependency bump
+      #   secret detected        treat as leaked: rotate first, then remove
+      #                          from history. A secret in a public repo is
+      #                          compromised the moment it is pushed, and
+      #                          deleting the commit does not un-compromise it.
+      #
+      # "Reachable" means our code can actually call the vulnerable path, not
+      # that the package appears in the lockfile. Establish that before
+      # promising a deadline.
+      - name: Fail on a detected secret
+        # The one finding that does gate: a committed credential is not a
+        # risk assessment, it is an incident.
+        uses: aquasecurity/trivy-action@6c175e9c4083a92bbca2f9724c8a5e33bc2d97a5 # 0.30.0
+        with:
+          scan-type: fs
+          scanners: secret
+          format: table
+          exit-code: '1'
+          severity: CRITICAL,HIGH,MEDIUM

@@ -1,0 +1,82 @@
+# Credentialed integration tests. NOT a required pull-request check.
+#
+# These reach live Bedrock, which means they cost money and need AWS
+# credentials — so they must never run on a pull request. `pull_request_target`
+# and untrusted-fork triggers are deliberately absent: either would hand a
+# credential to whoever opens a PR.
+#
+# Run this manually before a release, or let the nightly catch a model or
+# region change that offline fakes cannot see.
+
+name: Integration (credentialed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: Which model tier to smoke-test
+        type: choice
+        options: [classify, reasoning, both]
+        default: both
+  schedule:
+    # 06:00 UTC, before the production run at 07:00 — a model or region
+    # change should surface here rather than in the founder's morning.
+    - cron: '0 6 * * *'
+
+concurrency:
+  group: integration-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # For the OIDC role assumption below. No long-lived AWS keys live in this
+  # repository's secrets.
+  id-token: write
+
+jobs:
+  smoke:
+    name: Live Bedrock smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A repository environment, so the credential is scoped to it and can
+    # carry a required reviewer.
+    environment: integration
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd3d55efdaa1823247dc376a3 # v5.4.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - run: uv python install 3.13
+      - run: uv sync --frozen --dev
+
+      - name: Assume the integration role
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          role-to-assume: ${{ secrets.AWS_INTEGRATION_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: kairos-integration
+
+      - name: Smoke-test the model tiers
+        env:
+          # Model IDs are region-specific and are never guessed
+          # (agent/config.py). They come from repository variables, which are
+          # not secrets — a model ID is not a credential.
+          BEDROCK_MODEL_REASONING: ${{ vars.BEDROCK_MODEL_REASONING }}
+          BEDROCK_MODEL_CLASSIFY: ${{ vars.BEDROCK_MODEL_CLASSIFY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          # A hard ceiling, so a loop in a nightly job cannot spend a month's
+          # budget while nobody is watching.
+          KAIROS_MAX_RUN_TOKENS: '20000'
+          KAIROS_DAILY_USD_CAP: '1.00'
+        run: uv run scripts/smoke_bedrock.py --tier ${{ inputs.tier || 'both' }}
+
+      - name: Report
+        if: failure()
+        run: |
+          echo "::warning::The live smoke test failed. Offline tests can pass"
+          echo "::warning::while this fails: they replace every model call"
+          echo "::warning::with a fake. Check the model IDs, the region, and"
+          echo "::warning::whether model access is still granted in the console."
