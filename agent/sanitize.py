@@ -137,7 +137,14 @@ _REDACTIONS: list[tuple[str, re.Pattern[str]]] = [
     ("[REDACTED_SSN]", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
     ("[REDACTED_EIN]", re.compile(r"\b\d{2}-\d{7}\b")),
     # UEI: 12 alphanumeric, SAM.gov unique entity id.
-    ("[REDACTED_UEI]", re.compile(r"\b(?=[A-Z0-9]{12}\b)(?=.*\d)[A-Z0-9]{12}\b")),
+    #
+    # The digit lookahead is `[A-Z0-9]*\d`, not `.*\d`. With `.*` the lookahead
+    # scanned the entire rest of the string, so any 12-character uppercase word
+    # matched as long as a digit appeared *somewhere later in the document* —
+    # and since redaction runs over serialised JSON, "UNVERIFIABLE" next to any
+    # numeric field became "[REDACTED_UEI]" and the row no longer parsed.
+    # Bounding the lookahead to the alphanumeric run keeps it inside the token.
+    ("[REDACTED_UEI]", re.compile(r"\b(?=[A-Z0-9]{12}\b)(?=[A-Z0-9]*\d)[A-Z0-9]{12}\b")),
     ("[REDACTED_BANK]", re.compile(r"\b\d{9,17}\b")),
     ("[REDACTED_CARD]", re.compile(r"\b(?:\d[ -]?){13,19}\b")),
     ("[REDACTED_EMAIL]", re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]{2,}\b")),
@@ -160,3 +167,62 @@ def redact(text: str) -> str:
     for replacement, pattern in _REDACTIONS:
         text = pattern.sub(replacement, text)
     return text
+
+
+#: Credentials and filesystem layout. Separate from `_REDACTIONS` because
+#: these are *ours*, not the founder's: a bearer token, an AWS key, the
+#: absolute path of the spend ledger. They belong in neither a log line nor
+#: an API response, and they arrive by a different route — interpolated into
+#: an exception message rather than typed into a profile.
+_SECRET_SCRUBS: list[tuple[str, re.Pattern[str]]] = [
+    ("Bearer [REDACTED]", re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{8,}")),
+    (
+        r"\1=[REDACTED]",
+        re.compile(
+            r"(?i)\b(authorization|kairos_api_token|kairos_credentials_file"
+            r"|aws_secret_access_key|aws_session_token|api[_-]?key|token|secret"
+            r"|password)\b\s*[=:]\s*\S+"
+        ),
+    ),
+    ("[REDACTED_AWS_KEY]", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
+    ("[REDACTED_KEY]", re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b")),
+    # Absolute filesystem paths. A path tells a reader where the database
+    # lives and what the container layout is; neither helps them and both
+    # help an attacker. The basename is kept because "which file" is the
+    # part that makes an error actionable.
+    ("[PATH]/\\1", re.compile(r"(?:/[\w.@-]+){2,}/([\w.@-]+)")),
+    ("[PATH]", re.compile(r"(?:/[\w.@-]+){2,}/?")),
+]
+
+
+def scrub_secrets(text: str) -> str:
+    """Strip our own credentials and filesystem layout from a string.
+
+    For anything that crosses a boundary a stranger can read: an API
+    response field, a log line, a persisted error. Complements `redact()`,
+    which handles the *founder's* identifiers — call both.
+
+    Deliberately lossy. An error that said
+
+        spend ledger at /data/state/daily_spend.sqlite3 is unreadable
+
+    becomes
+
+        spend ledger at [PATH]/daily_spend.sqlite3 is unreadable
+
+    which still tells an operator exactly which file to look at, and tells a
+    stranger nothing about how the container is laid out.
+    """
+    for replacement, pattern in _SECRET_SCRUBS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def safe_detail(text: str, limit: int = 500) -> str:
+    """One call for anything user-visible built from an exception.
+
+    Scrub our secrets, redact the founder's identifiers, then cap the
+    length — a long detail is a stack trace or a model's raw output, and
+    neither belongs in a response body.
+    """
+    return redact(scrub_secrets(str(text)))[:limit]

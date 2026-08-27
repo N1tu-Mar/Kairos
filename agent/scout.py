@@ -40,6 +40,7 @@ from agent.models import (
 )
 from agent.prompting import Abstention, Throttled, load_prompt
 from agent.runtime import RunContext, SubAgents
+from agent.sanitize import safe_detail
 from agent.toolset import build_toolset
 from agent.tools.discovery import Source
 
@@ -198,22 +199,24 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
 
     except BudgetExceeded as exc:
         # Halt and report. No partial digest, no degraded run.
-        report.halted_reason = f"{exc.cap}: {exc.detail}"
+        report.halted_reason = safe_detail(f"{exc.cap}: {exc.detail}")
         ctx.pending_inbox.clear()
         log.warning("run_halted", extra={"run_id": report.run_id, "cap": exc.cap})
     except Throttled as exc:
         # Section 11.12: backoff is exhausted, so abort and report. A busy
         # region is not a judgment about any opportunity, and surfacing a
         # partial digest would make it look like one.
-        report.halted_reason = f"THROTTLED: {exc.detail}"
+        report.halted_reason = safe_detail(f"THROTTLED: {exc.detail}")
         ctx.pending_inbox.clear()
         log.warning("run_throttled", extra={"run_id": report.run_id})
     except Abstention as exc:
-        report.halted_reason = f"sub-agent abstained and could not continue: {exc.detail}"
+        report.halted_reason = safe_detail(
+            f"sub-agent abstained and could not continue: {exc.detail}"
+        )
         ctx.pending_inbox.clear()
     except Exception as exc:  # noqa: BLE001
         # A crash mid-run must not look like a quiet night.
-        report.halted_reason = f"{type(exc).__name__}: {exc}"
+        report.halted_reason = safe_detail(f"{type(exc).__name__}: {exc}")
         ctx.pending_inbox.clear()
         log.exception("run_failed", extra={"run_id": report.run_id})
 

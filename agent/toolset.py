@@ -27,6 +27,7 @@ from datetime import datetime
 from strands import tool
 
 from agent import guardrails
+from agent.sanitize import safe_detail
 from agent.models import InboxItem, SkipRecord
 from agent.prompting import Abstention
 from agent.runtime import RunContext
@@ -135,7 +136,9 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
                 effort_hours=0.0,
                 opportunity_id=opportunity_id,
             )
-            ctx.report.notes.append(f"assessor abstained on {opportunity_id}: {exc.detail}")
+            ctx.report.notes.append(
+                safe_detail(f"assessor abstained on {opportunity_id}: {exc.detail}")
+            )
 
         ctx.assessments[opportunity_id] = assessment
         ctx.report.judged = len(ctx.assessments)

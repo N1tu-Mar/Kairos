@@ -42,6 +42,7 @@ from agent.config import REPO_ROOT, settings
 from agent.models import ApplicationForm, RunJob
 from agent.runtime import SubAgents
 from agent.scheduler import Lease, RunLock, ScheduledRunFailureLog
+from agent.sanitize import safe_detail
 from agent.scout import new_run_context, run_once
 from agent.tools.campus import CampusDiscoverySource
 from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
@@ -192,7 +193,11 @@ async def execute_job(job: RunJob, repo, lease: Lease, failure_log: ScheduledRun
 
 def _fail(job: RunJob, repo, failure_log, exc: Exception, *, failure_class: str) -> None:
     job.status = "failed"
-    job.error = f"{type(exc).__name__}: {exc}"[:300]
+    # Sanitised here, not only on the way to the failure log: this string is
+    # persisted and served by GET /founders/{id}/jobs/{job_id}. An exception
+    # message carries whatever was nearby — a ledger path, a config key, a
+    # pydantic ValidationError quoting the model's raw output back at you.
+    job.error = safe_detail(f"{type(exc).__name__}: {exc}", limit=300)
     job.finished_at = _now()
     repo.save_job(job)
     failure_log.record(

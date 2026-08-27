@@ -17,6 +17,7 @@ trouble.
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -93,9 +94,20 @@ class RobotsCache:
         self._parsers[host] = parser
         return parser
 
+    @staticmethod
+    def _cache_name(host: str) -> str:
+        """A host is untrusted input once a search API can supply one.
+
+        `urlsplit` will hand back `..` as a netloc, and `cache_dir / ".."`
+        escapes the cache directory. Sanitise rather than trust the caller.
+        """
+        safe = re.sub(r"[^a-zA-Z0-9.-]+", "-", host).strip(".-")
+        safe = re.sub(r"\.{2,}", ".", safe).strip(".")
+        return f"{safe or 'unknown-host'}.robots.txt"
+
     def _write_cache(self, host: str, text: str) -> None:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        (self.cache_dir / f"{host}.robots.txt").write_text(text)
+        (self.cache_dir / self._cache_name(host)).write_text(text)
 
     def check(self, url: str) -> RobotsDecision:
         """May we fetch this URL, and how slowly?"""

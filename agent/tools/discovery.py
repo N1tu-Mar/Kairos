@@ -63,7 +63,7 @@ from agent.models import (
     SourceFailure,
     SourceName,
 )
-from agent.sanitize import ingest
+from agent.sanitize import ingest, safe_detail
 
 log = logging.getLogger("kairos.discovery")
 
@@ -467,9 +467,17 @@ def discover_opportunities(
             for opportunity in source.fetch(since):
                 found.setdefault(opportunity.id, opportunity)
         except Exception as exc:  # noqa: BLE001 — a dead source must not kill the run
-            log.warning("source_failed", extra={"source": source.name, "error": str(exc)})
+            log.warning(
+                "source_failed",
+                extra={"source": source.name, "error": safe_detail(str(exc))},
+            )
             failures.append(
-                SourceFailure(source=source.name, detail=f"{type(exc).__name__}: {exc}")
+                SourceFailure(
+                    source=source.name,
+                    # Served by /runs and /skips. A "catalog not found at
+                    # /data/..." message would publish the container layout.
+                    detail=safe_detail(f"{type(exc).__name__}: {exc}"),
+                )
             )
         # A source that answered but lost pages or detail calls is a partial
         # source. Its failures reach the run report too (Section 9, rule 6).

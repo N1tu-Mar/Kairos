@@ -349,7 +349,7 @@ class SqliteRepository:
                     founder_id=item.founder_id,
                     opportunity_id=item.opportunity_id,
                     created_at=item.created_at,
-                    payload=item.model_dump_json(),
+                    payload=redact(item.model_dump_json()),
                 )
             )
             session.commit()
@@ -383,7 +383,7 @@ class SqliteRepository:
                 return None
             item = InboxItem.model_validate_json(row.payload)
             item.state = state
-            row.payload = item.model_dump_json()
+            row.payload = redact(item.model_dump_json())
             session.add(row)
             session.commit()
             return item
@@ -398,7 +398,7 @@ class SqliteRepository:
                 opportunity_id=draft.opportunity_id,
                 payload="",
             )
-            row.payload = draft.model_dump_json()
+            row.payload = redact(draft.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -449,7 +449,7 @@ class SqliteRepository:
                 payload="",
             )
             row.status = job.status
-            row.payload = job.model_dump_json()
+            row.payload = redact(job.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -496,7 +496,7 @@ class SqliteRepository:
                 job.error = reason
                 job.finished_at = _now()
                 row.status = job.status
-                row.payload = job.model_dump_json()
+                row.payload = redact(job.model_dump_json())
                 session.add(row)
                 orphaned.append(job)
             session.commit()
@@ -521,7 +521,7 @@ class SqliteRepository:
                 question_key=key,
                 payload="",
             )
-            row.payload = field.model_dump_json()
+            row.payload = redact(field.model_dump_json())
             session.add(row)
             session.commit()
 

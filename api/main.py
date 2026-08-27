@@ -195,9 +195,17 @@ async def authenticate(request: Request, call_next):
     principal may touch — is `authorize()`, called per endpoint, because the
     founder id is in the path and middleware has no business parsing paths.
     """
-    if request.url.path in AUTH_EXEMPT_PATHS or request.method == "OPTIONS":
-        # CORS preflights carry no Authorization header by design; the
-        # browser sends the real header only on the actual request.
+    # A CORS preflight carries no Authorization header by design — the browser
+    # sends the real header only on the actual request. Scoped to genuine
+    # preflights rather than to the method: `request.method == "OPTIONS"` alone
+    # exempts every OPTIONS request to every route, which is a wider hole than
+    # the one it was opened for.
+    is_preflight = (
+        request.method == "OPTIONS"
+        and "access-control-request-method" in request.headers
+        and "origin" in request.headers
+    )
+    if request.url.path in AUTH_EXEMPT_PATHS or is_preflight:
         return await call_next(request)
 
     authenticator = getattr(request.app.state, "authenticator", None)

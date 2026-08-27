@@ -74,9 +74,22 @@ def html_to_text(html: str) -> str:
 
 
 def _slug(url: str) -> str:
+    """A filesystem-safe archive name for a URL.
+
+    Both halves are sanitised, not just the path. `netloc` used to be
+    interpolated raw, and a URL whose host is `..` — which `urlsplit` accepts
+    — turned the archive write into a write one directory up. That was
+    unreachable while only Rutgers domains and operator-named URLs got here;
+    a search-API source hands this function attacker-influenced hosts, so the
+    sanitising cannot depend on who the caller is.
+    """
     parts = urlsplit(url)
+    host = re.sub(r"[^a-zA-Z0-9.-]+", "-", parts.netloc).strip(".-") or "unknown-host"
+    # A host of ".." survives the character filter as a dot run; collapse any
+    # remaining relative segment so the result can only ever name one directory.
+    host = re.sub(r"\.{2,}", ".", host).strip(".") or "unknown-host"
     path = re.sub(r"[^a-zA-Z0-9]+", "-", parts.path).strip("-") or "index"
-    return f"{parts.netloc}/{path}"[:180]
+    return f"{host}/{path}"[:180]
 
 
 class PoliteFetcher:
