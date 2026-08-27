@@ -221,12 +221,14 @@ jobs:
 
       - name: The image can import the application
         # Catches a missing COPY — the migrations directory, for one, which
-        # nothing else in CI would notice was absent from the image.
-        run: |
-          docker run --rm kairos-backend:ci uv run python -c "
-          import api.main, alembic.config, pathlib
-          assert pathlib.Path('/app/migrations/versions').is_dir()
-          assert pathlib.Path('/app/alembic.ini').is_file()
+        # nothing else in CI would notice was absent from the image. Kept on
+        # one line: a YAML block scalar indents every line it contains, and
+        # Python would read that indentation as a syntax error.
+        run: >
+          docker run --rm kairos-backend:ci uv run python -c
+          "import api.main, alembic.config, pathlib;
+          assert pathlib.Path('/app/migrations/versions').is_dir();
+          assert pathlib.Path('/app/alembic.ini').is_file();
           print('ok')"
 
   scan:
