@@ -121,6 +121,153 @@ Consequences, all now in `agent/prompting.py`:
 
 ---
 
+### 2026-08-27 — Grants.gov pagination and date filtering
+
+Confirmed from the official parameter documentation
+(`grants.gov/api/common/search2`) **and** two live calls before any request
+field was changed, because a plausible-looking invented parameter is exactly
+what Section 0.5 rule 1 forbids.
+
+```
+search2 request:  rows, startRecordNum, keyword, oppNum, oppStatuses,
+                  aln, fundingCategories, agencies, eligibilities,
+                  fundingInstruments, sortBy
+search2 response: data.hitCount, data.startRecord, data.oppHits[]
+```
+
+Live probe, keyword="student", rows=3:
+
+```
+startRecordNum=0 -> startRecord 0, hitCount 228, ids 348985/334326/363101
+startRecordNum=3 -> startRecord 3, hitCount 228, ids 329436/363559/357996
+```
+
+Two facts that shaped the implementation:
+
+- `openDate` is `MM/DD/YYYY`, like `closeDate`.
+- **There is no documented server-side posted-date filter.** So the `since`
+  argument — which the tool had accepted and ignored since it was written —
+  is applied client-side against `openDate`. A row with no `openDate` is
+  kept: a missing date is not evidence that a row is old.
+
+Fixtures: `tests/fixtures/grants_gov_search2_page{1,2}.json`, sanitized to
+drop facet blocks the client never reads.
+
+---
+
+### 2026-08-27 — The seed verifier checks evidence, not just reachability
+
+`verify_seed.py` previously proved a page existed. It now re-finds every
+`criteria[].text` quote on the page that quote cites in its `source_doc`.
+
+The sub-page part was not a refinement, it was the difference between a
+usable check and a useless one. The first run of the quote check failed 20 of
+40 rows; inspection showed 16 of those failures were quotes that were real
+but lived on an FAQ, a rules page, or an NSF solicitation rather than the
+landing page the row pointed at. Checking every quote against one URL would
+have trained everyone to ignore the verifier.
+
+Evidence citing a page outside the funder's own site is refused rather than
+blessed — `nasaorbit.org` is not `nasa.gov`, and deciding whether that is
+legitimate is a human's call.
+
+What it still cannot check is interpretation. `award_max: 10000` being the
+right reading of the sentence quoted beside it is a judgment, not a match.
+
+---
+
+### 2026-08-27 — Two holes found by transcribing a real form
+
+Both were found by doing the work, not by reading the code.
+
+1.  `blocklisted()` did not catch **"MIT CEP 2026 IP, Capital, and Revenue
+    Disclosure Forms"**. The disclosure pattern covered debarment, conflict
+    of interest and lobbying — the three Section 10.1 names — and the bare
+    word *disclosure* matched nothing. A disclosure form would have been
+    handed to the Drafter.
+2.  `ApplicationField.protected`, added so a curator could mark a field the
+    agent must never fill, was consulted by nobody. The Drafter checked only
+    label patterns. A flag that only advises is a flag that gets ignored, so
+    the Drafter now treats it as an independent reason to force
+    `NEEDS_FOUNDER`.
+
+Pinned by `tests/test_real_forms.py`, which runs the real drafting path
+against every real form with a stub that tries to answer every field.
+
+---
+
+### 2026-08-27 — Extraction is separated from decision, with re-found spans
+
+`agent/tools/extraction.py` splits eligibility prose into three stages:
+an untrusted `EligibilityExtraction` (perception, may be a model), a pure
+Python `verify()` (no model, no network), and a total projection into
+`EligibilityRules`.
+
+The rule that makes it safe: **a structured field exists only when its
+verbatim span is re-found in the source text.** A model that hallucinates a
+rule must also hallucinate a quote that appears verbatim on the page — and if
+it manages that, the quote is on the page. A paraphrase fails identically to
+a fabrication, because both are text the source does not contain.
+
+Five more failure modes collapse to UNKNOWN rather than to a guess: a negated
+span offered as permission, an exception clause, an illustrative list
+("including but not limited to") treated as a closed set, a value outside the
+controlled vocabulary, and two page sections that disagree. Each is recorded
+with its reason, so a reviewer can tell "the page was silent" from "the
+extractor lied" — identical outputs, very different problems.
+
+Writing the adversarial cases found an ordering bug immediately: "not limited
+to" contains "not", so the negation matcher fired before the non-exhaustive
+check and reported the wrong reason. Non-exhaustive markers are stripped
+before the polarity scan.
+
+---
+
+### 2026-08-27 — What the discovery benchmark may not do
+
+The reference set is version-controlled at
+`tests/discovery_benchmark/reference_set.json` and its ground truth comes
+from each program's own page. It is **not** derived from
+`opportunities.seed.json`, from the scraper, or from any code it scores — a
+test asserts the reference keys are not a subset of our catalog ids, so it
+cannot quietly become self-scoring.
+
+Six of the twenty entries are deliberate negatives: equity-taking (Hult
+Prize, Z Fellows), non-cash (the MTC hackathon), closed to outsiders (Stevens
+Ansary), defunct (EPA P3) and indirect-access-only (UPitchNJ). A reference
+set of only positives cannot detect a catalog that recommends equity deals
+and dead programs.
+
+Carrying a negative is not automatically a defect. An equity-taking program
+in the catalog is *correct* as long as the row records `takes_equity`,
+because that is what lets the deterministic filter drop it with a readable
+reason. The benchmark distinguishes the two cases.
+
+Scoring the scorer found a real defect: title matching counted "Alpha Dining
+Services Survey" as the "Alpha Innovation Fund" because both live on the same
+host and share the organisation's name. Host-derived and generic tokens
+("competition", "fund", "prize") are now dropped before comparing.
+
+The benchmark cannot claim to measure the funding universe, cannot find a
+program nobody thought of, and says nothing about drafting groundedness —
+that is the Section 11.11 golden set, kept separate on purpose.
+
+---
+
+### 2026-08-27 — Reverification reports; it does not curate
+
+`scripts/reverify.py` refetches stale rows and writes
+`data/reverification.report.json`. It never edits a curated fact, never flips
+`verified`, never updates a deadline.
+
+The temptation is obvious: a 404 is unambiguous, so why not set
+`verified: false` automatically? Because the next step after that is
+"the deadline moved, so update it", and at that point human curation has been
+replaced by a parser with write access. Three tests pin the property
+directly, including one asserting a dead row keeps its `verified` flag.
+
+---
+
 ## Deviations from the spec
 
 ### D1 — `AgentCoreMemorySessionManager` does not exist

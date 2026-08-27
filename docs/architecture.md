@@ -60,9 +60,14 @@ flowchart TD
     SCOUT --> DISC["discover_opportunities"]
     SCOUT --> PROF["load founder profile<br/>+ knowledge base"]
 
-    DISC --> T1["Tier 1 — seeded catalog<br/><i>verified rows only</i>"]
-    DISC --> T2["Tier 2 — Grants.gov<br/><i>search2 + fetchOpportunity</i>"]
-    DISC --> T3["Tier 3 — AgentCore Browser<br/><i>feature-flagged, degrades cleanly</i>"]
+    DISC --> T1["Tier 1 — seeded catalog<br/><i>verified rows only — 34 of 40</i><br/><i>every quote re-found on the page it cites</i>"]
+    DISC --> T2["Tier 2 — Grants.gov<br/><i>search2 paginated by startRecordNum</i><br/><i>+ fetchOpportunity, bounded concurrency</i><br/><i>since filtered client-side on openDate</i>"]
+    DISC --> T3["Tier 3 — campus source<br/><i>KAIROS_ENABLE_BROWSER</i><br/><i>ACCEPTED rows only</i>"]
+
+    SCRAPE["<b>campus scraper</b> — operator-run<br/>robots-aware, rate-limited, archived"]
+    SCRAPE --> REVIEWFILE["candidates file<br/><i>every row NEEDS_HUMAN_REVIEW</i>"]
+    REVIEWFILE -.->|"a person reads the evidence<br/>and sets ACCEPTED"| T3
+    REVIEWFILE -.->|"never automatically"| T1
 
     T1 --> INGEST
     T2 --> INGEST
@@ -187,3 +192,61 @@ The Auditor's isolation is the point. It never sees the Drafter's prompt, its
 reasoning, or its provenance claims, because an auditor that inherits the
 drafter's context inherits its mistakes. When they disagree, the Drafter
 loses and the field goes back to the founder.
+
+## The curation boundary
+
+Discovery has two halves that must not touch, and the diagram above draws the
+gap deliberately. Everything below the dotted line is research; everything
+above it is what a founder can be told about.
+
+```
+      research                        │            runtime
+                                      │
+  campus scraper ──► candidates file  │
+  (robots, rate limit, archive)       │
+                          │           │
+              a person reads evidence │
+              and sets ACCEPTED ──────┼──► CampusDiscoverySource
+                                      │    (KAIROS_ENABLE_BROWSER)
+  research sweeps ──► batch files     │
+                          │           │
+       merge_candidates.py (validate, │
+       dedupe, refuse unreachable)    │
+                          │           │
+                 candidates.json      │
+                          │           │
+        verify_seed.py (refetch page, │
+        re-find every quote where it  │
+        claims to come from) ─────────┼──► SeedCatalog
+                                      │    (verified rows only)
+```
+
+Three properties hold across that line:
+
+1.  **Nothing crosses automatically.** No code path writes
+    `opportunities.seed.json` from a scrape, and no scraped row becomes an
+    opportunity without a human setting `ACCEPTED`.
+2.  **A quote is checked where it claims to come from.** Programs state
+    eligibility on FAQ and rules sub-pages, so the verifier follows
+    `source_doc` rather than assuming the landing page, and refuses evidence
+    citing another organisation's site.
+3.  **Re-checking reports; it does not curate.** `reverify.py` writes a diff
+    of what moved — dead pages, redirects, expired deadlines, lost evidence —
+    and edits nothing. Automatic correction of a curated fact is the same
+    failure as automatic promotion, one step later.
+
+## Measurement
+
+Two evals, deliberately unrelated, because they answer different questions
+and a single number would hide both.
+
+| Eval | Question | Ground truth | Current result |
+|---|---|---|---|
+| Discovery benchmark | Did we find the money? | 20 hand-authored programs, read off their own pages, 6 deliberate negatives | 85.7% retrieval recall; eligibility 72.2% coverage at 100% precision; 0 wrong deadlines |
+| Section 11.11 golden set | Did we lie on the application? | Per-field truth declared by hand | published in the README, fixture-based |
+
+Neither derives its answers from the code it scores. The discovery
+benchmark's reference keys are asserted not to be a subset of the catalog's
+own ids; the golden-set scorer imports nothing from `guardrails`. A scorer
+that asks the system whether the system was right is marking its own
+homework.

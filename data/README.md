@@ -20,19 +20,63 @@ So the catalog is generated, not written:
 3. `SeedCatalog` excludes `verified: false` rows from runs unless
    `KAIROS_ALLOW_UNVERIFIED_SEED=true`.
 
-The verifier checks **reachability, not correctness**. A 200 means the page
-exists. It does not mean the award range on the row is right — a human still
-has to read the page. What it catches is the failure that survives review:
-a confident row pointing at a URL that never existed.
+The verifier checks **reachability and evidence, not interpretation**. A 200
+means the page exists. Since 2026-08-27 it also re-finds every quote in
+`criteria[].text` on the page that quote cites in its `source_doc` — programs
+put eligibility on FAQ and rules sub-pages, so each quote is checked where it
+claims to come from, and each distinct page is fetched once. A quote citing a
+page outside the funder's own site is refused rather than blessed.
+
+That closes the failure mode where a curator — human or agent — writes a
+supporting quote that the page does not contain. A paraphrase fails
+identically to a fabrication, which is correct: both are text the page does
+not have. What it still cannot check is *interpretation*. That `award_max:
+10000` is the right reading of the sentence quoted beside it remains a human
+judgment, and a person still has to read the page.
 
 That is not hypothetical. The first candidate list written for this repo
 included `https://venturewell.org/e-team-grants/`, which looks exactly right
 and returns 404. It is in `opportunities.candidates.json` on purpose, as a
 row that fails.
 
-**Current state: the catalog is a stub.** The verifier, the schema and the
-exclusion behaviour all work; the 60–100 curated rows are still to be
-collected. Until they are, demo runs use `opportunities.demo.json`.
+**Current state (2026-08-27): 40 candidate rows, 34 verified.**
+
+The six failures are kept on purpose, because each is a different way a row
+can be untrustworthy and all six are invisible to a reachability-only check:
+
+| Row | Why it fails |
+|---|---|
+| `venturewell_eteam` | HTTP 404. The original worked example. |
+| `masschallenge-…` , `emergent-ventures` | HTTP 403 — the host refuses automated clients. Unread is not verified. |
+| `776-foundation-fellowship`, `neo-scholars` | JavaScript-rendered. The researcher read the quotes out of the page's own JS bundle; a static verifier cannot confirm them. |
+| `nasa-orbit-challenge` | Its rules live on `nasaorbit.org`, off NASA's own site. A human has to bless that source. |
+
+All six carry `verified: false` and are excluded from runs.
+
+This is short of the promised 60–100. Three research sweeps — university
+competitions, plus two follow-up batches — were killed by an API rate limit
+before they finished. The honest smaller set shipped instead of padding the
+count, which is the trade `data/README.md` has always described.
+
+Rows are folded in from research batches with `scripts/merge_candidates.py`,
+which validates every row against the real `Opportunity` model, deduplicates
+on id and normalised URL, **refuses rows a researcher marked unreachable**
+rather than writing them from secondhand description, and appends a stale
+note to any row whose deadline has already passed.
+
+Demo runs still use `opportunities.demo.json`.
+
+## `reverification.report.json`
+
+Written by `scripts/reverify.py`. A `verified_at` timestamp is a claim about
+the past; this is the queue of rows whose claim needs re-checking. Each entry
+is DEAD, REDIRECTED, TITLE_GONE, EVIDENCE_LOST, DEADLINE_PASSED or UNCHANGED,
+with the specific change recorded.
+
+**Nothing in it has been applied.** The script does not edit the catalog, does
+not flip `verified`, and does not update a deadline. It reports; a person
+decides and edits by hand. First run over the 40 rows: 24 unchanged, 8 with
+passed deadlines, 3 dead, 3 with lost evidence, 2 redirected.
 
 ## `opportunities.demo.json`
 
@@ -58,10 +102,38 @@ verbatim from the source form, because the Section 10.1 blocklist matches on
 label text — paraphrasing a label is how a certification field stops looking
 like one.
 
-**Current state: the only form here is `demo_campus_innovation_fund.json`**,
-the synthetic form for the `[DEMO]` catalog row. No real form has been
-transcribed yet. The verbatim-label rule above is how they must be added, not
-a description of what is already in this directory.
+**Current state (2026-08-27): three real forms plus the synthetic one.**
+
+| File | Fields | Complete? |
+|---|---|---|
+| `njit_new_business_model_competition.json` | 4 | yes — the page states the whole initial submission and its two-page limit |
+| `mit_climate_energy_prize.json` | 7 | **no** — the page lists the application's sections, not the questions inside them |
+| `tcnj_mayo_business_plan_competition.json` | 14 | **no** — the schedule page states deliverables; the guidebook was not transcribed |
+| `demo_campus_innovation_fund.json` | 14 | synthetic, `[DEMO]` |
+
+A partial form carries `complete: false` and a `completeness_note` saying
+exactly what is missing. A form transcribed from half a page and presented as
+whole is worse than no form: the Drafter would treat the missing questions as
+nonexistent rather than unanswered.
+
+No login was used, no portal was opened, and no question was inferred. Where
+a form lives behind an account, that is recorded as missing rather than
+guessed at.
+
+Fields the agent must never fill carry `protected: true` — MIT CEP's
+disclosure forms and rules agreement, TCNJ's policy affirmation. That flag is
+enforced, not documentation: the Drafter forces any protected field to
+`NEEDS_FOUNDER` independently of the label blocklist, and
+`tests/test_real_forms.py` runs the real drafting path against every real form
+with a stub that tries to answer everything, then asserts those fields come
+back unanswered.
+
+Transcribing MIT CEP's form found a live gap: `blocklisted()` did not catch
+"IP, Capital, and Revenue Disclosure Forms", because the word *disclosure*
+alone matched nothing. The blocklist now covers it.
+
+`scripts/form_coverage.py` prints which catalog rows have a form (2 of 40)
+and which can be discovered and judged but not drafted.
 
 ## `opportunities.rutgers.candidates.json`
 
