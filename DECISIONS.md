@@ -268,6 +268,48 @@ directly, including one asserting a dead row keeps its `verified` flag.
 
 ---
 
+### 2026-08-27 — Next 16, and the lint rule that came with it
+
+The frontend was on Next 15; `next` resolved to **16.3.3** in the working
+tree and the whole gate — lint, typecheck, 54 tests, production build —
+passed unchanged, so the upgrade was finished rather than reverted.
+
+Three things had to move with it:
+
+- **`next.config.mjs` lost its `eslint` key.** Next 16 rejects it as an
+  unrecognised option. It was already redundant: `npm run lint` scopes ESLint
+  to `src/` itself, and CI runs that script, not the build's linting.
+- **`.eslintrc.json` became `eslint.config.mjs`.** `eslint-config-next@16`
+  requires `eslint >= 9`, and ESLint 9 reads flat config only. The config now
+  spreads the `core-web-vitals` and `typescript` arrays the package exports.
+  The `lint` script also lost `--ext`, which ESLint 9 removed — flat config
+  decides which files it lints.
+- **One real finding.** The new `react-hooks/set-state-in-effect` rule caught
+  `setElapsed(0)` in the run timer's effect body. `elapsed` is now derived
+  from a clock tick rather than assigned:
+
+  ```tsx
+  const elapsed =
+    status.phase === "running" && now !== null
+      ? Math.max(0, Math.round((now - status.startedAt) / 1000))
+      : 0;
+  ```
+
+  The clamp is what resets the display: when a second run starts, `now` is
+  the previous run's last tick, so the difference is negative. That behaviour
+  used to be an explicit `setElapsed(0)` in two places and is now a property
+  of the expression, which is exactly the kind of thing that rots silently —
+  so a test starts a run, advances a fake clock to 3.0 s, finishes it, starts
+  a second run and asserts the timer reads `0 ms`. Mutating the component
+  back to the stateful shape without its reset makes that test read
+  `5.0 s` and fail.
+
+Not upgraded: `eslint` landed on 9.39.5, which npm flags as out of ESLint's
+support window. Worth revisiting, but it is a lint dependency, not a runtime
+one.
+
+---
+
 ## Deviations from the spec
 
 ### D1 — `AgentCoreMemorySessionManager` does not exist

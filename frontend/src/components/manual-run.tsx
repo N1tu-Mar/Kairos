@@ -50,7 +50,9 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
   const [status, setStatus] = useState<Status>({ phase: "idle" });
   const [useDemoCatalog, setUseDemoCatalog] = useState(false);
   const [includeGrantsGov, setIncludeGrantsGov] = useState(true);
-  const [elapsed, setElapsed] = useState(0);
+  // A clock tick, not the elapsed value itself. `elapsed` is derived below,
+  // so a new run starts at 0 without an effect having to reset it.
+  const [now, setNow] = useState<number | null>(null);
   const inFlight = useRef(false);
 
   const running = status.phase === "running";
@@ -58,13 +60,17 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
 
   useEffect(() => {
     if (status.phase !== "running") return;
-    const startedAt = status.startedAt;
-    setElapsed(0);
-    const timer = setInterval(() => {
-      setElapsed(Math.round((Date.now() - startedAt) / 1000));
-    }, 1000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [status]);
+  }, [status.phase]);
+
+  // Derived, never assigned. `now` is stale from the previous run when a new
+  // one starts, which makes the difference negative — hence the clamp, which
+  // is what resets the display to 0.
+  const elapsed =
+    status.phase === "running" && now !== null
+      ? Math.max(0, Math.round((now - status.startedAt) / 1000))
+      : 0;
 
   const finish = useCallback(
     (job: RunJob, report: RunReport | null) => {
@@ -125,7 +131,6 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
     // disabled attribute covers everything after it.
     if (inFlight.current) return;
     inFlight.current = true;
-    setElapsed(0);
 
     try {
       const response = await fetch("/api/runs", {

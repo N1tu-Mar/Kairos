@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -126,6 +126,60 @@ describe("ManualRunControl", () => {
       ),
     );
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("starts the second run's timer at zero, not at the first run's total", async () => {
+    // `elapsed` is derived from a clock tick rather than reset by an effect,
+    // so this is the property that keeps a stale reading off the screen.
+    // fireEvent rather than userEvent: userEvent awaits its own delays, which
+    // deadlocks against a fake clock only this test advances. And a local
+    // fetch mock rather than fakeBackend, because this test needs to change
+    // the poll answer mid-run and fakeBackend copies the script it is given.
+    vi.useFakeTimers();
+    try {
+      let poll: { job: RunJob; report: RunReport | null } = {
+        job: runJob({ status: "running" }),
+        report: null,
+      };
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+          init?.method === "POST" ? json(runJob(), 202) : json(poll),
+        ),
+      );
+
+      render(<ManualRunControl />);
+      fireEvent.click(screen.getByRole("button", { name: /run kairos now/i }));
+      await vi.waitFor(() =>
+        expect(screen.getByRole("status")).toBeInTheDocument(),
+      );
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(screen.getByRole("status")).toHaveTextContent(/3\.0 s elapsed/);
+
+      // Finish the run.
+      poll = {
+        job: runJob({ status: "succeeded", run_id: "run_1" }),
+        report: runReport(),
+      };
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      await vi.waitFor(() =>
+        expect(screen.getByText(/finished in/i)).toBeInTheDocument(),
+      );
+
+      // Second run: the timer must read zero before its first tick, not 3.0 s.
+      poll = { job: runJob({ status: "running" }), report: null };
+      fireEvent.click(screen.getByRole("button", { name: /run kairos now/i }));
+      await vi.waitFor(() =>
+        expect(screen.getByRole("status")).toHaveTextContent(/0 ms elapsed/),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reports a refused start honestly instead of pretending it ran", async () => {
