@@ -43,6 +43,9 @@ Built, tested, and exercised on a developer machine.
 | Discovery-recall benchmark with hand-authored ground truth | `tests/discovery_benchmark/` |
 | Periodic reverification that reports rather than overwrites | `scripts/reverify.py` |
 | Every API parameter bounded and validated at the edge | `api/main.py` |
+| Redaction at **every** persistence boundary, not three of nine | `api/repository.py` |
+| Credential and filesystem-path scrubbing on anything an API response carries | `agent/sanitize.py` |
+| No secret, path or traceback in any unauthenticated response, log line or 500 | `tests/test_leak_surface.py` |
 
 ### Implemented but awaiting live validation
 
@@ -102,13 +105,21 @@ Numbered below.
 ## Priority 1 — make the core product real
 
 3. **Finish the curated catalog.**
-   40 rows, 34 verified quote by quote. The promise was 60–100 campus,
-   nonprofit, fellowship and corporate programs.
+   49 rows, 43 verified quote by quote. The promise was 60–100 campus,
+   nonprofit, fellowship and corporate programs. The shortfall is unfinished
+   research rather than a rejected standard: three sweeps died on an API rate
+   limit and one has yet to be re-run. The six unverified rows are kept
+   deliberately — one 404, two hosts that refuse automated clients, two
+   JavaScript-rendered sites, one row whose rules live off-site — and all six
+   are excluded from runs.
 
 4. **Model more real application forms.**
-   Four structured forms exist. Discovering and assessing a fund is not
-   enough to draft its application without the actual questions, field
-   types, limits and certification fields.
+   Three real forms plus the synthetic demo one. Two of the three are marked
+   `complete: false`, because their pages publish the shape of the
+   application without the questions inside it. That leaves 2 of 49 catalog
+   rows draftable (`scripts/form_coverage.py`). For many of the rest the
+   questions appear only after registering, and registering is something the
+   agent may never do — so those stay human work rather than a backlog item.
 
 5. **Schedule the campus scraper.**
    `KAIROS_ENABLE_BROWSER` now adds a campus source to a Scout run, and it
@@ -124,10 +135,12 @@ Numbered below.
    than it could make. Precision is at 100%, so there is room to extract more
    without loosening anything.
 
-7. **Extend the benchmark past retrieval.**
-   It measures what was found. It does not yet measure duplicate handling or
-   stale-record behaviour, and both are failure modes a founder would notice
-   before a recall number moved.
+7. **Extend the benchmark past its 20 programs.**
+   It already reports duplicates, stale rows, deadline accuracy, eligibility
+   coverage and precision, and form coverage alongside recall. What it cannot
+   do is measure the funding universe: 20 hand-picked programs are a lower
+   bound on ignorance, not a measure of it, and the set contains no federal
+   rows, so it says nothing about Grants.gov recall.
 
 ## Priority 2 — production execution and reliability
 
@@ -166,19 +179,42 @@ Numbered below.
 
 ## Priority 3 — security and identity
 
-13. **Decide on a real identity provider.**
+13. **Narrow the CORS preview-deploy namespace.**
+    `ALLOWED_ORIGIN_REGEX` admits any `kairos-*.vercel.app`, and Vercel
+    allocates those subdomains first-come across accounts — so a third party
+    who registers a project named `kairos-anything` holds a browser-trusted
+    origin against this API. The only thing containing it is
+    `allow_credentials` defaulting to `False`, which means no cookie or
+    credential is attached cross-origin and the bearer token stays
+    unreachable. **Do not enable `allow_credentials` while this regex is
+    this wide.** The fix is an explicit allowlist of the preview URLs that
+    actually exist, or a check against the Vercel deployment API. Note also
+    that the pattern is unanchored and is safe only because the installed
+    Starlette uses `fullmatch`; pin that behaviour with a test if the regex
+    stays.
+
+14. **Decide how much `/ready` should say to a stranger.**
+    It is unauthenticated so a load balancer can reach it, and in production
+    it reports `authentication: missing`, `schema: unmigrated` and
+    `spend_cap: unenforceable`. Those are exactly the checks an operator
+    needs and exactly the reconnaissance an attacker wants. It already
+    withholds model IDs, paths and the token. The options are to keep it as
+    is, to return a bare 503 with the detail behind a credential, or to put
+    the probe on a separate internal-only listener.
+
+15. **Decide on a real identity provider.**
     `api/auth.py` has the `Authenticator` seam and two implementations: a
     shared token (honest about proving only that somebody holds a secret) and
     a hashed credential file with revocation, expiry and restart-free
     rotation. An OIDC/JWT adapter is a product decision and is deliberately
     documented rather than faked.
 
-14. **Ship the credential file from a secret store.**
+16. **Ship the credential file from a secret store.**
     `KAIROS_CREDENTIALS_FILE` is read from disk and gitignored. Terraform
     provisions only the single shared token; mounting the credential file as
     a second secret is not yet written.
 
-15. **Rotate on a schedule, not only on suspicion.**
+17. **Rotate on a schedule, not only on suspicion.**
     Rotation is documented and manual. Secrets Manager rotation is
     compatible with the design — the task reads the secret by ARN at start,
     and both the secret version and the EventBridge connection carry
