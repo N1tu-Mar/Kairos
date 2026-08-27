@@ -2,7 +2,7 @@
 
 Current as of 2026-08-27.
 
-**Local health.** 835 Python tests pass with no `xfail` remaining; 54
+**Local health.** 843 Python tests pass with no `xfail` remaining; 55
 frontend tests, TypeScript checking, ESLint and the production build all
 pass. Migrations are covered by 20 tests against both a fresh database and a
 representative existing one.
@@ -108,16 +108,16 @@ Numbered below.
    59 rows, 52 verified quote by quote. The promise was 60–100 campus,
    nonprofit, fellowship and corporate programs. The shortfall is unfinished
    research rather than a rejected standard: three sweeps died on an API rate
-   limit and one has yet to be re-run. The six unverified rows are kept
-   deliberately — one 404, two hosts that refuse automated clients, two
-   JavaScript-rendered sites, one row whose rules live off-site — and all six
-   are excluded from runs.
+   limit and one has yet to be re-run. The seven unverified rows are kept
+   deliberately — one 404, three hosts that refuse automated clients, two
+   JavaScript-rendered sites, one row whose rules live off-site — and all
+   seven are excluded from runs.
 
 4. **Model more real application forms.**
    Three real forms plus the synthetic demo one. Two of the three are marked
    `complete: false`, because their pages publish the shape of the
    application without the questions inside it. That leaves 2 of 59 catalog
-   rows draftable of 59 (`scripts/form_coverage.py`). For many of the rest the
+   rows draftable (`scripts/form_coverage.py`). For many of the rest the
    questions appear only after registering, and registering is something the
    agent may never do — so those stay human work rather than a backlog item.
 
