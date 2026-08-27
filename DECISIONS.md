@@ -254,15 +254,29 @@ the golden set shows how often near-duplicate phrasings actually appear.
 Until then the "Application 1 needed 15 answers, this one needs 3" number is
 real but conservative — it undercounts reuse rather than overcounting it.
 
-### D11 — The daily spend ledger is a JSON file
+### D11 — The daily spend ledger is SQLite, not a JSON file
 
-Correct for a single-process scheduled run, and inspectable. **Not safe
-across concurrent processes.** A corrupt ledger refuses to spend rather than
-resetting to zero, because a ledger you cannot read is not proof you are
-under the cap.
+**Superseded.** It was a JSON file: read the dict, add, write it back.
+Correct for exactly one process, and the async job boundary (D18) means
+there will not be exactly one process. Two concurrent charges could both read
+the same stale total, both conclude they were under the cap, and both spend.
 
-**TODO:** on DynamoDB, replace with an atomic counter (`UpdateItem` with
-`ADD`) before more than one runner exists.
+Now SQLite in the same state directory. `add()` is one `BEGIN IMMEDIATE`
+transaction — increment and read-back inside the writer lock — so concurrent
+calls serialise and each sees a total including every earlier call. The call
+that crosses the cap is still recorded and *then* halted, which is the
+semantics `charge()` always had: the report shows what was actually spent,
+including the call that crossed the line.
+
+The failure posture is unchanged. A corrupt database or an unreadable legacy
+file raises `BudgetExceeded` — we refuse to spend money we cannot account
+for, and we never reset the ledger to zero. An existing `daily_spend.json` is
+imported once (`INSERT OR IGNORE`, idempotent per day-key) and left in place
+as its own backup, never rewritten and never deleted.
+
+**Still true:** DynamoDB with an atomic counter (`UpdateItem` with `ADD`) is
+the answer if runners ever span machines. SQLite's writer lock is a
+single-filesystem guarantee.
 
 ### D12 — Bedrock prices default to zero
 
@@ -350,6 +364,130 @@ line for anything outside it. `beautifulsoup4` was already present
 transitively via `strands-agents-tools`; it is now declared directly because
 `agent/scraping/` imports it. `playwright` is an **optional** extra
 (`uv sync --extra js`) and is never installed or invoked by default.
+
+### D18 — A run is a durable job, not a held-open connection
+
+`POST /founders/{id}/runs` used to do discovery, every model call and
+drafting before returning. Minutes of work living or dying with one TCP
+socket: an ALB idle timeout, a closed laptop lid, or a scheduler retry
+landing mid-run each produced a different flavour of nothing.
+
+The endpoint now persists a `RunJob` and answers **202** with a job id. The
+job row is the source of truth from that moment — a poller reads it, a retry
+with the same idempotency key resolves to it, and a crash is repaired at
+startup rather than leaving a row that claims to be running forever.
+
+Three consequences worth naming:
+
+- **Halted is not failed.** A run that hit a budget cap or a throttle
+  *finished* and has a report. The job says `halted` and points at it, and
+  nothing goes to the failure log. Only a run that could not report at all is
+  a failure, classed `startup`, `timeout`, `crash` or `orphaned`.
+- **`run_once` is untouched.** The job records the lifecycle; the
+  `RunReport` remains immutable and append-only, exactly as before.
+- **`LocalJobExecutor` runs jobs in the API process.** Correct while the run
+  lease and `desired_count = 1` both guarantee one. `JobExecutor` is the seam
+  a queue-backed worker slots into, calling the same `execute_job`.
+
+**Rejected:** SQS plus a separate worker service from the start. It is the
+right end state and the wrong first step — it doubles the deployment surface
+to solve a concurrency problem that the single-writer storage decision (D19)
+already forbids.
+
+### D19 — The run lease is SQLite, and `desired_count = 1` is load-bearing
+
+Two invocations of the same run — a scheduler retry landing while the first
+attempt is still working, or a double-clicked button — must not both execute.
+`RunLock` is a lease keyed by `(founder_id, run_kind)`, and acquisition is a
+single `BEGIN IMMEDIATE` transaction: SQLite serialises writers at the file
+level, so two processes cannot both see "free" and both insert.
+
+Every lease carries a random ownership token and release requires it. A slow
+first run finishing after its lease expired cannot yank the lease out from
+under the second run that legitimately took over. Expired leases are adopted
+in the same atomic step, so crash recovery needs no janitor process.
+
+The lease is the *second* line of defence. The first is that one Fargate task
+writes one SQLite file. The day two writers are genuinely needed, the answer
+is RDS Postgres behind the same `Repository` protocol — not a second SQLite
+reader, and not a cleverer lock.
+
+**Rejected:** an advisory lock in the database the application already uses.
+It would work, and it couples "can a run start" to "is the application
+database healthy", which is exactly the coupling you do not want when
+diagnosing a stuck run.
+
+### D20 — Ownership refusals are 404, never 403
+
+A shared bearer token is not an identity: it proves somebody holds the
+secret, never *which* founder they are. Adding per-founder authorization
+raises a question the old design never had to answer — what does the API say
+when a valid credential asks for somebody else's resource?
+
+**404, with the same wording a genuinely missing resource gets.** A 403
+confirms the id exists, which turns id-guessing into founder enumeration and
+gives away the thing the authorization was added to protect. Not-found and
+not-yours must be indistinguishable from outside, which means the *message*
+has to match too, not just the status code.
+
+The three resource-id-only routes (`/inbox/{item_id}`, `/drafts/{draft_id}`,
+`/opportunities/{id}`) were the concrete hole. The first two now look up the
+owner before acting. The third deliberately does not, and the reason is in
+the docstring: an opportunity is a public funding programme, the same row for
+everyone. *Which* opportunities a founder was shown is founder data, and that
+lives in the scoped inbox.
+
+**Rejected:** an identity provider. OIDC/JWT is a product decision with an
+operational tail, so `api/auth.py` builds the `Authenticator` seam and ships
+two honest implementations — a shared token, and a hashed credential file
+with revocation and restart-free rotation — rather than faking an integration
+nobody has chosen.
+
+### D21 — Alembic, and an initial revision that adopts rather than demands
+
+`SQLModel.metadata.create_all()` cannot evolve a schema. It creates what is
+missing and says nothing at all about a table whose shape has changed, so the
+first time a column moved, a deployed database would keep serving until a
+query hit the difference — a 500 at 3am rather than a red probe at deploy.
+
+The wrinkle is that every database that already exists was built by
+`create_all()` and has no `alembic_version` table. A plain autogenerated
+revision dies on its first `CREATE TABLE` against one, which is the exact
+moment somebody reaches for `--force` or deletes the volume. So the initial
+revision creates only tables that are *absent*: `upgrade head` handles a
+fresh database, a pre-`jobs` database with live rows, and a database already
+at head, and nothing it does drops or rewrites a table that exists.
+
+In production the application no longer creates its own schema
+(`create_schema=False`) and `/ready` reports `schema: unmigrated` when the
+revision table is missing, so a deploy that skipped its migration fails its
+probe instead of booting on a half-invented schema.
+
+**Rejected:** `alembic stamp head` on existing databases as the adoption
+path. It works and it requires a human to run exactly one command exactly
+once on every environment, which is a procedure that gets skipped.
+
+### D22 — Liveness and readiness answer different questions
+
+`/health` returning `{"status": "ok"}` for everything meant a load balancer
+could not tell a container that was serving from one whose EFS mount had gone
+read-only.
+
+`/health` is now deliberately dependency-free. A liveness probe that checks
+the database is a liveness probe that restarts a healthy container because
+storage hiccuped, and restarting rarely fixes storage.
+
+`/ready` checks what a request actually needs — a trivial query, a write
+probe against the state directory, that configuration resolves — and in
+production also that a credential exists, that the schema is migrated, and
+that the dollar cap can actually fire. It invokes no model: a readiness check
+that costs a Bedrock call is a readiness check that bills you per probe
+interval.
+
+Both stay unauthenticated so a load balancer can reach them, which means
+neither may describe the deployment. `/ready` names *which* check failed and
+never what it was configured with — no model IDs, no paths, no token — and a
+test asserts exactly that.
 
 ---
 

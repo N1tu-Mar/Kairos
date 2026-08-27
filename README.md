@@ -49,9 +49,10 @@ in a week that already has a problem set due.
 | Discovery | A verified-seed source and live Grants.gov `search2`/`fetchOpportunity` integration. The runtime seed currently contains one verified usable row. |
 | Campus research | An operator-run, robots-aware Rutgers scraper with rate limiting, raw-page archives, deterministic extraction, exact evidence spans, explicit `UNKNOWN` fields, deduplication and stale-deadline warnings. Its seven current rows all remain `NEEDS_HUMAN_REVIEW`. |
 | Decision loop | Deterministic eligibility filtering, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
-| Product surfaces | SQLite persistence, a bearer-token-capable FastAPI API, and a single-founder Next.js dashboard for briefings, inbox state, runs, drafts and profile editing. |
-| Operations | A Docker image, local APScheduler mode, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler. The Terraform is unapplied. |
-| Verification | 284 Python tests pass, with 3 planned tests marked expected-failure; 44 frontend tests, TypeScript checking and lint pass locally as of 2026-08-26. The published golden-set result is fixture-based, not a live-model score. |
+| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, runs, drafts and profile editing. |
+| Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. A run lease keyed by founder makes two overlapping runs impossible; a crash cannot leave one "running" forever. |
+| Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
+| Verification | 722 Python tests pass with no expected-failures remaining; 54 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-27. The published golden-set result is fixture-based, not a live-model score, and nothing here has ever called Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -304,10 +305,18 @@ Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
 
-Current local result (2026-08-26): **284 Python tests passed, 3 planned tests
-xfail; 44 frontend tests passed; typecheck and lint passed.** The xfails cover
-planned semantic recall and two scheduler/overlap behaviours; they are not
-silently skipped production checks.
+Current local result (2026-08-27): **722 Python tests passed, no xfail
+remaining; 54 frontend tests passed; typecheck, lint and the production build
+passed.** The three previously-planned behaviours — semantic recall and the
+two scheduler/overlap ones — are implemented, and their tests converted from
+`xfail` rather than being rewritten to match whatever got built.
+
+Migrations have their own 20 tests, run against a fresh database *and* a
+representative existing one built the way every deployed database was built,
+with live rows that have to survive adoption.
+
+Everything above is offline. It says nothing about AWS, which nothing here
+has ever touched.
 
 The tests that matter most are the adversarial ones in
 `tests/test_grounding.py` — all six cases the spec requires, including an
@@ -388,22 +397,39 @@ Written before the deadline pressure, so it stays honest.
   discover and assess a real opportunity without that form, but cannot draft
   its real application questions.
 - **The AWS deployment is written, not applied.** `infra/` holds Terraform
-  for ECS Fargate, EFS-backed SQLite and an EventBridge schedule that calls
-  the run endpoint with the API's own bearer token — but it has never met a
-  live account, so there is no demo link and no claim that it works first
-  try. Locally, scheduling still means APScheduler or the schedule flag.
-- **Auth is one shared bearer token.** `KAIROS_API_TOKEN` gates every
-  endpoint except `/health`, which closes the "anyone on the network can
-  rewrite a profile" hole — but it is one credential for the whole API, not
-  per-founder identity. Fine single-founder; a second founder needs real
-  authorisation before founder scoping means anything.
+  for ECS Fargate, EFS-backed SQLite, an EventBridge schedule, five alarms
+  and a dead-letter queue. It has never met a live account — never applied,
+  never planned, and `fmt`/`validate` have not been run because there is no
+  Terraform binary in the authoring environment. There is no demo link and no
+  claim that any of it works first try. `infra/README.md` and
+  `docs/runbooks.md` both mark every procedure LOCAL or WRITTEN, and most are
+  WRITTEN.
+- **Identity has a seam, not a provider.** `api/auth.py` supports two modes:
+  one shared bearer token (the documented single-founder demo, honest that a
+  shared secret proves only that somebody holds it) and a hashed credential
+  file mapping distinct tokens to distinct founders, with revocation, expiry
+  and rotation that takes effect without a restart. Every founder-scoped
+  endpoint authorizes, the three resource-id-only routes look up their
+  owner, and a refusal is a 404 with the same wording a missing resource
+  gets — a 403 confirms the id exists, which is an enumeration primitive.
+  What is *not* here is a real identity provider: OIDC/JWT is a product
+  decision, so the `Authenticator` protocol is built and the adapter is
+  documented rather than faked.
+- **The dollar cap is only real once prices are.** At the default price of
+  zero every call costs $0.00, so `KAIROS_DAILY_USD_CAP` can never trip and
+  only the per-run token ceiling does anything. `/ready` reports that as
+  `spend_cap: unenforceable`, production Terraform refuses to plan around it,
+  and `RunBudget` refuses to start rather than pretend — but none of those
+  can supply the number. There is deliberately no default price table
+  anywhere in this repository, because a stale guess under-counts spend
+  against a real cap.
 - **Cross-run memory is the database, not AgentCore Memory.** The session
   manager the spec calls for does not exist in the installed SDK — see
   [`DECISIONS.md`](DECISIONS.md) D1.
-- **`recall` matches normalised text, not meaning.** It undercounts reuse
-  rather than overcounting it, which is the safe direction, but "this
-  application needs 3 answers instead of 15" is conservative until it is
-  backed by embeddings.
+- **`recall` now matches meaning as well as text**, through a tested
+  similarity threshold in `agent/semantic.py`. Exact-after-normalisation is
+  still tried first — it is the highest-confidence path — and the semantic
+  tier only runs when that finds nothing.
 - **The grounding checks are regex and set membership, not semantics.** They
   produce false positives. Every false positive pushes a field to *you answer
   this*, which is the safe direction — one extra question beats one invented

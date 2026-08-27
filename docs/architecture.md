@@ -2,14 +2,60 @@
 
 Diagram source is committed, not just a PNG. Render with any Mermaid tool.
 
+## Getting into a run
+
+A run takes minutes, so no HTTP request waits for one. Both entry points —
+the scheduler and the dashboard button — hit the same endpoint, which
+persists a job and returns immediately. The lease is what makes "the same
+endpoint" safe.
+
+```mermaid
+flowchart TD
+    SCHED["EventBridge Scheduler<br/>daily, Bearer + execution-id<br/>as the idempotency key"]
+    BUTTON["Dashboard button<br/>fresh idempotency key per click"]
+
+    SCHED --> POST
+    BUTTON --> POST
+
+    POST["<b>POST /founders/{id}/runs</b>"]
+    POST --> AUTHZ["<b>authenticate + authorize</b><br/>which founder is asking?<br/><i>not-yours is 404, never 403</i>"]
+    AUTHZ --> IDEM{"idempotency key<br/>already seen?"}
+
+    IDEM -->|yes| SAME["<b>200</b> — the original job<br/><i>a retry is not a second run</i>"]
+    IDEM -->|no| LEASE{"acquire run lease<br/>(founder, run_kind)<br/><i>BEGIN IMMEDIATE</i>"}
+
+    LEASE -->|refused| CONFLICT["<b>409</b> — a run is already in progress"]
+    LEASE -->|acquired| JOB["persist RunJob · <b>202</b> + job id"]
+
+    JOB --> EXEC["executor runs it in the background"]
+    EXEC --> SCOUT
+
+    POLL["GET /founders/{id}/jobs/{job_id}"] -.->|"dashboard polls"| JOB
+
+    SCOUT --> DONE{"outcome"}
+    DONE -->|"report written"| OK["job: succeeded / <b>halted</b><br/><i>halted is finished, and has a report</i>"]
+    DONE -->|"could not report"| BAD["job: failed<br/>startup / timeout / crash / orphaned<br/>→ scheduler failure log → dashboard"]
+
+    OK --> REL
+    BAD --> REL
+    REL["<b>release lease in finally</b><br/><i>success, halt, timeout, crash, cancel</i>"]
+
+    CRASH["process dies mid-run"] -.->|"startup recovery"| BAD
+```
+
+Two properties this diagram exists to make obvious:
+
+- **Nothing reaches Scout without holding the lease**, so two runs for one
+  founder cannot overlap however they were triggered.
+- **The lease is released in a `finally`**, and a crash that skips even that
+  is repaired at startup — no job stays `running` with no process behind it,
+  and the lease expires on its own TTL.
+
 ## The run
 
 ```mermaid
 flowchart TD
-    SCHED["EventBridge Scheduler<br/>cron: daily 06:00<br/><i>(APScheduler locally)</i>"]
     SCOUT["<b>Scout</b> — orchestrator<br/>runs headless, no user in the loop"]
-
-    SCHED --> SCOUT
 
     SCOUT --> DISC["discover_opportunities"]
     SCOUT --> PROF["load founder profile<br/>+ knowledge base"]
@@ -102,7 +148,9 @@ flowchart TB
         HARD["hard_eligibility_filter<br/><i>structured fields only</i>"]
         GATE2["ship_gate"]
         POL["escalation policy"]
-        BUDGET["budget caps"]
+        BUDGET["budget caps<br/><i>atomic daily ledger, token ceiling</i>"]
+        AUTHZ2["authorization<br/><i>founder ownership</i>"]
+        LEASE2["run lease<br/><i>one run per founder</i>"]
     end
 
     UNTRUSTED -->|"sanitised, capped,<br/>wrapped in a labelled block"| MODEL
@@ -114,8 +162,15 @@ flowchart TB
 A fully successful prompt injection inside an opportunity description can
 make the Assessor say anything it likes. It still cannot change a Python
 comparison against a structured field, it cannot spend past the token
-ceiling, it cannot get an ungrounded number through the gate, and it cannot
-cause a second notification about the same opportunity. That is the design.
+ceiling, it cannot get an ungrounded number through the gate, it cannot
+cause a second notification about the same opportunity, it cannot start a
+second concurrent run, and it cannot reach another founder's data. That is
+the design.
+
+Every one of those is a database constraint or a Python comparison, not a
+prompt: the unique index on the inbox idempotency key, the `BEGIN IMMEDIATE`
+on the lease and the spend ledger, the ownership check on every
+founder-scoped route. A model cannot argue with an index.
 
 ## Sub-agents
 
