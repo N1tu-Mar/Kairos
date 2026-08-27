@@ -32,6 +32,45 @@ env:
   KAIROS_ENV: local
 
 jobs:
+  # Everything below this job dies in "Set up job" if a pin is wrong — before
+  # a single step runs, with an error that names a SHA and nothing else. This
+  # job runs the same checks locally so the failure is legible, and so the
+  # same command can be run before pushing.
+  #
+  # Deliberately not a `needs:` for the other jobs: a green preflight is not a
+  # precondition for running the tests, and serialising them would add a
+  # minute to every run to catch a problem that is rare once it is checked.
+  preflight:
+    name: Workflow and lockfile preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+
+      - name: Workflow structure
+        # Offline: every `uses:` is a real SHA-shaped pin with a version
+        # comment, and every job has runs-on and steps. Needs no network, so
+        # it is meaningful on a fork's pull request too.
+        run: python3 scripts/check_workflows.py
+
+      - name: Pins resolve upstream
+        # The check that would have caught the setup-uv pin that never
+        # existed. Network-dependent and therefore allowed to fail: a rate
+        # limit is not the author's fault and must not block a correct merge.
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_workflows.py --online
+
+      - name: The lockfile installs on this runner
+        # Catches a package-lock.json written on macOS, where npm prunes the
+        # linux-only optional dependencies that `npm ci` then demands here.
+        run: python3 scripts/check_lockfiles.py
+
   python:
     name: Python tests
     runs-on: ubuntu-latest
