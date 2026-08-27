@@ -130,10 +130,17 @@ def test_readiness_never_leaks_configuration(api_client, monkeypatch):
 
 
 @pytest.mark.parametrize("path", ["/health", "/ready"])
-def test_probes_stay_reachable_without_a_credential(api_client, monkeypatch, path):
+def test_probes_stay_reachable_without_a_credential(monkeypatch, tmp_path, path):
+    """A load balancer holds no credential, so both probes must be exempt."""
+    from fastapi.testclient import TestClient
+
+    from api.main import app
+
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/probe.db")
     monkeypatch.setenv("KAIROS_API_TOKEN", "a-real-token")
     config.settings.cache_clear()
 
-    # Every other endpoint is a 401 now.
-    assert api_client.get("/founders/founder_demo").status_code == 401
-    assert api_client.get(path).status_code in (200, 503)
+    with TestClient(app) as client:
+        # Every other endpoint is a 401 now.
+        assert client.get("/founders/founder_demo").status_code == 401
+        assert client.get(path).status_code in (200, 503)

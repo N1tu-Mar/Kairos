@@ -3,6 +3,10 @@
 .env.local
 *.pem
 .aws/
+# API credentials (KAIROS_CREDENTIALS_FILE). Hashed, but still a list of who
+# has access to which founder — it belongs in a secret store, not in git.
+credentials.json
+*.credentials.json
 
 # Python
 __pycache__/
@@ -46,6 +50,7 @@ frontend/tsconfig.tsbuildinfo
 
 .session
 session.md
+session3.md
 
 # Terraform
 infra/.terraform/

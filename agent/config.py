@@ -147,6 +147,10 @@ class Settings:
     state_dir: Path
     enable_otel: bool
     api_token: str
+    #: Path to a JSON credential file for multi-founder authorization. When
+    #: set it supersedes `api_token` — it is the only one of the two that can
+    #: tell founders apart. Tokens are stored hashed; see api/auth.py.
+    credentials_file: str
     #: Production mode. Off by default so a clean clone stays runnable with
     #: no credentials. On, it stops being advisory: `/ready` fails without a
     #: token or without live prices, and the auth layer refuses anonymous
@@ -216,5 +220,6 @@ def settings() -> Settings:
         # Empty means the API runs open — acceptable only on localhost, and
         # only outside production mode, where `/ready` fails without it.
         api_token=os.getenv("KAIROS_API_TOKEN", "").strip(),
+        credentials_file=os.getenv("KAIROS_CREDENTIALS_FILE", "").strip(),
         environment=os.getenv("KAIROS_ENV", "local").strip().lower(),
     )

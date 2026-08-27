@@ -19,11 +19,10 @@ should have a one-click answer (Section 9, rule 5).
 from __future__ import annotations
 
 import logging
-import secrets
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -38,6 +37,14 @@ from agent.models import (
 )
 from agent.scheduler import RunLock, ScheduledRunFailureLog
 from api import jobs as job_module
+from api.auth import (
+    AuthError,
+    Forbidden,
+    Principal,
+    audit_event,
+    authorize,
+    build_authenticator,
+)
 from api.jobs import LocalJobExecutor
 from api.repository import SqliteRepository
 
@@ -75,11 +82,13 @@ class InboxStateUpdate(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     config = settings()
-    if not config.api_token:
+    if not config.api_token and not config.credentials_file:
         log.warning(
-            "KAIROS_API_TOKEN is not set — the API is running open. "
-            "Acceptable on localhost only; never deploy it this way."
+            "No credential is configured — the API is running open. "
+            "Acceptable on localhost only; never deploy it this way. "
+            "Set KAIROS_ENV=production to make this a startup failure."
         )
+    app.state.authenticator = build_authenticator(config)
     app.state.repo = SqliteRepository(config.db_url)
     _seed_demo_profile(app.state.repo)
 
@@ -111,35 +120,74 @@ AUTH_EXEMPT_PATHS = {"/health", "/ready"}
 
 
 @app.middleware("http")
-async def require_api_token(request: Request, call_next):
-    """Bearer-token gate over every endpoint, reads included.
+async def authenticate(request: Request, call_next):
+    """Resolve a credential to a principal before anything else runs.
 
     Reads leak as much as writes here — a profile is citizenship, degree
-    level and traction numbers — so the gate is not writes-only. The token
-    comes from `KAIROS_API_TOKEN`. When it is unset the API runs open for
-    the local single-founder demo, and the lifespan hook logs that exposure
-    at startup. When it is set, a missing or wrong credential is a 401 with
-    no hint as to which of the two it was.
+    level and traction numbers — so the gate is not writes-only. A missing
+    and a wrong credential are both a 401 with no hint as to which it was.
+
+    Authentication only says *who*. Authorization — which founders this
+    principal may touch — is `authorize()`, called per endpoint, because the
+    founder id is in the path and middleware has no business parsing paths.
     """
-    token = settings().api_token
-    if (
-        not token
-        or request.url.path in AUTH_EXEMPT_PATHS
+    if request.url.path in AUTH_EXEMPT_PATHS or request.method == "OPTIONS":
         # CORS preflights carry no Authorization header by design; the
         # browser sends the real header only on the actual request.
-        or request.method == "OPTIONS"
-    ):
         return await call_next(request)
 
-    supplied = request.headers.get("authorization", "")
-    expected = f"Bearer {token}"
-    if not secrets.compare_digest(supplied.encode(), expected.encode()):
+    authenticator = getattr(request.app.state, "authenticator", None)
+    if authenticator is None:  # pragma: no cover - lifespan always sets it
+        return JSONResponse({"detail": "server is not ready"}, status_code=503)
+
+    try:
+        request.state.principal = authenticator.authenticate(
+            request.headers.get("authorization")
+        )
+    except AuthError:
+        audit_event(
+            actor="unknown",
+            action="auth.rejected",
+            resource=request.url.path,
+            outcome="denied",
+        )
         return JSONResponse(
-            {"detail": "missing or invalid API token"},
+            {"detail": "missing or invalid credential"},
             status_code=401,
             headers={"WWW-Authenticate": "Bearer"},
         )
     return await call_next(request)
+
+
+def principal(request: Request) -> Principal:
+    """The authenticated principal for this request."""
+    resolved = getattr(request.state, "principal", None)
+    if resolved is None:  # pragma: no cover - middleware always sets it
+        raise HTTPException(401, "missing or invalid credential")
+    return resolved
+
+
+def owned(
+    founder_id: str,
+    actor: Principal,
+    *,
+    write: bool = False,
+    not_found: str | None = None,
+) -> None:
+    """Authorize, translating a refusal into 404.
+
+    Not 403. A 403 on a founder id confirms the id exists, which turns
+    id-guessing into founder enumeration — the whole point of adding
+    ownership. Not-found and not-yours must be indistinguishable, which means
+    the *message* has to match too: `not_found` lets a caller supply the
+    exact wording that endpoint uses for a genuinely missing resource.
+    """
+    try:
+        authorize(actor, founder_id, write=write)
+    except Forbidden:
+        raise HTTPException(
+            404, not_found or f"no profile for {founder_id}"
+        ) from None
 
 
 app.add_middleware(
@@ -179,9 +227,9 @@ def _skips_payload(report: RunReport) -> dict:
 def _run_for_founder(founder_id: str, run_id: str) -> RunReport:
     """One run, scoped to the founder in the path.
 
-    There is no auth in this repository, so scoping is not a security control
-    — it is here so a mistyped id 404s instead of quietly returning somebody
-    else's run.
+    Now a security control, not just a typo guard: the caller has already
+    been authorized for `founder_id`, and a run belonging to anyone else is
+    a 404 regardless of whether the id was guessed or mistyped.
     """
     report = app.state.repo.get_run(run_id)
     if report is None or report.founder_id != founder_id:
@@ -269,7 +317,8 @@ def ready(response: Response) -> dict:
 
 
 @app.get("/founders/{founder_id}")
-def get_founder(founder_id: str) -> FounderProfile:
+def get_founder(founder_id: str, actor: Principal = Depends(principal)) -> FounderProfile:
+    owned(founder_id, actor)
     profile = app.state.repo.get_profile(founder_id)
     if profile is None:
         raise HTTPException(404, f"no profile for {founder_id}")
@@ -277,7 +326,11 @@ def get_founder(founder_id: str) -> FounderProfile:
 
 
 @app.put("/founders/{founder_id}")
-def put_founder(founder_id: str, profile: FounderProfile) -> FounderProfile:
+def put_founder(
+    founder_id: str,
+    profile: FounderProfile,
+    actor: Principal = Depends(principal),
+) -> FounderProfile:
     """Create or replace a founder profile.
 
     A full replace, not a patch. These fields are what the deterministic
@@ -285,7 +338,12 @@ def put_founder(founder_id: str, profile: FounderProfile) -> FounderProfile:
     outcome worth ruling out entirely — `citizenship` set without
     `degree_level` is how a founder gets told they are eligible for something
     they are not.
+
+    Both ids are checked: the path (which the principal must own) and the
+    body. Without the second check a principal could replace their own
+    profile with a document naming someone else's founder id.
     """
+    owned(founder_id, actor, write=True)
     if profile.founder_id != founder_id:
         raise HTTPException(
             400,
@@ -293,6 +351,14 @@ def put_founder(founder_id: str, profile: FounderProfile) -> FounderProfile:
             f"the path ({founder_id!r})",
         )
     app.state.repo.save_profile(profile)
+    # The event records that a profile was replaced, never the profile: a
+    # founder's citizenship and traction do not belong in an audit log.
+    audit_event(
+        actor=actor.subject,
+        action="profile.write",
+        resource=founder_id,
+        method=actor.method,
+    )
     # Read back rather than echoing the request: what is stored has been
     # through redaction, and that is what every other endpoint will serve.
     stored = app.state.repo.get_profile(founder_id)
@@ -302,18 +368,27 @@ def put_founder(founder_id: str, profile: FounderProfile) -> FounderProfile:
 
 
 @app.get("/founders/{founder_id}/inbox")
-def get_inbox(founder_id: str, include_passive: bool = True) -> list:
+def get_inbox(
+    founder_id: str,
+    include_passive: bool = True,
+    actor: Principal = Depends(principal),
+) -> list:
+    owned(founder_id, actor)
     items = app.state.repo.list_inbox(founder_id)
     return items if include_passive else [i for i in items if not i.passive]
 
 
 @app.get("/founders/{founder_id}/runs")
-def list_runs(founder_id: str, limit: int = 20) -> list[RunReport]:
+def list_runs(
+    founder_id: str, limit: int = 20, actor: Principal = Depends(principal)
+) -> list[RunReport]:
+    owned(founder_id, actor)
     return app.state.repo.list_runs(founder_id, limit)
 
 
 @app.get("/founders/{founder_id}/runs/latest")
-def latest_run(founder_id: str) -> RunReport:
+def latest_run(founder_id: str, actor: Principal = Depends(principal)) -> RunReport:
+    owned(founder_id, actor)
     report = app.state.repo.latest_run(founder_id)
     if report is None:
         raise HTTPException(404, f"no runs recorded for {founder_id}")
@@ -321,12 +396,13 @@ def latest_run(founder_id: str) -> RunReport:
 
 
 @app.get("/founders/{founder_id}/runs/latest/skips")
-def latest_skips(founder_id: str) -> dict:
+def latest_skips(founder_id: str, actor: Principal = Depends(principal)) -> dict:
     """Everything the agent threw away, and why.
 
     The founder does not see this by default. A judge asking "how do I know
     it isn't hiding things?" gets it in one click.
     """
+    owned(founder_id, actor)
     report = app.state.repo.latest_run(founder_id)
     if report is None:
         raise HTTPException(404, f"no runs recorded for {founder_id}")
@@ -334,28 +410,44 @@ def latest_skips(founder_id: str) -> dict:
 
 
 @app.get("/founders/{founder_id}/runs/{run_id}")
-def get_run(founder_id: str, run_id: str) -> RunReport:
+def get_run(
+    founder_id: str, run_id: str, actor: Principal = Depends(principal)
+) -> RunReport:
     """One run by id, however old.
 
     `list_runs` is capped, so without this a link to an older run resolves to
     nothing and the transparency trail has a horizon.
     """
+    owned(founder_id, actor)
     return _run_for_founder(founder_id, run_id)
 
 
 @app.get("/founders/{founder_id}/runs/{run_id}/skips")
-def get_run_skips(founder_id: str, run_id: str) -> dict:
+def get_run_skips(
+    founder_id: str, run_id: str, actor: Principal = Depends(principal)
+) -> dict:
     """The silent path for one specific run."""
+    owned(founder_id, actor)
     return _skips_payload(_run_for_founder(founder_id, run_id))
 
 
 @app.get("/opportunities/{opportunity_id}")
-def get_opportunity(opportunity_id: str) -> Opportunity:
+def get_opportunity(
+    opportunity_id: str, actor: Principal = Depends(principal)
+) -> Opportunity:
     """The row a verdict was made about.
 
     Award range, deadline and the extracted eligibility rules live here as
     structured fields. Anything that wants to sort or filter on them reads
     this rather than parsing the headline a run happened to compose.
+
+    This is the one resource-id route with no ownership check, and the reason
+    is that an opportunity is not founder data: it is a public funding
+    programme, the same row for everyone, discovered from Grants.gov or a
+    published catalogue. Which opportunities a *founder* was shown is founder
+    data, and that lives in the inbox, which is scoped. Authentication is
+    still required — an unauthenticated caller has no business enumerating
+    the catalogue.
     """
     opportunity = app.state.repo.get_opportunity(opportunity_id)
     if opportunity is None:
@@ -364,42 +456,81 @@ def get_opportunity(opportunity_id: str) -> Opportunity:
 
 
 @app.patch("/inbox/{item_id}")
-def patch_inbox_item(item_id: str, update: InboxStateUpdate):
+def patch_inbox_item(
+    item_id: str, update: InboxStateUpdate, actor: Principal = Depends(principal)
+):
     """Record what the founder did with an item: opened, dismissed, applied.
 
     `state` is the only mutable field. Everything else on an inbox item is
     what the run decided, and letting a later edit rewrite it would turn the
     audit trail into a record of the most recent opinion.
+
+    The item is read before it is written so its owner can be checked. The
+    id is otherwise unguessable-by-design but not unguessable-in-fact —
+    it is `{run_id}:{opportunity_id}` — so ownership is verified rather
+    than assumed.
     """
-    item = app.state.repo.set_inbox_state(item_id, update.state)
+    item = app.state.repo.get_inbox_item(item_id)
     if item is None:
         raise HTTPException(404, f"no inbox item {item_id}")
-    return item
+    owned(
+        item.founder_id,
+        actor,
+        write=True,
+        not_found=f"no inbox item {item_id}",
+    )
+
+    updated = app.state.repo.set_inbox_state(item_id, update.state)
+    if updated is None:  # pragma: no cover - it existed one line ago
+        raise HTTPException(404, f"no inbox item {item_id}")
+    audit_event(
+        actor=actor.subject,
+        action="inbox.state_change",
+        resource=item_id,
+        method=actor.method,
+        new_state=update.state,
+    )
+    return updated
 
 
 @app.get("/founders/{founder_id}/drafts")
-def list_drafts(founder_id: str, opportunity_id: str | None = None) -> list[dict]:
+def list_drafts(
+    founder_id: str,
+    opportunity_id: str | None = None,
+    actor: Principal = Depends(principal),
+) -> list[dict]:
     """Every draft for a founder, newest form first.
 
     Counts come from `Draft.counts()` — computed in Python, never by a model
     (Section 9, rule 8).
     """
+    owned(founder_id, actor)
     drafts = app.state.repo.list_drafts(founder_id, opportunity_id)
     return [{"draft": d, "counts": d.counts()} for d in drafts]
 
 
 @app.get("/drafts/{draft_id}")
-def get_draft(draft_id: str) -> dict:
+def get_draft(draft_id: str, actor: Principal = Depends(principal)) -> dict:
+    """One draft, ownership-checked.
+
+    A draft is the most sensitive object in the system — it is the founder's
+    knowledge base rendered into prose — so the draft's own `founder_id` is
+    checked against the principal rather than trusting an opaque id.
+    """
     draft = app.state.repo.get_draft(draft_id)
     if draft is None:
         raise HTTPException(404, f"no draft {draft_id}")
+    owned(draft.founder_id, actor, not_found=f"no draft {draft_id}")
     # Counts are computed in Python, never by a model (Section 9, rule 8).
     return {"draft": draft, "counts": draft.counts()}
 
 
 @app.post("/founders/{founder_id}/runs", status_code=202)
 async def trigger_run(
-    founder_id: str, trigger: RunTrigger, response: Response
+    founder_id: str,
+    trigger: RunTrigger,
+    response: Response,
+    actor: Principal = Depends(principal),
 ) -> RunJob:
     """Accept a run and return immediately. EventBridge calls this too.
 
@@ -416,6 +547,7 @@ async def trigger_run(
     The connection no longer spans the run. A run takes minutes; sockets,
     load balancers and browsers all have opinions about minutes.
     """
+    owned(founder_id, actor, write=True)
     profile = app.state.repo.get_profile(founder_id)
     if profile is None:
         raise HTTPException(404, f"no profile for {founder_id}")
@@ -470,22 +602,36 @@ async def trigger_run(
         raise
 
     app.state.executor.submit(job, lease)
+    audit_event(
+        actor=actor.subject,
+        action="run.trigger",
+        resource=job.job_id,
+        method=actor.method,
+        founder_id=founder_id,
+        source=source,
+    )
     return job
 
 
 @app.get("/founders/{founder_id}/jobs")
-def list_jobs(founder_id: str, limit: int = 20) -> list[RunJob]:
+def list_jobs(
+    founder_id: str, limit: int = 20, actor: Principal = Depends(principal)
+) -> list[RunJob]:
+    owned(founder_id, actor)
     return app.state.repo.list_jobs(founder_id, limit)
 
 
 @app.get("/founders/{founder_id}/jobs/{job_id}")
-def get_job(founder_id: str, job_id: str) -> dict:
+def get_job(
+    founder_id: str, job_id: str, actor: Principal = Depends(principal)
+) -> dict:
     """One job, with its report once the run has one.
 
     The poll target for the dashboard's manual-run button. `report` is null
     until the run finishes; a halted run has a report too — halting is a
     reported outcome, not an error.
     """
+    owned(founder_id, actor, not_found=f"no job {job_id} for {founder_id}")
     job = app.state.repo.get_job(job_id)
     if job is None or job.founder_id != founder_id:
         raise HTTPException(404, f"no job {job_id} for {founder_id}")
@@ -494,7 +640,9 @@ def get_job(founder_id: str, job_id: str) -> dict:
 
 
 @app.post("/founders/{founder_id}/jobs/{job_id}/cancel")
-def cancel_job(founder_id: str, job_id: str) -> dict:
+def cancel_job(
+    founder_id: str, job_id: str, actor: Principal = Depends(principal)
+) -> dict:
     """Ask the executor to stop a running job.
 
     Cooperative: the run stops at its next await point and the job records
@@ -503,20 +651,37 @@ def cancel_job(founder_id: str, job_id: str) -> dict:
     terminal, or running in a process this API cannot reach, reports
     `cancelled: false`.
     """
+    owned(
+        founder_id,
+        actor,
+        write=True,
+        not_found=f"no job {job_id} for {founder_id}",
+    )
     job = app.state.repo.get_job(job_id)
     if job is None or job.founder_id != founder_id:
         raise HTTPException(404, f"no job {job_id} for {founder_id}")
     if job.terminal():
         return {"cancelled": False, "status": job.status}
-    return {"cancelled": app.state.executor.cancel(job_id), "status": job.status}
+    cancelled = app.state.executor.cancel(job_id)
+    audit_event(
+        actor=actor.subject,
+        action="run.cancel",
+        resource=job_id,
+        outcome="ok" if cancelled else "not_running_here",
+        method=actor.method,
+    )
+    return {"cancelled": cancelled, "status": job.status}
 
 
 @app.get("/founders/{founder_id}/scheduler/failures")
-def scheduler_failures(founder_id: str, limit: int = 20) -> list:
+def scheduler_failures(
+    founder_id: str, limit: int = 20, actor: Principal = Depends(principal)
+) -> list:
     """Recent invocations that failed to start or finish, newest first.
 
     Sanitised before persistence — no credentials, no prompts, no stack
     traces. CloudWatch keeps the archive; this answers "did last night's
     run fail?" from the dashboard.
     """
+    owned(founder_id, actor)
     return app.state.failure_log.recent(founder_id, limit=limit)

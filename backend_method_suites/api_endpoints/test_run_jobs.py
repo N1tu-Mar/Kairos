@@ -311,5 +311,10 @@ def test_failure_endpoint_is_founder_scoped_and_sanitised(api_client):
     assert body[0]["failure_class"] == "crash"
     assert "topsecret" not in body[0]["detail"]
 
-    other = api_client.get("/founders/founder_other/scheduler/failures").json()
-    assert [f["founder_id"] for f in other] == ["founder_other"]
+    # Another founder's failures are not reachable at all: in local mode the
+    # principal owns founder_demo and nothing else, and a founder it does not
+    # own is a 404 rather than a 403.
+    assert (
+        api_client.get("/founders/founder_other/scheduler/failures").status_code
+        == 404
+    )
