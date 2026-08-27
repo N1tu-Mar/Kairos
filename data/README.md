@@ -39,7 +39,7 @@ included `https://venturewell.org/e-team-grants/`, which looks exactly right
 and returns 404. It is in `opportunities.candidates.json` on purpose, as a
 row that fails.
 
-**Current state (2026-08-27): 40 candidate rows, 34 verified.**
+**Current state (2026-08-27): 49 candidate rows, 43 verified.**
 
 The six failures are kept on purpose, because each is a different way a row
 can be untrustworthy and all six are invisible to a reachability-only check:
@@ -75,7 +75,7 @@ with the specific change recorded.
 
 **Nothing in it has been applied.** The script does not edit the catalog, does
 not flip `verified`, and does not update a deadline. It reports; a person
-decides and edits by hand. First run over the 40 rows: 24 unchanged, 8 with
+decides and edits by hand. First run over the 40 rows then in the catalog: 24 unchanged, 8 with
 passed deadlines, 3 dead, 3 with lost evidence, 2 redirected.
 
 ## `opportunities.demo.json`
@@ -132,7 +132,7 @@ Transcribing MIT CEP's form found a live gap: `blocklisted()` did not catch
 "IP, Capital, and Revenue Disclosure Forms", because the word *disclosure*
 alone matched nothing. The blocklist now covers it.
 
-`scripts/form_coverage.py` prints which catalog rows have a form (2 of 40)
+`scripts/form_coverage.py` prints which catalog rows have a form (2 of 49)
 and which can be discovered and judged but not drafted.
 
 ## `opportunities.rutgers.candidates.json`
