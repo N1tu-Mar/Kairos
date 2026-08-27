@@ -51,7 +51,13 @@ def test_drafts_can_be_listed_by_founder_and_filtered_by_opportunity(memory_repo
     assert [d.draft_id for d in opp_b] == ["draft_b"]
 
 
-def test_recall_reuses_exact_normalized_questions_without_overclaiming_semantics(memory_repo):
+def test_recall_prefers_the_exact_normalized_match_and_says_so(memory_repo):
+    """Tier 1 is unchanged: normalised equality, highest confidence, tried
+    first. What changed is that a match now carries a receipt — this test
+    previously also asserted that a rephrasing found nothing, which was a
+    statement about the limitation rather than about the contract. Semantic
+    recall now handles that case and is covered in
+    `tests/test_semantic_recall.py`."""
     field = generated(
         "traction",
         "We have 40 active users.",
@@ -60,8 +66,21 @@ def test_recall_reuses_exact_normalized_questions_without_overclaiming_semantics
 
     memory_repo.remember_answer("founder_demo", field)
     reused = memory_repo.recall("founder_demo", "Describe your traction to date")
-    semantic_near_miss = memory_repo.recall("founder_demo", "How many users do you have?")
 
     assert reused is not None
     assert reused.status == "REUSED"
-    assert semantic_near_miss is None
+    assert reused.reuse_match == "exact"
+    assert reused.reuse_score == 1.0
+
+
+def test_recall_never_crosses_founders(memory_repo):
+    """Scoping is a data-isolation guarantee, not a convenience. It holds on
+    both tiers, so a semantically identical question from another founder
+    still finds nothing."""
+    memory_repo.remember_answer(
+        "founder_a",
+        generated("traction", "A's answer.", question="Describe your traction to date."),
+    )
+
+    assert memory_repo.recall("founder_b", "Describe your traction to date.") is None
+    assert memory_repo.recall("founder_b", "What traction do you have?") is None
