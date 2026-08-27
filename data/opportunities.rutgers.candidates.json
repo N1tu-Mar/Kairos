@@ -81,7 +81,8 @@
       "The page lists more than one date in a deadline context (Nov. 1st, Dec. 21st, Jan. 29th, Feb. 9th, Feb. 25th). The one recorded above is the earliest date the page labels as a closing date; confirm which applies to you.",
       "[indirect access route] \"Hosted by the Innovation, Design, and Entrepreneurship Academy (IDEA), ScarletPitch is a campus-wide pitch competition that celebrates student entrepreneurship. It brings together students from all disciplines and backgrounds to create businesses designed to be a force for good. Compete for cash and\"",
       "[operator note] The reference example. Rutgers-New Brunswick undergraduate and graduate students, teams of 1-5. Also the qualifying route into UPitchNJ and the Hult Prize, so it is worth more than its own prize money.",
-      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] All stored fields matched the live page: prizes $250-$3,000, team 1-5, Rutgers-New Brunswick undergraduate and graduate students, equity unstated. The live page now carries an application link (https://go.rutgers.edu/ApplyScarletPitch) and labels the timeline '2027 Competition'; the deadline dates still carry no year. ACCEPTED and promoted to data/opportunities.candidates.json with deadline left null."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -99,7 +100,7 @@
       "bytes": 50176
     },
     "scraped_at": "2026-08-24T01:41:44.951838Z",
-    "review_status": "NEEDS_HUMAN_REVIEW"
+    "review_status": "ACCEPTED"
   },
   {
     "scrape_id": "rutgers_rbs_business_plan:a27a3ed72cb3",
@@ -107,7 +108,7 @@
     "organization": "Rutgers Business School",
     "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
     "award_type": "cash prize",
-    "award_min": 15000,
+    "award_min": 5000,
     "award_max": 15000,
     "institution": [
       "Rutgers University"
@@ -124,8 +125,8 @@
       "student founder"
     ],
     "equity_required": null,
-    "team_size_min": null,
-    "team_size_max": null,
+    "team_size_min": 1,
+    "team_size_max": 5,
     "deadline": "December 12, 2025",
     "deadline_iso": "2025-12-12",
     "evidence": {
@@ -135,9 +136,9 @@
         "method": "registry_fallback"
       },
       "award_min": {
-        "text": ": Company Name Business Owner Award Amount Let\u2019s Move US Hannah Aura Shoval $15,000 DeLintt Frontier Robert DeLintt $15,000 CJPS (Central Jersey Process Service) Dana Chernin and Max Hayden",
+        "text": "Dana Chernin and Max Hayden $10,000 BUGS Nicholas Khan $10,000 DetX Santu and Sahil Ghosh $5,000 DUPRify Louis Deabreau $5,000",
         "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
-        "method": "regex:award_block"
+        "method": "audit:archived_page_review"
       },
       "award_max": {
         "text": ": Company Name Business Owner Award Amount Let\u2019s Move US Hannah Aura Shoval $15,000 DeLintt Frontier Robert DeLintt $15,000 CJPS (Central Jersey Process Service) Dana Chernin and Max Hayden",
@@ -168,12 +169,20 @@
         "text": "Eligibility Open to all RBS students. Some restrictions apply for team leadership roles. Location Newark Campus, 1 Washington Park Participation 50 to 100 students and alumni Sponsored by Sales Executive Club of Northern New Jersey Foundation Contact Professor Doug Brownstone",
         "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
         "method": "regex:eligibility_block"
+      },
+      "team_size_min": {
+        "text": "Individuals or teams of up to five students/alumni can enter the competition.",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "audit:archived_page_review"
+      },
+      "team_size_max": {
+        "text": "Individuals or teams of up to five students/alumni can enter the competition.",
+        "source_url": "https://myrbs.business.rutgers.edu/case-competitions/business-plan",
+        "method": "audit:archived_page_review"
       }
     },
     "unknown_fields": [
-      "equity_required",
-      "team_size_min",
-      "team_size_max"
+      "equity_required"
     ],
     "caveats": [
       "The page also states $50,000 as a combined or total figure, which is larger than the largest individual award found ($15,000). Confirm which number applies to one team.",
@@ -181,7 +190,8 @@
       "[stale deadline] The date on this page, 2025-12-12, passed 255 days ago. The page is showing a previous cycle. Treat the award figures and rules as last cycle's too until the next cycle is posted.",
       "[conditional eligibility] \"Eligibility Open to all RBS students. Some restrictions apply for team leadership roles. Location Newark Campus, 1 Washington Park Participation 50 to 100 students and alumni Sponsored by Sales Executive Club of Northern New Jersey Foundation Contact Professor Doug Brownstone\"",
       "[operator note] The conditional-eligibility case. Open to Rutgers students generally, but the venture's leadership roles carry a separate RBS senior / MBA / recent alumni requirement. Read the caveats before deciding this is applicable.",
-      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] Extraction defect corrected: award_min was 15000, but the same winners table on the archived and live page lists $10,000 and $5,000 prizes, so the individual award range is $5,000-$15,000 ($50,000 is the combined pool). Team size 1-5 was on the page and missed by the extractor; added with evidence. The 2025/2026 cycle is complete (Pitch Day April 3, 2026), so the row stays NEEDS_HUMAN_REVIEW until the next cycle is posted. Not promoted."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -251,7 +261,8 @@
     "caveats": [
       "[indirect access route] \"The Scarlet Pitch Winner (if an undergraduate team) will represent Rutgers at the annual\"",
       "[operator note] Statewide, and NOT directly applicable. A Rutgers undergraduate reaches UPitchNJ by winning ScarletPitch, not by applying. Treated as an indirect opportunity so it is never surfaced as something to go and apply for.",
-      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] REJECTED for the runtime catalog: the live page confirms a Rutgers undergraduate reaches UPitchNJ only by winning ScarletPitch ('The Scarlet Pitch Winner (if an undergraduate team) will represent Rutgers'), not by applying. The live page has also moved on from the scraped snapshot (it now announces May 1, 2026 at Rowan University), and the $500 figure was a past year's amount. Kept as documentation of an indirect route."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -269,7 +280,7 @@
       "bytes": 74233
     },
     "scraped_at": "2026-08-24T01:41:45.328416Z",
-    "review_status": "NEEDS_HUMAN_REVIEW"
+    "review_status": "REJECTED"
   },
   {
     "scrape_id": "rutgers_techstart:no-url",
@@ -302,7 +313,8 @@
     ],
     "caveats": [
       "[operator note] Documented by Rutgers Business School as a real initiative, but with no stable standalone application page found at the time of writing. Recorded here with every field UNKNOWN rather than populated from secondhand descriptions. A human must find and add the application URL.",
-      "[no source url] Nothing on this row was extracted from a page. Every field is UNKNOWN until someone finds the application URL and re-runs the scraper."
+      "[no source url] Nothing on this row was extracted from a page. Every field is UNKNOWN until someone finds the application URL and re-runs the scraper.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] A web search of rutgers.edu and business.rutgers.edu on 2026-08-26 found no authoritative TechStart Innovation Challenge page. Every field stays UNKNOWN; still needs a human to locate an application URL or retire the row."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -392,7 +404,8 @@
       "[indirect access route] \"The contest is open to (1) any current student of a Northern NJ area college or university and (2) any Northern NJ regional community member who is proposing to start a new business in NJ. Those submitting as community members cannot be full-time students. NJIT student teams will automatically be co\"",
       "[operator note] Off-domain but genuinely open to a Rutgers founder: the competition takes current students at Northern NJ colleges and universities, not only NJIT students. Verify the current year's scope in the evidence spans.",
       "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
-      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] All stored fields matched the live page: $3,000 Innovation Acceleration Fellowship, deadline November 4, 2025 (stale), open to any current student of a Northern NJ area college or university, equity unstated. Genuinely open to a Rutgers founder, but the posted cycle is over \u2014 stays NEEDS_HUMAN_REVIEW until the fall 2026 cycle is posted. Not promoted."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -468,7 +481,8 @@
       "[non-cash award] \"Public 4 non-cash prizes 34 participants Muslim Tech Collaborative Health Machine Learning/AI Social Good Code for Impact is a mission-driven hackathon hosted by Rutgers Muslim Tech Collaborative\"",
       "[operator note] A Rutgers-hosted event on a third-party host. Included as the case where discovery should find something and funding triage should probably reject it: the listed prizes were non-cash. Confirm against the award evidence.",
       "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
-      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] REJECTED: the live page confirms '4 non-cash prizes' and the event date April 4, 2026 has passed. Not a funding opportunity."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -486,7 +500,7 @@
       "bytes": 87465
     },
     "scraped_at": "2026-08-24T01:41:46.180088Z",
-    "review_status": "NEEDS_HUMAN_REVIEW"
+    "review_status": "REJECTED"
   },
   {
     "scrape_id": "stevens_ansary:74395568a4fb",
@@ -495,7 +509,7 @@
     "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
     "award_type": "competition prize",
     "award_min": 2500,
-    "award_max": 17500,
+    "award_max": 10000,
     "institution": null,
     "degree_levels": null,
     "applicant_type": null,
@@ -516,9 +530,9 @@
         "method": "regex:award_block"
       },
       "award_max": {
-        "text": "Ansary Prizes for Entrepreneurship , totaling $17,500. Ansary Foundation Prizes for the competition are provided by the Cy and Jan Ansary Foundation",
+        "text": "2026 Competition Winners First Prize ($10,000) TheraV",
         "source_url": "https://www.stevens.edu/ansary-entrepreneurship-competition",
-        "method": "regex:award_block"
+        "method": "audit:archived_page_review"
       },
       "award_type": {
         "text": "Ansary Prizes for Entrepreneurship , totaling $17,500. Ansary Foundation Prizes for the competition are provided by the Cy and Jan Ansary Foundation",
@@ -541,7 +555,8 @@
       "[host-institution scope] \"features student teams in a high-stakes contest to persuade prospective investors to help them turn their Senior Design Projects into effective businesses. Students deliver elevator pitches as they compete for the\"",
       "[operator note] The hard negative. Real money, but the competition is built around Stevens senior design teams. Kept in the review file precisely so the reasoning for rejecting it is visible rather than assumed.",
       "[off-domain] This page is not on a Rutgers-owned domain. It was fetched because it was named explicitly in the target list, at exactly that URL, and it was not crawled.",
-      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human."
+      "[founder reviews] None. No target page publishes reviews from past student applicants, so this field is empty by construction rather than by omission. Anything here must be typed in by a human.",
+      "[audit 2026-08-26 (live re-fetch + archived-page check, operator-directed)] Extraction defect corrected: award_max was 17500, but $17,500 is the combined pool ('Ansary Prizes for Entrepreneurship, totaling $17,500'); the largest individual prize is First Prize ($10,000). REJECTED for a Rutgers founder: entry runs through Stevens senior-design courses ('course instructors choose top teams') \u2014 the hard negative the registry predicted."
     ],
     "founder_reviews": [],
     "fetch": {
@@ -559,6 +574,6 @@
       "bytes": 194483
     },
     "scraped_at": "2026-08-24T01:41:46.689249Z",
-    "review_status": "NEEDS_HUMAN_REVIEW"
+    "review_status": "REJECTED"
   }
 ]

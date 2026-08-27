@@ -13,8 +13,8 @@
     },
     "_curation_note": "TODO: a human must read the page and fill award_min/award_max/deadline. Left null so they surface as UNKNOWN rather than as a guess.",
     "verified": true,
-    "verified_at": "2026-08-22T07:36:13.128092+00:00",
-    "verification_note": "HTTP 200, title terms present (79518 bytes)"
+    "verified_at": "2026-08-27T00:53:00.482193+00:00",
+    "verification_note": "HTTP 200, title terms present (79665 bytes)"
   },
   {
     "id": "venturewell_eteam",
@@ -25,5 +25,49 @@
     "verified": false,
     "verified_at": null,
     "verification_note": "HTTP 404"
+  },
+  {
+    "id": "rutgers_scarletpitch",
+    "title": "ScarletPitch",
+    "funder": "Rutgers Innovation, Design, and Entrepreneurship Academy (IDEA)",
+    "source_url": "https://idea.rutgers.edu/programs/scarletpitch",
+    "award_min": 250,
+    "award_max": 3000,
+    "deadline": null,
+    "rolling": false,
+    "eligibility": {
+      "degree_levels": [
+        "undergrad",
+        "masters",
+        "phd"
+      ],
+      "institutions": [
+        "Rutgers-New Brunswick"
+      ],
+      "min_team_size": 1,
+      "max_team_size": 5
+    },
+    "criteria": [
+      {
+        "text": "Undergraduate and Graduate students enrolled at Rutgers-New Brunswick (part-time or full-time)",
+        "source_doc": "https://idea.rutgers.edu/programs/scarletpitch#eligibility"
+      },
+      {
+        "text": "Teams can consist of 1 to 5 members",
+        "source_doc": "https://idea.rutgers.edu/programs/scarletpitch#faq"
+      },
+      {
+        "text": "2027 Competition Prizes 1st Place $3000 2nd Place $2000 3rd Place $1000 Superlatives $250",
+        "source_doc": "https://idea.rutgers.edu/programs/scarletpitch#prizes"
+      },
+      {
+        "text": "Nov. 1st Application Opens Dec. 21st Priority Deadline Jan. 29th Final Deadline",
+        "source_doc": "https://idea.rutgers.edu/programs/scarletpitch#timeline"
+      }
+    ],
+    "_curation_note": "Promoted 2026-08-26 from data/opportunities.rutgers.candidates.json after the audit in docs/rutgers-candidates-audit.md re-verified every field against the live page. Deadline dates on the page carry no year ('2027 Competition' timeline), so deadline stays null rather than guessed. 'Graduate students' on the page is mapped to masters+phd; equity is unstated and left UNKNOWN. Apply link on page: https://go.rutgers.edu/ApplyScarletPitch.",
+    "verified": true,
+    "verified_at": "2026-08-27T00:53:02.125865+00:00",
+    "verification_note": "HTTP 200, title terms present (50173 bytes)"
   }
 ]
