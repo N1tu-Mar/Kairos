@@ -4,10 +4,29 @@ import type {
   FounderProfile,
   InboxItem,
   Opportunity,
+  RunJob,
   RunReport,
 } from "@/lib/types";
 
 /** Shapes copied from what the FastAPI test suite actually stores. */
+
+export function runJob(overrides: Partial<RunJob> = {}): RunJob {
+  return {
+    job_id: "job_abc123",
+    founder_id: "founder_demo",
+    idempotency_key: "manual-1",
+    source: "manual",
+    use_demo_catalog: false,
+    include_grants_gov: true,
+    status: "queued",
+    created_at: "2026-08-23T06:00:00Z",
+    started_at: null,
+    finished_at: null,
+    run_id: null,
+    error: null,
+    ...overrides,
+  };
+}
 
 export function runReport(overrides: Partial<RunReport> = {}): RunReport {
   return {

@@ -322,6 +322,14 @@ class DraftField(Mutable):
     audit_note: str = ""
     #: Set when the answer was lifted from a previous application (recall).
     reused_from: str | None = None
+    #: How recall found it: "exact" for normalised equality, otherwise the
+    #: matcher's name. Stored so a reuse can be explained rather than
+    #: asserted — "we reused this because you answered X" needs to name X.
+    reuse_match: str | None = None
+    #: The question the reused answer was originally written for.
+    reuse_source_question: str | None = None
+    #: Similarity score for a semantic match. 1.0 for an exact match.
+    reuse_score: float | None = None
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -522,6 +530,43 @@ class RunReport(Mutable):
 
 # Draft references GateResult before it is defined.
 Draft.model_rebuild()
+
+
+JobStatus = Literal["queued", "running", "succeeded", "halted", "failed", "cancelled"]
+
+
+class RunJob(Mutable):
+    """One accepted invocation of the pipeline, durable from the moment the
+    API says 202.
+
+    The job is the HTTP-visible half of a run: it exists so a request can
+    return immediately, so a retry with the same idempotency key resolves to
+    the same work, and so a crash mid-run leaves a row that says *failed*
+    rather than a connection that says nothing. The `RunReport` it eventually
+    points at stays immutable and append-only, exactly as before — a job
+    records the lifecycle, never the verdicts.
+    """
+
+    job_id: str
+    founder_id: str
+    #: Scoped per founder before storage; None for callers that sent none.
+    idempotency_key: str | None = None
+    source: Literal["manual", "scheduled", "unknown"] = "unknown"
+    use_demo_catalog: bool = False
+    include_grants_gov: bool = True
+
+    status: JobStatus = "queued"
+    created_at: datetime = Field(default_factory=_now)
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+    #: Set when the run produced a report — succeeded and halted both do.
+    run_id: str | None = None
+    #: Sanitised one-liner for failed/cancelled jobs. Never a stack trace.
+    error: str | None = None
+
+    def terminal(self) -> bool:
+        return self.status in ("succeeded", "halted", "failed", "cancelled")
 
 
 class KnowledgeBase(Mutable):

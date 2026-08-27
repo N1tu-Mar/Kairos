@@ -18,11 +18,14 @@ backend exposes no such endpoint, so this app cannot either.
 - crawls funding websites,
 - does background work of any kind.
 
-There is no scheduler, cron job, queue or worker here. Kairos is designed
-around a run that happens while the founder is asleep, and **nothing in this
-repository schedules one yet** — that decision is open and recorded in
-[`../incomplete.md`](../incomplete.md). The "Run Kairos now" button is a manual
-action and its copy says so.
+There is no scheduler, cron job, queue or worker *here*. Production
+scheduling is EventBridge calling the backend's own run endpoint — the same
+endpoint this button calls. The "Run Kairos now" button is a manual action and
+its copy says so.
+
+The button no longer waits out a run. The backend accepts the run, answers
+with a job id, and the browser polls `/api/runs/{jobId}` until the job is
+terminal. Closing the tab does not stop the run.
 
 ## Architecture
 
@@ -40,9 +43,10 @@ browser ──▶ Next.js (server) ──▶ FastAPI ──▶ SQLite
   the profile editor.
 - **Route Handlers** (`src/app/api/`) are a backend-for-frontend proxy and
   nothing more. They forward one request and translate an error into a status
-  code. No logic, no state, no persistence. There are three:
-  `POST /api/runs`, `PATCH /api/inbox/[itemId]` (the `state` field only), and
-  `PUT /api/profile` (whole-object, founder id pinned to this dashboard's).
+  code. No logic, no state, no persistence. There are four:
+  `POST /api/runs` (creates a job), `GET /api/runs/[jobId]` (the poll target),
+  `PATCH /api/inbox/[itemId]` (the `state` field only), and `PUT /api/profile`
+  (whole-object, founder id pinned to this dashboard's).
 - **`src/lib/api.ts`** is the only module that talks to FastAPI. Everything
   else imports from it.
 - **`src/lib/types.ts`** mirrors `agent/models.py` field for field. No field is
@@ -82,8 +86,7 @@ All server-side. None of them are exposed to the browser.
 | `KAIROS_API_URL` | `http://127.0.0.1:8000` | Base URL of the FastAPI backend. |
 | `KAIROS_FOUNDER_ID` | `founder_demo` | Which founder this dashboard reads. There is no auth in this repository; the dashboard is single-founder by design. |
 | `KAIROS_API_TOKEN` | *(empty)* | Bearer token forwarded to the backend when it has `KAIROS_API_TOKEN` set. Server-only; empty means the backend is running open (localhost demo). |
-| `KAIROS_API_TIMEOUT_MS` | `10000` | Timeout for ordinary reads. |
-| `KAIROS_RUN_TIMEOUT_MS` | `180000` | Timeout for the manual run trigger. A real run does discovery, assessment and drafting, so reads are not a guide. |
+| `KAIROS_API_TIMEOUT_MS` | `10000` | Timeout for every call to the backend. All of them are short now — starting a run creates a job and returns, and the dashboard polls for the result. The run's own ceiling is the backend's `KAIROS_RUN_TIMEOUT_S`. |
 
 **Never prefix any of these with `NEXT_PUBLIC_`.** That prefix makes a value
 client-visible, and the backend address is not something the browser needs.

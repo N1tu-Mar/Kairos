@@ -27,9 +27,16 @@ from agent.models import (
     InboxItem,
     InboxState,
     Opportunity,
+    RunJob,
     RunReport,
 )
 from agent.sanitize import redact
+from agent.semantic import (
+    DEFAULT_MATCHER,
+    DEFAULT_THRESHOLD,
+    SemanticMatcher,
+    is_reusable,
+)
 
 T = TypeVar("T")
 
@@ -88,6 +95,22 @@ class OpportunityRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class JobRow(SQLModel, table=True):
+    """One accepted run invocation — the durable half of the async boundary.
+
+    `idempotency_key` is stored as `founder_id::key` and unique, so a retry
+    that races the original request loses at the database, not in Python.
+    """
+
+    __tablename__ = "jobs"
+    job_id: str = Field(primary_key=True)
+    founder_id: str = Field(index=True)
+    idempotency_key: str | None = Field(default=None, index=True, unique=True)
+    status: str = Field(index=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
 class DraftRow(SQLModel, table=True):
     __tablename__ = "drafts"
     draft_id: str = Field(primary_key=True)
@@ -142,15 +165,20 @@ class Repository(Protocol):
     def remember_answer(self, founder_id: str, field: DraftField) -> None: ...
     def recall(self, founder_id: str, question: str) -> DraftField | None: ...
 
+    def save_job(self, job: RunJob) -> None: ...
+    def get_job(self, job_id: str) -> RunJob | None: ...
+    def get_job_by_key(self, founder_id: str, idempotency_key: str) -> RunJob | None: ...
+    def list_jobs(self, founder_id: str, limit: int = 20) -> list[RunJob]: ...
+    def fail_orphaned_jobs(self, reason: str) -> list[RunJob]: ...
+
 
 def question_key(question: str) -> str:
-    """Normalise a form question for recall lookup.
+    """Normalise a form question for the exact-match tier of recall.
 
-    Exact-after-normalisation matching only. Section 6 asks for *semantically*
-    equivalent questions, which needs embeddings; this is the honest subset
-    that works with no model call and no vector store.
-    TODO: back this with Bedrock Titan embeddings + cosine threshold once the
-    golden set shows how often near-duplicates actually appear.
+    Lowercase, punctuation-stripped equality — the highest-confidence path,
+    tried before anything probabilistic. Section 6's *semantically*
+    equivalent questions are handled by the second tier in
+    `agent/semantic.py`, which only runs when this one finds nothing.
     """
     import re
 
@@ -163,8 +191,20 @@ def question_key(question: str) -> str:
 class SqliteRepository:
     """Local implementation. Interchangeable with the DynamoDB one."""
 
-    def __init__(self, url: str = "sqlite:///./kairos.db", echo: bool = False) -> None:
+    def __init__(
+        self,
+        url: str = "sqlite:///./kairos.db",
+        echo: bool = False,
+        *,
+        matcher: SemanticMatcher | None = DEFAULT_MATCHER,
+        similarity_threshold: float = DEFAULT_THRESHOLD,
+    ) -> None:
+        """`matcher=None` disables semantic recall and leaves exact matching
+        only — which is what the pre-semantic behaviour was, still reachable
+        for anyone who wants the strictest possible reuse policy."""
         self.engine = create_engine(url, echo=echo)
+        self.matcher = matcher
+        self.similarity_threshold = similarity_threshold
         SQLModel.metadata.create_all(self.engine)
 
     # -- profiles --
@@ -358,6 +398,83 @@ class SqliteRepository:
             rows = session.exec(statement.order_by(DraftRow.draft_id)).all()
             return [Draft.model_validate_json(r.payload) for r in rows]
 
+    # -- jobs --
+
+    def save_job(self, job: RunJob) -> None:
+        """Insert or update one job.
+
+        On first insert a duplicate idempotency key violates the unique
+        index and raises — the caller re-reads the existing job and returns
+        it. Check-then-insert in Python would leave a race window; the
+        database does not.
+        """
+        with Session(self.engine) as session:
+            row = session.get(JobRow, job.job_id) or JobRow(
+                job_id=job.job_id,
+                founder_id=job.founder_id,
+                idempotency_key=(
+                    f"{job.founder_id}::{job.idempotency_key}"
+                    if job.idempotency_key
+                    else None
+                ),
+                status=job.status,
+                created_at=job.created_at,
+                payload="",
+            )
+            row.status = job.status
+            row.payload = job.model_dump_json()
+            session.add(row)
+            session.commit()
+
+    def get_job(self, job_id: str) -> RunJob | None:
+        with Session(self.engine) as session:
+            row = session.get(JobRow, job_id)
+            return RunJob.model_validate_json(row.payload) if row else None
+
+    def get_job_by_key(self, founder_id: str, idempotency_key: str) -> RunJob | None:
+        """The job a retry should resolve to, if the original ever landed."""
+        with Session(self.engine) as session:
+            row = session.exec(
+                select(JobRow).where(
+                    JobRow.idempotency_key == f"{founder_id}::{idempotency_key}"
+                )
+            ).first()
+            return RunJob.model_validate_json(row.payload) if row else None
+
+    def list_jobs(self, founder_id: str, limit: int = 20) -> list[RunJob]:
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(JobRow)
+                .where(JobRow.founder_id == founder_id)
+                .order_by(JobRow.created_at.desc())
+                .limit(limit)
+            ).all()
+            return [RunJob.model_validate_json(r.payload) for r in rows]
+
+    def fail_orphaned_jobs(self, reason: str) -> list[RunJob]:
+        """Mark every queued/running job failed. Called once, at startup.
+
+        A crash mid-run leaves rows that claim to be running with no process
+        behind them. This is the recovery: nothing may stay "running"
+        forever, and a lie that says failed-when-crashed is the honest kind.
+        """
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(JobRow).where(JobRow.status.in_(["queued", "running"]))  # type: ignore[attr-defined]
+            ).all()
+            orphaned = []
+            for row in rows:
+                job = RunJob.model_validate_json(row.payload)
+                job.status = "failed"
+                job.error = reason
+                job.finished_at = _now()
+                row.status = job.status
+                row.payload = job.model_dump_json()
+                session.add(row)
+                orphaned.append(job)
+            session.commit()
+            return orphaned
+
     # -- recall --
 
     def remember_answer(self, founder_id: str, field: DraftField) -> None:
@@ -382,17 +499,80 @@ class SqliteRepository:
             session.commit()
 
     def recall(self, founder_id: str, question: str) -> DraftField | None:
-        """Has the founder answered a semantically equivalent question before?"""
+        """Has the founder answered a semantically equivalent question before?
+
+        Two tiers, in this order:
+
+        1.  **Exact after normalisation.** The highest-confidence path, and
+            the only one that ran before semantic matching existed. It is
+            tried first and it always wins.
+        2.  **Semantic.** Only reached when tier 1 found nothing. Every
+            candidate is filtered through `is_reusable` — protected field
+            families (certification, signature, tax, payment, disclosure,
+            authorization) and answers that were blocked, unaudited or
+            unsupported are never offered — and the best remaining candidate
+            must clear `self.similarity_threshold`.
+
+        Candidates are always scoped to `founder_id`, so an answer can never
+        cross from one founder to another regardless of how similar the
+        questions are.
+
+        A miss returns `None` and the founder answers one question. That is
+        the error this method is tuned to make.
+        """
         with Session(self.engine) as session:
-            row = session.exec(
-                select(AnswerRow).where(
-                    AnswerRow.founder_id == founder_id,
-                    AnswerRow.question_key == question_key(question),
-                )
-            ).first()
-            if row is None:
+            rows = session.exec(
+                select(AnswerRow).where(AnswerRow.founder_id == founder_id)
+            ).all()
+
+            key = question_key(question)
+            for row in rows:
+                if row.question_key == key:
+                    return self._as_reused(
+                        row, match="exact", score=1.0, question=question
+                    )
+
+            if self.matcher is None:
                 return None
-            field = DraftField.model_validate_json(row.payload)
-            field.status = "REUSED"
-            field.reused_from = row.answer_id
-            return field
+
+            candidates: dict[str, AnswerRow] = {}
+            for row in rows:
+                field = DraftField.model_validate_json(row.payload)
+                ok, _reason = is_reusable(field, question)
+                if ok:
+                    candidates[field.question] = row
+
+            match = self.matcher.best_match(
+                question,
+                list(candidates),
+                threshold=self.similarity_threshold,
+            )
+            if match is None:
+                return None
+            return self._as_reused(
+                candidates[match.question],
+                match=match.backend,
+                score=match.score,
+                question=question,
+            )
+
+    def _as_reused(
+        self, row: AnswerRow, *, match: str, score: float, question: str
+    ) -> DraftField | None:
+        """Stamp a stored answer as REUSED, or refuse to.
+
+        The reuse check runs here as well as in the candidate filter, so the
+        exact-match path is governed by exactly the same rules as the
+        semantic one. A protected field is re-asked even when its question
+        matches character for character.
+        """
+        field = DraftField.model_validate_json(row.payload)
+        ok, _reason = is_reusable(field, question)
+        if not ok:
+            return None
+        field.status = "REUSED"
+        field.reused_from = row.answer_id
+        field.reuse_match = match
+        field.reuse_source_question = field.question
+        field.reuse_score = score
+        return field

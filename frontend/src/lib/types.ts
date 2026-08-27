@@ -281,4 +281,57 @@ export interface DraftResponse {
 export interface RunTrigger {
   use_demo_catalog: boolean;
   include_grants_gov: boolean;
+  /** Makes a retry resolve to the same logical run instead of a second one. */
+  idempotency_key?: string;
+  source?: "manual" | "scheduled";
+}
+
+export type JobStatus =
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "halted"
+  | "failed"
+  | "cancelled";
+
+/**
+ * One accepted invocation of the pipeline. The run itself takes minutes, so
+ * `POST /founders/{id}/runs` returns this immediately and the dashboard polls
+ * `GET /founders/{id}/jobs/{job_id}` until it reaches a terminal status.
+ *
+ * `halted` is a *finished* run that stopped for a recorded reason (a budget
+ * cap, throttling). It has a report. `failed` is a run that could not report
+ * at all.
+ */
+export interface RunJob {
+  job_id: string;
+  founder_id: string;
+  idempotency_key: string | null;
+  source: "manual" | "scheduled" | "unknown";
+  use_demo_catalog: boolean;
+  include_grants_gov: boolean;
+
+  status: JobStatus;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+
+  run_id: string | null;
+  error: string | null;
+}
+
+export interface JobStatusResponse {
+  job: RunJob;
+  /** Null until the run produces one. A halted run has one too. */
+  report: RunReport | null;
+}
+
+/** One invocation that failed to start or finish. Sanitised server-side. */
+export interface SchedulerFailure {
+  founder_id: string;
+  at: string;
+  source: string;
+  retry_count: number;
+  failure_class: string;
+  detail: string;
 }

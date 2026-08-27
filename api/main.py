@@ -18,29 +18,26 @@ should have a one-click answer (Section 9, rule 5).
 
 from __future__ import annotations
 
-import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from agent.budget import RunBudget
 from agent.config import REPO_ROOT, settings
 from agent.models import (
-    ApplicationForm,
     FounderProfile,
     InboxState,
     Opportunity,
+    RunJob,
     RunReport,
 )
-from agent.runtime import SubAgents
-from agent.scout import new_run_context, run_once
-from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
+from agent.scheduler import RunLock, ScheduledRunFailureLog
+from api import jobs as job_module
+from api.jobs import LocalJobExecutor
 from api.repository import SqliteRepository
 
 log = logging.getLogger("kairos.api")
@@ -53,10 +50,19 @@ ALLOWED_ORIGIN_REGEX = r"https://kairos-[a-z0-9-]+\.vercel\.app"
 
 
 class RunTrigger(BaseModel):
-    """Manual run request. Same code path as the scheduled run."""
+    """Run request. Same code path whether a person or the scheduler asks.
+
+    `idempotency_key` is how a retry resolves to the same logical
+    invocation: EventBridge sends its execution id, the dashboard sends a
+    generated one per click. `source` is recorded on the job and on any
+    failure-log entry, so "did last night's *scheduled* run fail?" is
+    answerable.
+    """
 
     use_demo_catalog: bool = False
     include_grants_gov: bool = True
+    idempotency_key: str | None = None
+    source: str = "unknown"
 
 
 class InboxStateUpdate(BaseModel):
@@ -67,13 +73,29 @@ class InboxStateUpdate(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not settings().api_token:
+    config = settings()
+    if not config.api_token:
         log.warning(
             "KAIROS_API_TOKEN is not set — the API is running open. "
             "Acceptable on localhost only; never deploy it this way."
         )
-    app.state.repo = SqliteRepository(settings().db_url)
+    app.state.repo = SqliteRepository(config.db_url)
     _seed_demo_profile(app.state.repo)
+
+    # The async job machinery. The lease TTL is double the run timeout so a
+    # live run's lease can never expire out from under it.
+    app.state.failure_log = ScheduledRunFailureLog(
+        config.state_dir / "scheduler_failures.jsonl"
+    )
+    app.state.run_lock = RunLock(
+        config.state_dir / "locks", ttl_seconds=int(config.run_timeout_s * 2)
+    )
+    # Crash repair happens before the first request can create new jobs:
+    # nothing may stay "running" with no process behind it.
+    job_module.recover_orphaned_jobs(
+        app.state.repo, app.state.failure_log, app.state.run_lock
+    )
+    app.state.executor = LocalJobExecutor(app.state.repo, app.state.failure_log)
     yield
 
 
@@ -133,37 +155,6 @@ def _seed_demo_profile(repo: SqliteRepository) -> None:
     profile = FounderProfile.model_validate_json(path.read_text())
     if repo.get_profile(profile.founder_id) is None:
         repo.save_profile(profile)
-
-
-def _forms() -> dict[str, ApplicationForm]:
-    directory = REPO_ROOT / "data" / "forms"
-    if not directory.exists():
-        return {}
-    forms = {}
-    for path in sorted(directory.glob("*.json")):
-        form = ApplicationForm.model_validate(json.loads(path.read_text()))
-        forms[form.opportunity_id] = form
-    return forms
-
-
-def _sources(trigger: RunTrigger):
-    config = settings()
-    catalog = "opportunities.demo.json" if trigger.use_demo_catalog else "opportunities.seed.json"
-    sources = [
-        SeedCatalog(
-            config.data_dir / catalog,
-            # The demo catalog is synthetic and unverified by construction,
-            # so loading it at all is an explicit opt-in.
-            allow_unverified=trigger.use_demo_catalog or config.allow_unverified_seed,
-        )
-    ]
-    if trigger.include_grants_gov:
-        sources.append(
-            GrantsGovSource(
-                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s)
-            )
-        )
-    return sources
 
 
 def _skips_payload(report: RunReport) -> dict:
@@ -329,18 +320,126 @@ def get_draft(draft_id: str) -> dict:
     return {"draft": draft, "counts": draft.counts()}
 
 
-@app.post("/founders/{founder_id}/runs")
-async def trigger_run(founder_id: str, trigger: RunTrigger) -> RunReport:
-    """Run now. Identical to what EventBridge invokes on a schedule."""
+@app.post("/founders/{founder_id}/runs", status_code=202)
+async def trigger_run(
+    founder_id: str, trigger: RunTrigger, response: Response
+) -> RunJob:
+    """Accept a run and return immediately. EventBridge calls this too.
+
+    Three outcomes, all fast:
+
+    *   **202** — a job was created and is now running in the background.
+        Poll `GET /founders/{id}/jobs/{job_id}` for its state.
+    *   **200** — this idempotency key already landed; here is that job
+        again. A scheduler retry or a double-submitted form resolves to the
+        same logical invocation instead of a second run.
+    *   **409** — another run holds the lease for this founder. The body
+        names the running job when it is known.
+
+    The connection no longer spans the run. A run takes minutes; sockets,
+    load balancers and browsers all have opinions about minutes.
+    """
     profile = app.state.repo.get_profile(founder_id)
     if profile is None:
         raise HTTPException(404, f"no profile for {founder_id}")
 
-    ctx = new_run_context(
-        profile=profile,
-        repo=app.state.repo,
-        budget=RunBudget.from_settings(settings()),
-        agents=SubAgents.build(),
+    if trigger.idempotency_key:
+        existing = app.state.repo.get_job_by_key(founder_id, trigger.idempotency_key)
+        if existing is not None:
+            response.status_code = 200
+            return existing
+
+    source = trigger.source if trigger.source in ("manual", "scheduled") else "unknown"
+    lease = app.state.run_lock.acquire(
+        founder_id=founder_id, run_kind=job_module.RUN_KIND
     )
-    ctx.forms = _forms()
-    return await run_once(ctx, _sources(trigger))
+    if not lease.acquired:
+        running = next(
+            (
+                j
+                for j in app.state.repo.list_jobs(founder_id, limit=5)
+                if not j.terminal()
+            ),
+            None,
+        )
+        raise HTTPException(
+            409,
+            {
+                "detail": f"a run is already in progress for {founder_id}",
+                "running_job_id": running.job_id if running else None,
+            },
+        )
+
+    job = job_module.new_job(
+        founder_id=founder_id,
+        idempotency_key=trigger.idempotency_key,
+        source=source,
+        use_demo_catalog=trigger.use_demo_catalog,
+        include_grants_gov=trigger.include_grants_gov,
+    )
+    try:
+        app.state.repo.save_job(job)
+    except Exception:
+        # The unique index on the idempotency key fired: a concurrent
+        # duplicate beat us to the insert. Return its job, not a second run.
+        lease.release()
+        if trigger.idempotency_key:
+            existing = app.state.repo.get_job_by_key(
+                founder_id, trigger.idempotency_key
+            )
+            if existing is not None:
+                response.status_code = 200
+                return existing
+        raise
+
+    app.state.executor.submit(job, lease)
+    return job
+
+
+@app.get("/founders/{founder_id}/jobs")
+def list_jobs(founder_id: str, limit: int = 20) -> list[RunJob]:
+    return app.state.repo.list_jobs(founder_id, limit)
+
+
+@app.get("/founders/{founder_id}/jobs/{job_id}")
+def get_job(founder_id: str, job_id: str) -> dict:
+    """One job, with its report once the run has one.
+
+    The poll target for the dashboard's manual-run button. `report` is null
+    until the run finishes; a halted run has a report too — halting is a
+    reported outcome, not an error.
+    """
+    job = app.state.repo.get_job(job_id)
+    if job is None or job.founder_id != founder_id:
+        raise HTTPException(404, f"no job {job_id} for {founder_id}")
+    report = app.state.repo.get_run(job.run_id) if job.run_id else None
+    return {"job": job, "report": report}
+
+
+@app.post("/founders/{founder_id}/jobs/{job_id}/cancel")
+def cancel_job(founder_id: str, job_id: str) -> dict:
+    """Ask the executor to stop a running job.
+
+    Cooperative: the run stops at its next await point and the job records
+    `cancelled`. What the run already persisted stays persisted — cancel
+    stops future work, it does not rewrite history. A job that is already
+    terminal, or running in a process this API cannot reach, reports
+    `cancelled: false`.
+    """
+    job = app.state.repo.get_job(job_id)
+    if job is None or job.founder_id != founder_id:
+        raise HTTPException(404, f"no job {job_id} for {founder_id}")
+    if job.terminal():
+        return {"cancelled": False, "status": job.status}
+    return {"cancelled": app.state.executor.cancel(job_id), "status": job.status}
+
+
+@app.get("/founders/{founder_id}/scheduler/failures")
+def scheduler_failures(founder_id: str, limit: int = 20) -> list:
+    """Recent invocations that failed to start or finish, newest first.
+
+    Sanitised before persistence — no credentials, no prompts, no stack
+    traces. CloudWatch keeps the archive; this answers "did last night's
+    run fail?" from the dashboard.
+    """
+    return app.state.failure_log.recent(founder_id, limit=limit)

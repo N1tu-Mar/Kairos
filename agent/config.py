@@ -118,6 +118,9 @@ class Settings:
     max_run_tokens: int
     max_assessments: int
     daily_usd_cap: float
+    #: Wall-clock ceiling on one pipeline run. The job executor cancels a
+    #: run that outlives it; the lease TTL must comfortably exceed it.
+    run_timeout_s: float
 
     grants_gov_base_url: str
     http_timeout_s: float
@@ -175,6 +178,7 @@ def settings() -> Settings:
         max_run_tokens=_int("KAIROS_MAX_RUN_TOKENS", 250_000),
         max_assessments=_int("KAIROS_MAX_ASSESSMENTS", 25),
         daily_usd_cap=_float("KAIROS_DAILY_USD_CAP", 3.0),
+        run_timeout_s=_float("KAIROS_RUN_TIMEOUT_S", 1800.0),
         grants_gov_base_url=os.getenv(
             "GRANTS_GOV_BASE_URL", "https://api.grants.gov/v1/api"
         ).rstrip("/"),

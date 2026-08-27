@@ -36,11 +36,11 @@ export function apiToken(): string {
   return env("KAIROS_API_TOKEN", "");
 }
 
+/**
+ * Every call this app makes is now short. Starting a run creates a job and
+ * returns; the run's own wall-clock ceiling is the backend's
+ * `KAIROS_RUN_TIMEOUT_S`, not a socket this app holds open.
+ */
 export function readTimeoutMs(): number {
   return intEnv("KAIROS_API_TIMEOUT_MS", 10_000);
-}
-
-/** A real run does discovery + assessment + drafting. Reads are not a guide. */
-export function runTimeoutMs(): number {
-  return intEnv("KAIROS_RUN_TIMEOUT_MS", 180_000);
 }

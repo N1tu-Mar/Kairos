@@ -1,20 +1,17 @@
 import "server-only";
 
-import {
-  apiBaseUrl,
-  apiToken,
-  founderId,
-  readTimeoutMs,
-  runTimeoutMs,
-} from "@/lib/config";
+import { apiBaseUrl, apiToken, founderId, readTimeoutMs } from "@/lib/config";
 import type {
   DraftResponse,
   FounderProfile,
   InboxItem,
   InboxState,
+  JobStatusResponse,
   Opportunity,
+  RunJob,
   RunReport,
   RunTrigger,
+  SchedulerFailure,
 } from "@/lib/types";
 
 /**
@@ -257,18 +254,70 @@ export function getDraftOrNull(draftId: string): Promise<DraftResponse | null> {
 // ── Writes ───────────────────────────────────────────────────────────────────
 
 /**
- * Starts a run now, by hand. This is not a schedule and the UI must not
- * present it as one — see `incomplete.md`, "Scheduled pipeline invocation".
+ * Accepts a run and returns the job immediately — it does *not* wait for the
+ * run to finish. A run takes minutes; the backend answers 202 with a job id
+ * and the caller polls {@link getJobStatus}.
+ *
+ * `idempotency_key` makes a retry resolve to the same logical invocation
+ * (the backend answers 200 with the original job). A 409 means another run
+ * already holds the lease for this founder.
+ *
+ * This is still a manual trigger, not a schedule — production scheduling is
+ * EventBridge calling this same endpoint with `source: "scheduled"`.
  */
 export function triggerRun(
   trigger: RunTrigger,
   id = founderId(),
-): Promise<RunReport> {
+): Promise<RunJob> {
   return request(`/founders/${encodeURIComponent(id)}/runs`, {
     method: "POST",
     body: trigger,
-    timeoutMs: runTimeoutMs(),
+    // A short timeout now: this call only creates a job. The run's own
+    // ceiling lives in the backend (KAIROS_RUN_TIMEOUT_S), not in a socket.
+    timeoutMs: readTimeoutMs(),
   });
+}
+
+/** One job plus its report once the run has produced one. The poll target. */
+export function getJobStatus(
+  jobId: string,
+  id = founderId(),
+): Promise<JobStatusResponse> {
+  return request(
+    `/founders/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}`,
+  );
+}
+
+export function listJobs(id = founderId(), limit = 20): Promise<RunJob[]> {
+  return request(`/founders/${encodeURIComponent(id)}/jobs?limit=${limit}`);
+}
+
+/**
+ * Asks the backend to stop a running job. Cooperative — the run stops at its
+ * next await point. What it already persisted stays persisted.
+ */
+export function cancelJob(
+  jobId: string,
+  id = founderId(),
+): Promise<{ cancelled: boolean; status: string }> {
+  return request(
+    `/founders/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}/cancel`,
+    { method: "POST" },
+  );
+}
+
+/**
+ * Invocations that failed to start or finish, newest first. Sanitised
+ * server-side — no credentials, no prompts, no stack traces. This is how a
+ * founder learns that last night's scheduled run never ran.
+ */
+export function listSchedulerFailures(
+  id = founderId(),
+  limit = 5,
+): Promise<SchedulerFailure[]> {
+  return request(
+    `/founders/${encodeURIComponent(id)}/scheduler/failures?limit=${limit}`,
+  );
 }
 
 /**
