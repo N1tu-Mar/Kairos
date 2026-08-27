@@ -18,7 +18,7 @@
     "title": "E-Team Grant Program",
     "funder": "VentureWell",
     "source_url": "https://venturewell.org/e-team-grants/",
-    "_curation_note": "Kept deliberately. This URL looks correct and returns 404. It is the worked example in data/README.md for why seed rows are verified rather than written."
+    "_curation_note": "Kept deliberately. This URL looks correct and returns 404. It is the worked example in data/README.md for why seed rows are verified rather than written. The live program is carried separately as 'venturewell-e-team-program' at https://venturewell.org/e-team-program/ \u2014 the pair is intentional, not a duplication accident, and the discovery benchmark reports it as a duplicate on purpose."
   },
   {
     "id": "rutgers_scarletpitch",
@@ -918,7 +918,7 @@
         "source_doc": "https://venturewell.org/e-team-program/#institution"
       }
     ],
-    "_curation_note": "researched 2026-08-26; apply URLs stated on page: https://oms.aws.venturewell.org/go/pioneer-winter-2027 and https://oms.aws.venturewell.org/go/propel-winter-2027; deadline 2026-09-29 is the Winter 2027 cohort deadline (later cycles: 2027-01-25 for Spring 2027); page notes all dates subject to change; old /e-team-grants/ URL replaced by /e-team-program/; degree level and citizenship UNKNOWN (page states only 'students' at a U.S.-based institution)"
+    "_curation_note": "researched 2026-08-26; apply URLs stated on page: https://oms.aws.venturewell.org/go/pioneer-winter-2027 and https://oms.aws.venturewell.org/go/propel-winter-2027; deadline 2026-09-29 is the Winter 2027 cohort deadline (later cycles: 2027-01-25 for Spring 2027); page notes all dates subject to change; old /e-team-grants/ URL replaced by /e-team-program/; degree level and citizenship UNKNOWN (page states only 'students' at a U.S.-based institution) Paired with the deliberately-retained 'venturewell_eteam' row, which points at the retired /e-team-grants/ URL and fails verification by design."
   },
   {
     "id": "hult-prize",

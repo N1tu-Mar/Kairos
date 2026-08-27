@@ -56,7 +56,7 @@ in a week that already has a problem set due.
 | Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, runs, drafts and profile editing. |
 | Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. A run lease keyed by founder makes two overlapping runs impossible; a crash cannot leave one "running" forever. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 776 Python tests pass with no expected-failures remaining; 54 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-27. The published golden-set result is fixture-based, not a live-model score, and nothing here has ever called Bedrock. |
+| Verification | 811 Python tests pass with no expected-failures remaining; 54 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-27. The published golden-set result is fixture-based, not a live-model score, and nothing here has ever called Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:

@@ -242,7 +242,7 @@ and a single number would hide both.
 
 | Eval | Question | Ground truth | Current result |
 |---|---|---|---|
-| Discovery benchmark | Did we find the money? | 20 hand-authored programs, read off their own pages, 6 deliberate negatives | 85.7% retrieval recall; eligibility 72.2% coverage at 100% precision; 0 wrong deadlines |
+| Discovery benchmark | Did we find the money? | 20 hand-authored programs, read off their own pages, 6 deliberate negatives | 85.7% retrieval recall; eligibility 83.3% coverage at 100% precision; 0 wrong deadlines |
 | Section 11.11 golden set | Did we lie on the application? | Per-field truth declared by hand | published in the README, fixture-based |
 
 Neither derives its answers from the code it scores. The discovery

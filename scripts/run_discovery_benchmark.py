@@ -184,7 +184,12 @@ def score(reference: dict, rows: list[dict], campus_rows: list[dict], forms: set
         if len(hits) > 1:
             duplicates.append({"key": program["key"], "rows": [h.get("id") for h in hits]})
 
-        row = hits[0]
+        # Score the best row the catalog has, not whichever happened to be
+        # first in the file. A catalog holding a verified row and a stale one
+        # for the same program is imperfect, and the duplicate count says so;
+        # grading it on the stale row would double-count that one flaw as a
+        # deadline error and an eligibility gap too.
+        row = next((h for h in hits if h.get("verified")), hits[0])
         if not row.get("verified"):
             unverified_hits.append({"key": program["key"], "row": row.get("id"),
                                     "note": row.get("verification_note", "")})

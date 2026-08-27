@@ -13,7 +13,7 @@
     },
     "_curation_note": "TODO: a human must read the page and fill award_min/award_max/deadline. Left null so they surface as UNKNOWN rather than as a guess.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:51.800753+00:00",
+    "verified_at": "2026-08-27T12:28:35.255722+00:00",
     "verification_note": "HTTP 200, title terms present, 0 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -21,7 +21,7 @@
     "title": "E-Team Grant Program",
     "funder": "VentureWell",
     "source_url": "https://venturewell.org/e-team-grants/",
-    "_curation_note": "Kept deliberately. This URL looks correct and returns 404. It is the worked example in data/README.md for why seed rows are verified rather than written.",
+    "_curation_note": "Kept deliberately. This URL looks correct and returns 404. It is the worked example in data/README.md for why seed rows are verified rather than written. The live program is carried separately as 'venturewell-e-team-program' at https://venturewell.org/e-team-program/ \u2014 the pair is intentional, not a duplication accident, and the discovery benchmark reports it as a duplicate on purpose.",
     "verified": false,
     "verified_at": null,
     "verification_note": "HTTP 404"
@@ -67,7 +67,7 @@
     ],
     "_curation_note": "Promoted 2026-08-26 from data/opportunities.rutgers.candidates.json after the audit in docs/rutgers-candidates-audit.md re-verified every field against the live page. Deadline dates on the page carry no year ('2027 Competition' timeline), so deadline stays null rather than guessed. 'Graduate students' on the page is mapped to masters+phd; equity is unstated and left UNKNOWN. Apply link on page: https://go.rutgers.edu/ApplyScarletPitch.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:53.036551+00:00",
+    "verified_at": "2026-08-27T12:28:36.251184+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -154,7 +154,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via the Solve platform at https://solve.mit.edu/challenges/ai-for-a-better-world \u2014 2026 deadline (2026-03-20) PASSED/stale and page shows 'Submissions are closed'. Non-cash prize: all-expense paid trip to America's Youth AI Festival at MIT (no cash amount stated). Eligibility is Grades 6-12 (ages 11+), i.e. K-12, NOT college students. The Solv[ED] Youth Innovation Challenge ran in 2022/2023 and is not currently open; this is Solve's current student challenge. [stale] deadline 2026-03-20 passed 160 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:53.804211+00:00",
+    "verified_at": "2026-08-27T12:28:37.026778+00:00",
     "verification_note": "HTTP 200, title terms present, 6 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -194,7 +194,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via https://hello-tomorrow.org/global-challenge/ \u2014 page currently shows 'APPLICATIONS CLOSED' and the 2026-01-05 deadline is PASSED/stale (11th edition; grand finals at Hello Tomorrow Summit June 11-12, 2026, Amsterdam \u2014 expect a next-edition window ~Sept). award_max is EUR 100,000 (currency EUR, not USD), equity-free. No student-specific eligibility stated anywhere on the official pages \u2014 open to early-stage deep tech startups (team of 2+, up to Series A), so students qualify only as founders of such a startup. [stale] deadline 2026-01-05 passed 234 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:55.665437+00:00",
+    "verified_at": "2026-08-27T12:28:39.077155+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -246,7 +246,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via the application link on https://enactus.org/ford-2026/ (page fetched successfully; enactus.org blocks some fetchers with 403 \u2014 page is live). Grant AMOUNT NOT STATED on the official page, so award fields are null. No application deadline stated; project outcomes must fall 2025-12-01 to 2026-11-30. IMPORTANT: the legacy Ford College Community Challenge no longer has a live page \u2014 fordfund.org/college-community-challenge-home 302-redirects to the fordphilanthropy.org homepage and fordphilanthropy.org/ford-fund-community-challenge returns 404, with no C3 mention on the fordphilanthropy.org homepage; this Enactus-run 2026 challenge is the current successor program. US students NOT eligible (six listed countries only).",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:56.267340+00:00",
+    "verified_at": "2026-08-27T12:28:39.595782+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -275,7 +275,7 @@
     ],
     "_curation_note": "researched 2026-08-26; submit via https://competition.xpconnect.org/global (xpconnect.org is XPRIZE Connect's own domain; xprize.org/connect returned 404). Non-cash prize: winners receive flights, hotel stays, and entry tickets to the Global Visioneering Summit, Malibu CA, Oct 15-17 2026. Deadline 2026-06-05 PASSED/stale (winners announced Aug 2026). Ages 13-18 \u2014 high school, NOT college students. The XPRIZE Digital Learning Challenge named in the brief CONCLUDED (winners announced, program ended 2023; xprize.org/competitions/digitallearning is an archive page) \u2014 no current college-student-accessible cash XPRIZE was found; flagship prizes (Healthspan, Wildfire, Water Scarcity, Quantum Applications) welcome student teams but are open expert competitions, not student tracks. [stale] deadline 2026-06-05 passed 83 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:56.755544+00:00",
+    "verified_at": "2026-08-27T12:28:40.137276+00:00",
     "verification_note": "HTTP 200, title terms present, 3 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -310,7 +310,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply at https://thielfellowship.my.site.com/apply/s/ (linked from thielfellowship.org/apply); age limit 22 or younger AND no university degree (schema has no age/no-degree key, recorded here); must drop out of school to accept ('Do I need to drop out to accept the Fellowship? Yes.'); no team required; no relocation required; citizenship rules UNKNOWN (not stated).",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:56.945001+00:00",
+    "verified_at": "2026-08-27T12:28:40.345286+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -416,7 +416,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via 'Apply Now' at https://www.westly.org/about (application page https://www.westly.org/application renders empty without JS); site was recently rebuilt \u2014 the old /westly-prize/ URL now 404s. Total pool up to $145,000, three top prizes of $40,000. Age limit (widely reported as under 28), team size (reported up to 4), and the 2025-26 deadline (reported Oct 17, 2025 \u2014 stale/previous cycle) appear only in third-party sources, NOT on the current official page, so they stay UNKNOWN here; current-cycle deadline not posted on official site.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:57.355841+00:00",
+    "verified_at": "2026-08-27T12:28:40.758368+00:00",
     "verification_note": "HTTP 200, title terms present, 3 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -458,7 +458,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via the Applicant Portal at https://fellowship.resolutionproject.org/ (register for an SVC hosted at a partner conference); no single global deadline \u2014 deadlines follow each host conference, so deadline=null and rolling=false; must be a Founder and present in person at the conference; seed grant is up to $5,000 per team; no age limit stated; citizenship UNKNOWN.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:57.835419+00:00",
+    "verified_at": "2026-08-27T12:28:41.316333+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 3 cited page(s)"
   },
   {
@@ -494,7 +494,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply at https://echoinggreen.org/fellowship/apply/ \u2014 2026 cycle CLOSED (stale/previous cycle), next opening not stated (sign-up for updates offered); $100,000 stipend over 18 months; for-profits get recoverable grants; must be founder/primary decision maker of an early-stage org ('have operated with full-time staff for less than five years'); minimum age 18 by June 1, 2026 (no age key in schema); citizenship/degree UNKNOWN; equity not applicable per page wording but no explicit statement, so takes_equity left UNKNOWN.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:58.232179+00:00",
+    "verified_at": "2026-08-27T12:28:42.007169+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -529,7 +529,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via 'Apply Now' on https://www.osv.llc/fellowships; posted deadline April 30, 2026 has already PASSED \u2014 stale/previous cycle, next cycle not announced on page; 'keeping 100% ownership' is the page's own no-equity language; age, citizenship, degree, location requirements UNKNOWN (not stated on page). [stale] deadline 2026-04-30 passed 119 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:58.344155+00:00",
+    "verified_at": "2026-08-27T12:28:42.205382+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -609,7 +609,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply at https://www.zfellows.com/ ('Apply Now'); NOT a pure grant \u2014 the $10,000 is an INVESTMENT converting to stock at the next priced round ($1B valuation cap), so takes_equity=true; however participation without taking the money is explicitly allowed; no age restriction, no degree requirement, no drop-out requirement ('Do I need to drop out or quit my job? No.'); one-week program, mostly virtual with final day in SF or NYC.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:58.962739+00:00",
+    "verified_at": "2026-08-27T12:28:42.995632+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -647,7 +647,7 @@
     ],
     "_curation_note": "researched 2026-08-26; AGE LIMIT: 18 or younger as of the application deadline \u2014 this is a scholarship for a significant completed project (categories: Science, Technology, Engineering, Mathematics, Literature, Music, Philosophy, Outside the Box), not startup funding; 2026 cycle CLOSED (stale), 2027 application opens Fall 2026 so no dated deadline recorded; US citizens/permanent residents residing in the US (or overseas on active US military duty). Caveat: site blocks plain curl (Cloudflare); quotes came via rendered fetch of the official page.",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:59.290678+00:00",
+    "verified_at": "2026-08-27T12:28:43.389206+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -702,7 +702,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via NSF solicitation NSF 25-549 at https://www.nsf.gov/funding/opportunities/nsf-national-innovation-corps-teams-nsf-national-i-corps-tm/nsf25-549/solicitation; NSF RESEARCH LINEAGE REQUIRED: team needs a prior/active NSF award (within 5 years) OR completion of an NSF Regional I-Corps program with a staff recommendation letter. Proposal is submitted by the university, not a company; the Technical Lead (typically the PI) is usually a faculty member/senior researcher, while a student can serve as Entrepreneurial Lead. Award is non-dilutive training+customer-discovery funding, not startup capital; a $10,000 participation fee is paid from award funds per the NSF program page. [structured institutions dropped to UNKNOWN: the page states it as prose ('U.S. accredited two- and four-year Institutions of Higher Education (including community colleges); proposals submitted by the institution, not individuals'), and prose is not a structured fact \u2014 the quote stays in criteria]",
     "verified": true,
-    "verified_at": "2026-08-27T07:49:59.444122+00:00",
+    "verified_at": "2026-08-27T12:28:43.563604+00:00",
     "verification_note": "HTTP 200, title terms present, 7 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -740,7 +740,7 @@
     ],
     "_curation_note": "researched 2026-08-26; STALE/NOT CURRENTLY RUNNING: EPA's P3 funding-opportunities page explicitly states there are no open funding opportunities; the most recent RFA found is the 21st Annual P3 Awards, which closed 2024-02-21 (deadline recorded above is stale and flagged). No 2026 solicitation located on epa.gov. Applications historically went through the institution (grants to colleges/universities), not to a registered company. Monitor https://www.epa.gov/P3/p3-funding-opportunities for any future RFA. [structured institutions dropped to UNKNOWN: the page states it as prose ('teams of college/university students'), and prose is not a structured fact \u2014 the quote stays in criteria] [stale] deadline 2024-02-21 passed 918 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:00.025540+00:00",
+    "verified_at": "2026-08-27T12:28:43.951048+00:00",
     "verification_note": "HTTP 200, title terms present, 3 evidence quote(s) found across 3 cited page(s)"
   },
   {
@@ -771,7 +771,7 @@
     ],
     "_curation_note": "researched 2026-08-26; NOT CURRENTLY RUNNING: DOE's official page explicitly states there will not be a 2025-2026 round; 2025 winners were announced July 2025 and no new cycle is posted. Historical prize pool (>$460,000 total across teams) recorded in criteria only, since no active round exists; per-team award amounts not stated on the page, so award fields left null. When it ran, it was open to collegiate student teams (no company registration required). DOE directs prospective participants to https://americanmadechallenges.org for open prizes.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:00.160281+00:00",
+    "verified_at": "2026-08-27T12:28:44.104719+00:00",
     "verification_note": "HTTP 200, title terms present, 2 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -796,7 +796,7 @@
     ],
     "_curation_note": "researched 2026-08-26; NO ACTIVE NASA MINDS CHALLENGE FOUND: the official nasa.gov NASA MINDS URL now serves the MUREP 'Student Engagement' page, which contains no mention of NASA MINDS by name and instead promotes NASA ORBIT as 'a new national challenge' for MSI/HBCU/TCU students. The MUREP opportunities page also does not list MINDS. Treat MINDS as superseded/dormant; see the separate nasa-orbit entry for the successor program's verified rules. Eligibility left empty because no current MINDS-specific terms are published.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:00.286538+00:00",
+    "verified_at": "2026-08-27T12:28:44.343642+00:00",
     "verification_note": "HTTP 200, title terms present, 2 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -908,7 +908,7 @@
     ],
     "_curation_note": "researched 2026-08-26; start at https://seedfund.nsf.gov/apply/ (Project Pitch required before a full proposal); REQUIRES A REGISTERED U.S. SMALL BUSINESS: students cannot apply as individuals \u2014 the applicant is a for-profit small business (<500 employees, majority U.S.-citizen/permanent-resident owned), and the PI must be >50% employed by the company, which effectively rules out full-time students/faculty as PI unless they commit to the company. Non-dilutive (NSF explicitly takes no equity). Up to $2M total across phases; per-phase amounts and full-proposal deadlines not stated on the fetched pages, so left null \u2014 check the current solicitation. [structured geographies dropped to UNKNOWN: the page states it as prose ('all research and development must be performed within the United States'), and prose is not a structured fact \u2014 the quote stays in criteria]",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:00.922363+00:00",
+    "verified_at": "2026-08-27T12:28:45.119680+00:00",
     "verification_note": "HTTP 200, title terms present, 7 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -943,7 +943,7 @@
     ],
     "_curation_note": "researched 2026-08-26; STALE/CLOSED: the only DOD student prize found on an official .mil page \u2014 applications closed 2025-06-25 and the accelerator concluded October 2025; deadline recorded above is stale and flagged; no new round found on diu.mil as of today. REQUIRES A REGISTERED COMPANY: eligibility is U.S. owned and operated companies/startups founded by students, faculty, staff, or recent graduates (within 18 months). $500,000 total prize pool shared among up to 15 finalists; per-team amounts not stated, so award fields left null. No currently active DOD/NSIN student prize was located on an official .gov/.mil page. [structured geographies dropped to UNKNOWN: the page states it as prose ('U.S. owned and operated companies'), and prose is not a structured fact \u2014 the quote stays in criteria] [stale] deadline 2025-06-25 passed 428 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:02.517140+00:00",
+    "verified_at": "2026-08-27T12:28:46.755019+00:00",
     "verification_note": "HTTP 200, title terms present, 3 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -993,9 +993,9 @@
         "source_doc": "https://venturewell.org/e-team-program/#institution"
       }
     ],
-    "_curation_note": "researched 2026-08-26; apply URLs stated on page: https://oms.aws.venturewell.org/go/pioneer-winter-2027 and https://oms.aws.venturewell.org/go/propel-winter-2027; deadline 2026-09-29 is the Winter 2027 cohort deadline (later cycles: 2027-01-25 for Spring 2027); page notes all dates subject to change; old /e-team-grants/ URL replaced by /e-team-program/; degree level and citizenship UNKNOWN (page states only 'students' at a U.S.-based institution)",
+    "_curation_note": "researched 2026-08-26; apply URLs stated on page: https://oms.aws.venturewell.org/go/pioneer-winter-2027 and https://oms.aws.venturewell.org/go/propel-winter-2027; deadline 2026-09-29 is the Winter 2027 cohort deadline (later cycles: 2027-01-25 for Spring 2027); page notes all dates subject to change; old /e-team-grants/ URL replaced by /e-team-program/; degree level and citizenship UNKNOWN (page states only 'students' at a U.S.-based institution) Paired with the deliberately-retained 'venturewell_eteam' row, which points at the retired /e-team-grants/ URL and fails verification by design.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:04.675766+00:00",
+    "verified_at": "2026-08-27T12:28:47.539444+00:00",
     "verification_note": "HTTP 200, title terms present, 7 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1045,7 +1045,7 @@
     ],
     "_curation_note": "researched 2026-08-26; NOT fully non-dilutive - the $1M win carries a typically 10% equity stake to the Hult Prize Foundation; no fixed application deadline stated on page (season runs September through September; most teams enter via a campus Qualifier); registration via hultprize.org; citizenship UNKNOWN beyond 'almost every country in the world'",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:04.915827+00:00",
+    "verified_at": "2026-08-27T12:28:47.987991+00:00",
     "verification_note": "HTTP 200, title terms present, 6 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1091,7 +1091,7 @@
     ],
     "_curation_note": "researched 2026-08-26; stale/previous cycle - the January 31, 2026 deadline is for the completed 2026 RBPC; 2027 competition is April 8-10, 2027 with applications opening Nov. 3 at https://rbpc.poetic.io; LIKELY POOR FIT for undergrad-only teams: eligibility requires at least one current graduate degree-seeking student; total prize pool over $1M but no fixed per-award amount stated, so award_min/max left null; some prizes are investments (may be dilutive) - equity terms per prize UNKNOWN [stale] deadline 2026-01-31 passed 208 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:05.195408+00:00",
+    "verified_at": "2026-08-27T12:28:48.260097+00:00",
     "verification_note": "HTTP 200, title terms present, 6 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -1132,7 +1132,7 @@
     ],
     "_curation_note": "researched 2026-08-26; application URL stated on page: https://apply.younoodle.com/round/2026_2027_baylor_new_venture_competition; current cycle (finals April 16-17, 2027, application window closes Oct. 1, 2026); page fetched via rendering proxy because the site blocks plain HTTP clients (Cloudflare) - quotes transcribed from the rendered page, recommend re-verification; degree level, team size, citizenship, and equity terms UNKNOWN (not stated on this page; a fuller guidebook PDF exists)",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:05.562814+00:00",
+    "verified_at": "2026-08-27T12:28:48.656656+00:00",
     "verification_note": "HTTP 200, title terms present, 6 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1189,7 +1189,7 @@
     ],
     "_curation_note": "researched 2026-08-26; the redesigned neeley.tcu.edu site no longer lists specific dollar amounts or full dates - award amounts and exact deadline UNKNOWN on current official page (page says applications open each fall, deadlines early spring semester); 'requires_faculty_pi' reflects the page's 'faculty or staff sponsor' requirement; no application URL on page - contact lianne.yang@tcu.edu; old URL neeley.tcu.edu/centers/institute-for-entrepreneurship-and-innovation/values-and-ventures now 404s",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:05.776427+00:00",
+    "verified_at": "2026-08-27T12:28:48.843073+00:00",
     "verification_note": "HTTP 200, title terms present, 8 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1229,7 +1229,7 @@
     ],
     "_curation_note": "researched 2026-08-26; stale/previous cycle - page still shows the e-Fest 2026 timeline (submissions Jan 7 - Mar 1, event Apr 23-25, 2026, already held); no unambiguous full submission deadline date printed (timeline shows 'Jan 7 \u2013 Mar 1: Submit Your Pitch'), so deadline null; apply via https://efest.biz/submit or https://efest.biz/compete; team size, equity terms, and exact grad-year cutoff UNKNOWN on homepage (see site's Rules & Eligibility page); page title brands it 'e-Fest\u00ae | Undergraduate Entrepreneurship Competition, Home Of The Schulze Entrepreneurship Challenge'",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:06.053902+00:00",
+    "verified_at": "2026-08-27T12:28:49.055785+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1280,7 +1280,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply at https://eonetwork.org/gsea/apply/ - page says 'Upcoming Competition Starting July 1st, 2026' and 'Upcoming Competitions August 2026 through 2027' with deadlines varying by local competition, so no single deadline recorded; $100,000 is a shared prize pool - per-winner amount UNKNOWN, so award_min/max null; equity terms and citizenship UNKNOWN; requires an already-operating business (6+ months, US$500 revenue or US$1,000 investment)",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:06.818813+00:00",
+    "verified_at": "2026-08-27T12:28:49.711274+00:00",
     "verification_note": "HTTP 200, title terms present, 7 evidence quote(s) found across 3 cited page(s)"
   },
   {
@@ -1317,7 +1317,7 @@
     ],
     "_curation_note": "researched 2026-08-26; stale/previous cycle - page covers the concluded 2026 season (2026 World Champion announced June 2, 2026) and invites students to 'Register for next season'; no 2027-season application deadline stated, so deadline null; official rules PDF linked as aka.ms/icrulesregs; team size, citizenship, and equity terms UNKNOWN on this page (page names two award paths, Launch $50,000 and Scale $100,000, plus the $150,000 World Champion prize); eligibility includes high-school students so degree_levels key not applicable",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:11.224320+00:00",
+    "verified_at": "2026-08-27T12:28:54.041052+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1360,7 +1360,7 @@
     ],
     "_curation_note": "researched 2026-08-26; application via https://cep.mit.edu/apply; no application deadline date stated on the eligibility or competition pages, so deadline null; prize pool 'more than $100,000' with amounts at Managing Directors' discretion, so award_min/max null; eligibility references the Fall 2025 term (2025-2026 cycle language - may be stale for the next cycle); open to students and postdocs worldwide per site, degree level of student members not restricted on page; citizenship UNKNOWN",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:11.455687+00:00",
+    "verified_at": "2026-08-27T12:28:54.330030+00:00",
     "verification_note": "HTTP 200, title terms present, 6 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -1402,7 +1402,7 @@
     ],
     "_curation_note": "researched 2026-08-26; register via Intent to Compete form after kick-off 9/16/26 (https://mbpc.tcnj.edu/competition-schedule/); deadline shown is team registration close 12/11/26; business plans due 1/08/27, finals 3/24/27; TCNJ undergrads only",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:11.820868+00:00",
+    "verified_at": "2026-08-27T12:28:54.586352+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -1444,7 +1444,7 @@
     ],
     "_curation_note": "researched 2026-08-26; apply via kellercenter.princeton.edu eLab Incubator page; STALE DEADLINE FLAG: page still shows 'October 10, 2025: Application deadline' \u2014 compare-opportunities page lists application window as 'September/October' annually; no dollar amount published ('modest amount of project funding'); eLab Accelerator detail page returned 404 on 2026-08-26; Princeton-only [stale] deadline 2025-10-10 passed 321 days ago.",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:12.053107+00:00",
+    "verified_at": "2026-08-27T12:28:54.694957+00:00",
     "verification_note": "HTTP 200, title terms present, 4 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -1491,7 +1491,7 @@
     ],
     "_curation_note": "researched 2026-08-26; enter via shu.edu Pirates Pitch pages; STALE DATE FLAG: page still describes the 2026 event ('This year's Pirates Pitch will be held on Wednesday, April 8, 2026') \u2014 next cycle dates not yet posted; $500 Audience Choice Award also offered; note the innovation-and-entrepreneurship page lists 2nd place as $3,500 (older figure) vs $4,500 on the index page",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:12.684608+00:00",
+    "verified_at": "2026-08-27T12:28:55.313312+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -1532,7 +1532,7 @@
     ],
     "_curation_note": "researched 2026-08-26; entry via Ignite Entrepreneurs Interest List on the FCE+I Pitch Day page; no 'MIX Challenge' found on montclair.edu as of 2026-08-26 \u2014 current competition is FCE+I Pitch Day; last event was April 23, 2026 (past; next cycle not yet posted); eligibility runs through the Ignite Entrepreneurs program, page does not explicitly restrict to enrolled students",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:12.811845+00:00",
+    "verified_at": "2026-08-27T12:28:55.522519+00:00",
     "verification_note": "HTTP 200, title terms present, 5 evidence quote(s) found across 2 cited page(s)"
   },
   {
@@ -1586,7 +1586,7 @@
     ],
     "_curation_note": "researched 2026-08-26; register on StartupTree per official page; held annually in April, next-cycle deadline not yet posted; CAVEAT on non-dilutive framing: 1st place $25,000 is a convertible note investment OPTION (not non-dilutive) \u2014 the explicitly non-dilutive component is $5,000 seed funding; separate Expo has a $7,000 prize pool",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:12.962785+00:00",
+    "verified_at": "2026-08-27T12:28:55.655462+00:00",
     "verification_note": "HTTP 200, title terms present, 7 evidence quote(s) found across 1 cited page(s)"
   },
   {
@@ -1619,7 +1619,7 @@
     ],
     "_curation_note": "researched 2026-08-26; no open application URL \u2014 awards are selected annually from Launchpad@Stevens participants; official pages publish NO award amounts, deadlines, or formal eligibility criteria as of 2026-08-26; included as optional per brief since a current official Launchpad page exists; recipients in official news coverage are Stevens students/recent alumni",
     "verified": true,
-    "verified_at": "2026-08-27T07:50:13.338828+00:00",
+    "verified_at": "2026-08-27T12:28:56.021670+00:00",
     "verification_note": "HTTP 200, title terms present, 3 evidence quote(s) found across 2 cited page(s)"
   }
 ]
