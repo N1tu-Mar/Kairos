@@ -1,0 +1,37 @@
+{
+  "https://example.edu/fund": {
+    "status": 200,
+    "final_url": "https://example.edu/fund",
+    "body_file": "live.html"
+  },
+  "https://example.edu/fund/faq": {
+    "status": 200,
+    "final_url": "https://example.edu/fund/faq",
+    "body_file": "faq.html"
+  },
+  "https://example.edu/rewritten": {
+    "status": 200,
+    "final_url": "https://example.edu/rewritten",
+    "body_file": "rewritten.html"
+  },
+  "https://example.edu/gone": {
+    "status": 404,
+    "final_url": "https://example.edu/gone",
+    "body_file": null
+  },
+  "https://example.edu/unreachable": {
+    "status": 0,
+    "final_url": "https://example.edu/unreachable",
+    "body_file": null
+  },
+  "https://example.edu/moved": {
+    "status": 200,
+    "final_url": "https://example.edu/fund",
+    "body_file": "live.html"
+  },
+  "https://example.edu/retired": {
+    "status": 200,
+    "final_url": "https://example.edu/retired",
+    "body_file": "generic.html"
+  }
+}

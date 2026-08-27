@@ -1,0 +1,371 @@
+{
+  "generated_at": "2026-08-27T12:10:34.287132+00:00",
+  "rows_in_catalog": 40,
+  "rows_checked": 40,
+  "rows_still_fresh": 0,
+  "max_age_days": null,
+  "by_status": {
+    "UNCHANGED": 24,
+    "DEAD": 3,
+    "DEADLINE_PASSED": 8,
+    "EVIDENCE_LOST": 3,
+    "REDIRECTED": 2
+  },
+  "needs_review": [
+    {
+      "id": "venturewell_eteam",
+      "title": "E-Team Grant Program",
+      "source_url": "https://venturewell.org/e-team-grants/",
+      "verified_at": null,
+      "changes": [
+        {
+          "field": "availability",
+          "was": "reachable at curation time",
+          "now": "HTTP 404",
+          "detail": "the program page no longer resolves; the row may need retiring"
+        }
+      ],
+      "status": "DEAD"
+    },
+    {
+      "id": "masschallenge-switzerland-2026-early-stage-accelerator",
+      "title": "MassChallenge Switzerland Early-Stage Accelerator 2026",
+      "source_url": "https://masschallenge.org/programs-switzerland/",
+      "verified_at": null,
+      "changes": [
+        {
+          "field": "availability",
+          "was": "reachable at curation time",
+          "now": "HTTP 403",
+          "detail": "the program page no longer resolves; the row may need retiring"
+        }
+      ],
+      "status": "DEAD"
+    },
+    {
+      "id": "mit-solve-ai-for-a-better-world-2026",
+      "title": "AI for a Better World Challenge (MIT Solve)",
+      "source_url": "https://solve.mit.edu/challenges/ai-for-a-better-world",
+      "verified_at": "2026-08-27T07:49:53.804211+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2026-03-20",
+          "now": "passed 160 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "hello-tomorrow-global-challenge-11th-edition",
+      "title": "Hello Tomorrow Global Challenge (11th Edition)",
+      "source_url": "https://hello-tomorrow.org/global-challenge/",
+      "verified_at": "2026-08-27T07:49:55.665437+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2026-01-05",
+          "now": "passed 234 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "xprize-connect-2026-global-pitch-competition",
+      "title": "XPRIZE Connect 2026 Global Pitch Competition",
+      "source_url": "https://competition.xpconnect.org/global",
+      "verified_at": "2026-08-27T07:49:56.755544+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2026-06-05",
+          "now": "passed 83 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "776-foundation-fellowship",
+      "title": "776 Fellowship",
+      "source_url": "https://www.776.org/",
+      "verified_at": null,
+      "changes": [
+        {
+          "field": "criteria",
+          "was": "The 776 Fellowship is a two-year, full-time program for 18 - 24 year olds, across the world.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Fellows will receive a $100,000 grant over two years to work on projects to fight climate change instead of pursuing a university degree.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "No, the Fellowship is open to international applicants.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Our 5th Cohort will be selected May 2026, with a start date of June 2026.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Check back later this year for our 2026 Application.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "award_max",
+          "was": 100000,
+          "now": "figure not found on the page",
+          "detail": "the amount may have changed, or may live on a sub-page. Confirm before relying on it."
+        }
+      ],
+      "status": "EVIDENCE_LOST"
+    },
+    {
+      "id": "emergent-ventures",
+      "title": "Emergent Ventures",
+      "source_url": "https://www.mercatus.org/emergent-ventures",
+      "verified_at": null,
+      "changes": [
+        {
+          "field": "availability",
+          "was": "reachable at curation time",
+          "now": "HTTP 403",
+          "detail": "the program page no longer resolves; the row may need retiring"
+        }
+      ],
+      "status": "DEAD"
+    },
+    {
+      "id": "oshaughnessy-fellowships",
+      "title": "O'Shaughnessy Fellowships",
+      "source_url": "https://www.osv.llc/fellowships",
+      "verified_at": "2026-08-27T07:49:58.344155+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2026-04-30",
+          "now": "passed 119 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "neo-scholars",
+      "title": "Neo Scholars",
+      "source_url": "https://neo.com/scholars",
+      "verified_at": null,
+      "changes": [
+        {
+          "field": "criteria",
+          "was": "We\u2019ll give you a $40K equity-free grant, a tight-knit peer community, and workspace to call your own.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "The Neo Scholar program is open to undergrads who graduate Winter 2026 or later. It primarily focuses on supporting students who are studying in the United States or Canada.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Neo Scholars are guaranteed access to the student builder $40k grant anytime while enrolled in school.",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "award_max",
+          "was": 40000,
+          "now": "figure not found on the page",
+          "detail": "the amount may have changed, or may live on a sub-page. Confirm before relying on it."
+        }
+      ],
+      "status": "EVIDENCE_LOST"
+    },
+    {
+      "id": "epa-p3-student-design-competition",
+      "title": "EPA People, Prosperity and the Planet (P3) Student Design Competition",
+      "source_url": "https://www.epa.gov/P3",
+      "verified_at": "2026-08-27T07:50:00.025540+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2024-02-21",
+          "now": "passed 918 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "nasa-minds",
+      "title": "NASA MINDS (MUREP Innovative New Designs for Space)",
+      "source_url": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/nasa-minds/",
+      "verified_at": "2026-08-27T07:50:00.286538+00:00",
+      "changes": [
+        {
+          "field": "source_url",
+          "was": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/nasa-minds/",
+          "now": "https://www.nasa.gov/learning-resources/minority-university-research-education-project/murep-student-engagement/",
+          "detail": "the stored URL redirects; confirm it still describes this program"
+        }
+      ],
+      "status": "REDIRECTED"
+    },
+    {
+      "id": "nasa-orbit-challenge",
+      "title": "NASA ORBIT Challenge (Opportunities in Research, Business, Innovation, and Technology for the Workforce)",
+      "source_url": "https://www.nasa.gov/directorates/stmd/prizes-challenges-crowdsourcing-program/center-of-excellence-for-collaborative-innovation-coeci/nasa-orbit-challenge-2026/",
+      "verified_at": null,
+      "changes": [
+        {
+          "field": "evidence",
+          "detail": "evidence cites https://nasaorbit.org/rules/, outside the funder's own site"
+        },
+        {
+          "field": "criteria",
+          "was": "The Lead Institution must be a MSI, HBCU, or TCU listed on the NASA MSI Exchange. [cited page could not be fetched: https://nasaorbit.org/rules/]",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Teams must consist of six (6) or fewer student members, not including the faculty advisor. [cited page could not be fetched: https://nasaorbit.org/rules/]",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Be enrolled full-time or part-time (undergraduate or graduate) at a U.S.-based institution. [cited page could not be fetched: https://nasaorbit.org/rules/]",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Each team must have at least one faculty advisor. [cited page could not be fetched: https://nasaorbit.org/rules/]",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Up to $380,000 in prize purses will be available. [cited page could not be fetched: https://nasaorbit.org/rules/]",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "criteria",
+          "was": "Registration Deadline: Feb 9, 2026 at 3:00 pm Eastern local time [cited page could not be fetched: https://nasaorbit.org/rules/]",
+          "now": "not found on the page it cites",
+          "detail": "the page was rewritten, or this quote was never right. Re-read the page before trusting the award, deadline or eligibility this row carries."
+        },
+        {
+          "field": "deadline",
+          "was": "2026-02-09",
+          "now": "passed 199 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "EVIDENCE_LOST"
+    },
+    {
+      "id": "diu-dual-use-university-accelerator-challenge",
+      "title": "DIU Dual-Use University Accelerator Challenge",
+      "source_url": "https://www.diu.mil/latest/diu-presents-dual-use-university-accelerator-challenge",
+      "verified_at": "2026-08-27T07:50:02.517140+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2025-06-25",
+          "now": "passed 428 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "rice-business-plan-competition",
+      "title": "Rice Business Plan Competition",
+      "source_url": "https://rbpc.rice.edu/eligibility",
+      "verified_at": "2026-08-27T07:50:05.195408+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2026-01-31",
+          "now": "passed 208 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "princeton-keller-elab-incubator",
+      "title": "eLab Incubator (Keller Center)",
+      "source_url": "https://kellercenter.princeton.edu/programs/elab-accelerator-incubator-programs/details/elab-incubator",
+      "verified_at": "2026-08-27T07:50:12.053107+00:00",
+      "changes": [
+        {
+          "field": "deadline",
+          "was": "2025-10-10",
+          "now": "passed 321 days ago",
+          "detail": "the stored deadline is in the past; the next cycle may have different dates, awards and rules"
+        }
+      ],
+      "status": "DEADLINE_PASSED"
+    },
+    {
+      "id": "seton-hall-pirates-pitch",
+      "title": "Pirates Pitch Startup Competition",
+      "source_url": "https://www.shu.edu/business/pirates-pitch/index.html",
+      "verified_at": "2026-08-27T07:50:12.684608+00:00",
+      "changes": [
+        {
+          "field": "source_url",
+          "was": "https://www.shu.edu/business/pirates-pitch/index.html",
+          "now": "https://www.shu.edu/business/pirates-pitch/",
+          "detail": "the stored URL redirects; confirm it still describes this program"
+        }
+      ],
+      "status": "REDIRECTED"
+    }
+  ],
+  "unchanged": [
+    "nsf_reu",
+    "rutgers_scarletpitch",
+    "ford-community-resiliency-student-challenge-2026",
+    "thiel-fellowship",
+    "westly-prize",
+    "resolution-project-social-venture-challenge",
+    "echoing-green-fellowship",
+    "z-fellows",
+    "davidson-fellows-scholarship",
+    "nsf-i-corps-national-teams",
+    "doe-energytech-university-prize",
+    "nsf-sbir-americas-seed-fund",
+    "venturewell-e-team-program",
+    "hult-prize",
+    "baylor-new-venture-competition",
+    "tcu-values-and-ventures",
+    "e-fest-schulze-entrepreneurship-challenge",
+    "eo-global-student-entrepreneur-awards",
+    "microsoft-imagine-cup",
+    "mit-climate-energy-prize",
+    "tcnj-mayo-business-plan-competition",
+    "montclair-fcei-pitch-day",
+    "rowan-rohrer-new-venture-competition",
+    "stevens-scholl-launchpad-awards"
+  ],
+  "note": "Nothing in the catalog was modified. Every entry under needs_review is a question for a person: open the page, decide, and edit data/opportunities.candidates.json by hand. Re-running scripts/verify_seed.py afterwards is what updates verified_at."
+}
