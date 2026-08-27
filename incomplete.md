@@ -2,7 +2,7 @@
 
 Current as of 2026-08-27.
 
-**Local health.** 722 Python tests pass with no `xfail` remaining; 54
+**Local health.** 776 Python tests pass with no `xfail` remaining; 54
 frontend tests, TypeScript checking, ESLint and the production build all
 pass. Migrations are covered by 20 tests against both a fresh database and a
 representative existing one.
@@ -38,6 +38,11 @@ Built, tested, and exercised on a developer machine.
 | Preflight configuration check | `scripts/preflight.py` |
 | CI: tests, migrations, frontend, hygiene, Terraform, image, scan | `.github/workflows/ci.yml` |
 | Dashboard surfaces runs that never happened | `frontend/src/components/scheduler-failures.tsx` |
+| Campus discovery in the runtime, human-review boundary intact | `KAIROS_ENABLE_BROWSER` |
+| Grants.gov pagination, profile-aware keywords, date filtering | `agent/tools/discovery.py` |
+| Discovery-recall benchmark with hand-authored ground truth | `tests/discovery_benchmark/` |
+| Periodic reverification that reports rather than overwrites | `scripts/reverify.py` |
+| Every API parameter bounded and validated at the edge | `api/main.py` |
 
 ### Implemented but awaiting live validation
 
@@ -105,48 +110,47 @@ Numbered below.
    enough to draft its application without the actual questions, field
    types, limits and certification fields.
 
-5. **Wire non-API campus discovery into the runtime.**
-   The Rutgers scraper is an operator-run research tool. It is not scheduled
-   and not connected to `discover_opportunities`, and `KAIROS_ENABLE_BROWSER`
-   adds no browser source to a Scout run. Preserve the human-review boundary
-   when integrating it.
+5. **Schedule the campus scraper.**
+   `KAIROS_ENABLE_BROWSER` now adds a campus source to a Scout run, and it
+   loads only human-`ACCEPTED` rows, so the review boundary survived
+   integration. What is still missing is the other half: the scraper itself
+   is operator-run, so nothing refreshes those rows on a schedule.
 
-6. **Improve Grants.gov coverage.**
-   Pagination exists now. Still missing: profile-aware queries, date filters,
-   and any measurement of what is being missed.
+6. **Close the discovery-recall gap.**
+   The benchmark exists and reports 85.7% retrieval recall and 72.2%
+   eligibility coverage at 100% precision. The number to move is the second
+   one — Grants.gov preserves eligibility prose but leaves most structured
+   fields `UNKNOWN`, which limits the deterministic filter to fewer decisions
+   than it could make. Precision is at 100%, so there is room to extract more
+   without loosening anything.
 
-7. **Measure discovery recall.**
-   Build a reference set of known relevant opportunities and report the share
-   retrieved. Also measure duplicate handling, stale records, deadline
-   accuracy, and the precision of structured eligibility extraction.
-
-8. **Promote structured facts with provenance.**
-   Grants.gov preserves eligibility prose but leaves most structured
-   eligibility fields `UNKNOWN`, which limits the deterministic filter to
-   fewer decisions than it could make.
+7. **Extend the benchmark past retrieval.**
+   It measures what was found. It does not yet measure duplicate handling or
+   stale-record behaviour, and both are failure modes a founder would notice
+   before a recall number moved.
 
 ## Priority 2 — production execution and reliability
 
-9. **Apply and validate the AWS deployment.**
+8. **Apply and validate the AWS deployment.**
    The Terraform is written, reviewed and internally consistent. It has never
    been planned, never been applied, and its behaviour is therefore a claim
    about code rather than about anything observed. Validate the deployment,
    the HTTPS path, Bedrock permissions, persistence across task restarts, the
    scheduled invocation, the alarms and the DLQ.
 
-10. **Run the rollback and restore drills.**
-    Both are written in `docs/runbooks.md` and neither has been performed. A
-    backup nobody has restored is a hypothesis. Do them against a scratch
-    volume, with a real backup, and time them.
+9. **Run the rollback and restore drills.**
+   Both are written in `docs/runbooks.md` and neither has been performed. A
+   backup nobody has restored is a hypothesis. Do them against a scratch
+   volume, with a real backup, and time them.
 
-11. **Turn on `readonlyRootFilesystem`.**
+10. **Turn on `readonlyRootFilesystem`.**
     Deliberately left off. Fargate supports no tmpfs, so a read-only root
     means every scratch path — uv's cache, Python's temp files, SQLite's
     journal and WAL — has to live on a volume, and getting it wrong produces
     a task that starts and then fails on its first write. Worth doing against
     a real task rather than switched on untested.
 
-12. **Move to a queue-backed worker if a second writer is ever needed.**
+11. **Move to a queue-backed worker if a second writer is ever needed.**
     `LocalJobExecutor` runs jobs in the API process, which is correct while
     the run lease and the single-task service both guarantee one. The
     `JobExecutor` protocol is the seam. Note that `desired_count = 1` is
@@ -154,7 +158,7 @@ Numbered below.
     genuinely needed the answer is RDS Postgres behind the same `Repository`
     protocol, not a second SQLite reader.
 
-13. **Emit structured metrics rather than parsing logs.**
+12. **Emit structured metrics rather than parsing logs.**
     The `run-halted` alarm reads a CloudWatch log metric filter on a log
     line. It works, and it is fragile in the specific way that a rename of a
     log key silently stops an alarm from ever firing again. `KAIROS_ENABLE_OTEL`
@@ -162,19 +166,19 @@ Numbered below.
 
 ## Priority 3 — security and identity
 
-14. **Decide on a real identity provider.**
+13. **Decide on a real identity provider.**
     `api/auth.py` has the `Authenticator` seam and two implementations: a
     shared token (honest about proving only that somebody holds a secret) and
     a hashed credential file with revocation, expiry and restart-free
     rotation. An OIDC/JWT adapter is a product decision and is deliberately
     documented rather than faked.
 
-15. **Ship the credential file from a secret store.**
+14. **Ship the credential file from a secret store.**
     `KAIROS_CREDENTIALS_FILE` is read from disk and gitignored. Terraform
     provisions only the single shared token; mounting the credential file as
     a second secret is not yet written.
 
-16. **Rotate on a schedule, not only on suspicion.**
+15. **Rotate on a schedule, not only on suspicion.**
     Rotation is documented and manual. Secrets Manager rotation is
     compatible with the design — the task reads the secret by ARN at start,
     and both the secret version and the EventBridge connection carry

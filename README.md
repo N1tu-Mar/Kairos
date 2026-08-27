@@ -19,11 +19,12 @@ the founder is asleep**.
 
 > **Status: working locally, not production-ready.** The agent loop,
 > deterministic safety layer, SQLite persistence, FastAPI surface and Next.js
-> dashboard are implemented. The API supports a shared bearer-token gate. A
-> Rutgers-focused research scraper has produced seven evidence-backed candidate
-> rows, but none has passed human review into the runtime catalog yet. The AWS
-> deployment is defined in Terraform but has not been applied, and no model path
-> has been validated against live Bedrock. See
+> dashboard are implemented. The catalog holds 40 curated rows, 34 verified
+> quote-by-quote against their live pages; three real application forms are
+> modelled, two of them partial; discovery scores 85.7% recall against a
+> hand-authored 20-program benchmark. The AWS deployment is defined in
+> Terraform but has not been applied, and no model path has been validated
+> against live Bedrock. See
 > [Current implementation](#current-implementation) and
 > [Honest limitations](#honest-limitations).
 
@@ -46,13 +47,16 @@ in a week that already has a problem set due.
 
 | Area | What exists today |
 |---|---|
-| Discovery | A verified-seed source and live Grants.gov `search2`/`fetchOpportunity` integration. The runtime seed currently contains one verified usable row. |
-| Campus research | An operator-run, robots-aware Rutgers scraper with rate limiting, raw-page archives, deterministic extraction, exact evidence spans, explicit `UNKNOWN` fields, deduplication and stale-deadline warnings. Its seven current rows all remain `NEEDS_HUMAN_REVIEW`. |
+| Discovery | Three sources. A curated seed catalog of **40 rows, 34 of them verified quote-by-quote against their live pages**; live Grants.gov `search2`/`fetchOpportunity` with pagination, profile-aware keywords, client-side `since` filtering and per-page failure reporting; and an optional campus source behind `KAIROS_ENABLE_BROWSER` that loads only human-`ACCEPTED` scraped rows. |
+| Campus research | An operator-run, robots-aware Rutgers scraper with rate limiting, raw-page archives, deterministic extraction, exact evidence spans, explicit `UNKNOWN` fields, deduplication and stale-deadline warnings. Its seven rows have now been audited against their live pages: 1 accepted and promoted, 3 rejected with reasons, 3 still `NEEDS_HUMAN_REVIEW`. |
+| Measurement | A 20-program discovery-recall benchmark with hand-authored ground truth and 6 deliberate negatives: **85.7% retrieval recall, 72.2% eligibility coverage at 100% precision, 0 wrong deadlines.** Separate from the drafting golden set. |
+| Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
+| Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
 | Decision loop | Deterministic eligibility filtering, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
 | Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, runs, drafts and profile editing. |
 | Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. A run lease keyed by founder makes two overlapping runs impossible; a crash cannot leave one "running" forever. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 722 Python tests pass with no expected-failures remaining; 54 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-27. The published golden-set result is fixture-based, not a live-model score, and nothing here has ever called Bedrock. |
+| Verification | 776 Python tests pass with no expected-failures remaining; 54 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-27. The published golden-set result is fixture-based, not a live-model score, and nothing here has ever called Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -260,10 +264,45 @@ uv run python scripts/verify_seed.py
 ```
 
 It fetches every `source_url`, checks the page exists and actually mentions
-the program, and writes `data/opportunities.seed.json` with an honest
-`verified` flag. Rows that fail are excluded from runs. See
+the program, **and re-finds every quote the row carries on the page that
+quote cites** — programs state eligibility on FAQ and rules sub-pages, so
+each quote is checked where it claims to come from. A quote that cannot be
+found fails the row, whether it was fabricated, paraphrased, or simply
+outlived the page. Evidence citing a page outside the funder's own site is
+refused rather than blessed. It writes `data/opportunities.seed.json` with an
+honest `verified` flag; rows that fail are excluded from runs. See
 [`data/README.md`](data/README.md) for why, including a worked example of a
 URL that looks exactly right and 404s.
+
+Batches of researched rows are folded in with:
+
+```bash
+uv run python scripts/merge_candidates.py <batch.json> --dry-run
+```
+
+which validates each row against the real `Opportunity` model, deduplicates
+on id and URL, refuses rows a researcher marked unreachable, and flags stale
+deadlines. It writes candidates only — verification is still a separate step.
+
+Three more operator commands matter:
+
+```bash
+# which rows have a usable application form, and which cannot be drafted
+uv run python scripts/form_coverage.py
+
+# refetch stale rows and write a review diff. Changes nothing.
+uv run python scripts/reverify.py --max-age-days 30
+
+# score the catalog against the version-controlled reference set. Offline.
+uv run python scripts/run_discovery_benchmark.py
+```
+
+`reverify.py` is the answer to "a reachable page is not proof the stored
+deadline is still right." It classifies each stale row as DEAD, REDIRECTED,
+TITLE_GONE, EVIDENCE_LOST, DEADLINE_PASSED or UNCHANGED and writes
+`data/reverification.report.json`. It never edits a curated fact, never
+flips `verified`, and says so in its own output — a script that silently
+rewrites curation has replaced the human with a parser.
 
 For the Rutgers target set, the repository also has a research stage that
 creates review material without touching the production seed:
@@ -288,6 +327,23 @@ starts as `NEEDS_HUMAN_REVIEW`. Promotion into
 `data/opportunities.candidates.json` is a manual decision, followed by
 `verify_seed.py`.
 
+Those seven rows have since been audited row by row against their live pages;
+the pass/fail/needs-follow-up artifact is
+[`docs/rutgers-candidates-audit.md`](docs/rutgers-candidates-audit.md). The
+audit corrected two extraction defects with primary evidence — an award
+minimum read off a winners table that also listed smaller prizes, and a prize
+*pool* recorded as one team's award — and rejected three programs a founder
+cannot actually apply to. Setting `KAIROS_ENABLE_BROWSER=true` makes the
+`ACCEPTED` rows visible to a run:
+
+```bash
+KAIROS_ENABLE_BROWSER=true uv run python scripts/run_scout.py --dry-run --no-grants-gov
+
+# and, only with the flag already on, a live sweep during the run. What it
+# collects lands as NEEDS_HUMAN_REVIEW and cannot affect this run.
+KAIROS_ENABLE_BROWSER=true uv run python scripts/run_scout.py --campus-scrape
+```
+
 ---
 
 ## Testing
@@ -305,7 +361,7 @@ Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
 
-Current local result (2026-08-27): **722 Python tests passed, no xfail
+Current local result (2026-08-27): **776 Python tests passed, no xfail
 remaining; 54 frontend tests passed; typecheck, lint and the production build
 passed.** The three previously-planned behaviours — semantic recall and the
 two scheduler/overlap ones — are implemented, and their tests converted from
@@ -380,22 +436,38 @@ at this scoreboard. Until then the number stands at 80% and says why.
 
 Written before the deadline pressure, so it stays honest.
 
-- **The runtime catalog is still a stub.** Its two rows are one verified NSF
-  REU entry and one deliberately retained verification failure; this is far
-  short of the promised 60–100 programs. The Rutgers research pipeline has
-  produced seven additional candidate rows with evidence, but all seven are
-  still `NEEDS_HUMAN_REVIEW` and Scout cannot load them. Demo runs therefore
-  use an obviously-synthetic catalog: `[DEMO]` in every title, and every URL
-  on `.invalid`, a TLD reserved so it can never resolve.
-- **Campus discovery is a research tool, not a runtime source.** The scraper
-  works over a small human-maintained target registry, with optional bounded
-  Rutgers-domain link discovery. It is not scheduled and is not wired into
-  `discover_opportunities`; `KAIROS_ENABLE_BROWSER` does not currently add an
-  AgentCore Browser source to a Scout run.
-- **Real application forms are not modeled yet.** The only structured form
-  under `data/forms/` belongs to the synthetic demo opportunity. Kairos can
-  discover and assess a real opportunity without that form, but cannot draft
-  its real application questions.
+- **The catalog is 40 rows, not the promised 60–100.** 34 are verified: the
+  page was fetched, it still mentions the program, and every quote the row
+  carries was re-found on the page that quote cites. The other 6 are
+  deliberately retained failures — one URL that 404s, two hosts that refuse
+  automated clients, two JavaScript-rendered sites a static verifier cannot
+  confirm, and one row whose rules live on a different domain. They carry
+  `verified: false` and are excluded from runs. Three further research
+  sweeps (university competitions and two follow-up batches) died on an API
+  rate limit before finishing, which is the whole reason the count is 40:
+  the gap is unfinished research, not a rejected shortcut. Demo runs still
+  use the obviously-synthetic catalog: `[DEMO]` in every title, every URL on
+  `.invalid`.
+- **Campus discovery is wired in, behind a flag, and still gated on a human.**
+  `KAIROS_ENABLE_BROWSER` now adds a real source to a Scout run — verified
+  end to end, a dry run scans 6 instead of 5 with it on. What it adds is only
+  rows a person marked `ACCEPTED`; `NEEDS_HUMAN_REVIEW` and `REJECTED` rows
+  stay invisible to the runtime. A live sweep during a run needs a second
+  opt-in (`--campus-scrape`) and cannot feed the run that triggered it,
+  because everything it writes is unreviewed by construction.
+- **Only three real application forms exist, and two are partial.** NJIT's
+  four questions are the whole initial submission. MIT CEP's seven sections
+  and TCNJ's fourteen components come from pages that publish the shape of
+  the application but not the questions inside it; both are marked
+  `complete: false` with a note saying what is missing. No login was used and
+  no portal was opened. 2 of 40 catalog rows can therefore be drafted;
+  `scripts/form_coverage.py` prints the gap.
+- **Structured eligibility is still mostly UNKNOWN on live sources.**
+  Grants.gov states eligibility in prose, and prose is not a structured
+  fact. `agent/tools/extraction.py` is the boundary that lets prose become
+  structure safely — every field needs a verbatim span re-found in the
+  source — but nothing model-driven runs through it yet. The benchmark's
+  72.2% eligibility coverage is curation, not extraction.
 - **The AWS deployment is written, not applied.** `infra/` holds Terraform
   for ECS Fargate, EFS-backed SQLite, an EventBridge schedule, five alarms
   and a dead-letter queue. It has never met a live account — never applied,
