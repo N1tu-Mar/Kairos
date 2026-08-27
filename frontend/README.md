@@ -57,14 +57,29 @@ assessment, drafting, auditing, gating and persistence all stay in Python.
 
 ## Setup
 
-Requires Node 20+ and a running Kairos backend.
+Requires Node **20.9+** and a running Kairos backend. The floor is Next 16's
+own `engines` requirement, and it is repeated in `package.json` so npm warns
+rather than letting the build fail somewhere less obvious.
 
 ```bash
 cd frontend
-npm install
+npm ci                         # not `npm install` — see below
 cp .env.example .env.local     # then edit if your backend is not on :8000
 npm run dev                    # http://localhost:3000
 ```
+
+### After pulling
+
+**Run `npm ci` in `frontend/` after any pull that touches
+`frontend/package-lock.json`.** The frontend moved from Next 15 to Next 16
+on 2026-08-27, which rewrote most of the lockfile and replaced
+`.eslintrc.json` with `eslint.config.mjs` — a stale `node_modules` will fail
+in ways that look like source bugs rather than a dependency mismatch.
+
+`npm ci`, not `npm install`: it installs exactly the lockfile and fails if
+`package.json` and the lockfile disagree, which is what CI runs. `npm install`
+would quietly resolve something newer and leave you debugging a tree nobody
+else has.
 
 Start the backend separately, from the repository root:
 

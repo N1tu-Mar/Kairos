@@ -246,8 +246,11 @@ uv run python scripts/run_eval.py
 # the API
 uv run fastapi dev api/main.py
 
-# the dashboard (see frontend/README.md; needs the API running)
-cd frontend && npm install && npm run dev
+# the dashboard (see frontend/README.md; needs the API running).
+# `npm ci`, not `npm install` — it installs exactly the lockfile. Re-run it
+# after any pull that touches frontend/package-lock.json; the Next 15 -> 16
+# move on 2026-08-27 rewrote most of it. Node 20.9+.
+cd frontend && npm ci && npm run dev
 ```
 
 `KAIROS_API_TOKEN` in `.env` is empty by default and the API runs open on
