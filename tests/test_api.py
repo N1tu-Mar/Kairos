@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from agent.models import Assessment, InboxItem, Rejection, RunReport, SkipRecord
+from agent.scraping.agent import GENERAL_LANE, UNIVERSITY_LANE
+import api.main as api_main
 from api.main import app
 from api.repository import SqliteRepository
 from tests.factories import draft, generated, opportunity, profile
@@ -183,6 +186,105 @@ def test_an_opportunity_carries_structured_award_and_deadline(client):
 
 def test_an_unknown_opportunity_is_404(client):
     assert client.get("/opportunities/nothing").status_code == 404
+
+
+def scraped_candidate(scrape_id: str, title: str, scraped_at: str) -> dict:
+    url = f"https://example.edu/{scrape_id}"
+    return {
+        "scrape_id": scrape_id,
+        "title": title,
+        "organization": "Example Innovation Center",
+        "source_url": url,
+        "award_type": "cash prize",
+        "award_min": 1000,
+        "award_max": 5000,
+        "institution": ["Example University"],
+        "degree_levels": ["undergraduate"],
+        "applicant_type": ["student founder"],
+        "equity_required": False,
+        "deadline": "May 1, 2027",
+        "deadline_iso": "2027-05-01",
+        "evidence": {},
+        "unknown_fields": [],
+        "caveats": ["[university web search] needs review"],
+        "founder_reviews": [],
+        "fetch": {
+            "url": url,
+            "final_url": url,
+            "status_code": 200,
+            "fetched_at": scraped_at,
+            "content_hash": scrape_id,
+        },
+        "scraped_at": scraped_at,
+        "review_status": "NEEDS_HUMAN_REVIEW",
+    }
+
+
+def test_scraper_candidates_are_grouped_by_lane(client, monkeypatch, tmp_path):
+    university_path = tmp_path / "university.json"
+    general_path = tmp_path / "general.json"
+    university_path.write_text(
+        json.dumps(
+            [
+                scraped_candidate(
+                    "university_old",
+                    "Older Campus Prize",
+                    "2026-08-20T00:00:00Z",
+                ),
+                scraped_candidate(
+                    "university_new",
+                    "New Campus Prize",
+                    "2026-08-28T00:00:00Z",
+                ),
+            ]
+        )
+    )
+    general_path.write_text(
+        json.dumps(
+            [
+                scraped_candidate(
+                    "general_1",
+                    "Public Founder Grant",
+                    "2026-08-27T00:00:00Z",
+                )
+            ]
+        )
+    )
+    monkeypatch.setattr(
+        api_main,
+        "SCRAPER_CANDIDATE_LANES",
+        {
+            "university": replace(UNIVERSITY_LANE, output_path=university_path),
+            "general": replace(GENERAL_LANE, output_path=general_path),
+        },
+    )
+
+    body = client.get("/scraper/candidates?limit=1").json()
+
+    assert set(body) == {"university", "general"}
+    assert body["university"]["total"] == 2
+    assert body["university"]["candidates"][0]["title"] == "New Campus Prize"
+    assert body["general"]["total"] == 1
+    assert body["general"]["candidates"][0]["title"] == "Public Founder Grant"
+
+
+def test_missing_scraper_candidate_file_is_an_empty_lane(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        api_main,
+        "SCRAPER_CANDIDATE_LANES",
+        {
+            "university": replace(
+                UNIVERSITY_LANE, output_path=tmp_path / "not-written-yet.json"
+            ),
+            "general": replace(GENERAL_LANE, output_path=tmp_path / "also-missing.json"),
+        },
+    )
+
+    body = client.get("/scraper/candidates?lane=university").json()
+
+    assert set(body) == {"university"}
+    assert body["university"]["total"] == 0
+    assert body["university"]["candidates"] == []
 
 
 def test_a_founder_can_record_what_they_did_with_an_item(client):

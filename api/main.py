@@ -18,6 +18,7 @@ should have a one-click answer (Section 9, rule 5).
 
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,6 +38,8 @@ from agent.models import (
     RunJob,
     RunReport,
 )
+from agent.scraping.agent import GENERAL_LANE, UNIVERSITY_LANE, ScraperLane
+from agent.scraping.models import ScrapedOpportunity
 from agent.scheduler import RunLock, ScheduledRunFailureLog
 from api import jobs as job_module
 from api.auth import (
@@ -309,6 +312,56 @@ def _run_for_founder(founder_id: str, run_id: str) -> RunReport:
     return report
 
 
+CandidateLane = Literal["university", "general", "both"]
+
+SCRAPER_CANDIDATE_LANES: dict[str, ScraperLane] = {
+    "university": UNIVERSITY_LANE,
+    "general": GENERAL_LANE,
+}
+
+
+class ScraperCandidateGroup(BaseModel):
+    """One candidate file, shaped for the dashboard."""
+
+    lane: Literal["university", "general"]
+    label: str
+    source_file: str
+    total: int
+    candidates: list[ScrapedOpportunity]
+
+
+def _read_scraper_candidates(path: Path) -> list[ScrapedOpportunity]:
+    """Read a candidate file. Missing means no run has written it yet."""
+    if not path.exists():
+        return []
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(500, "scraper candidate file is unreadable") from exc
+    if not isinstance(rows, list):
+        raise HTTPException(500, "scraper candidate file must contain a list")
+    try:
+        return [ScrapedOpportunity.model_validate(row) for row in rows]
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, "scraper candidate file is invalid") from exc
+
+
+def _scraper_candidate_group(name: str, limit: int) -> ScraperCandidateGroup:
+    lane = SCRAPER_CANDIDATE_LANES[name]
+    candidates = sorted(
+        _read_scraper_candidates(lane.output_path),
+        key=lambda candidate: candidate.scraped_at,
+        reverse=True,
+    )
+    return ScraperCandidateGroup(
+        lane=name,  # type: ignore[arg-type]
+        label=lane.label,
+        source_file=lane.output_path.name,
+        total=len(candidates),
+        candidates=candidates[:limit],
+    )
+
+
 @app.get("/health")
 def health() -> dict:
     """Liveness. The process is up and serving; nothing more is claimed.
@@ -538,6 +591,22 @@ def get_opportunity(
     if opportunity is None:
         raise HTTPException(404, f"no opportunity {opportunity_id}")
     return opportunity
+
+
+@app.get("/scraper/candidates")
+def get_scraper_candidates(
+    lane: CandidateLane = "both",
+    limit: ListLimit = 6,
+    actor: Principal = Depends(principal),
+) -> dict[str, ScraperCandidateGroup]:
+    """Search-discovered candidate rows, grouped by scraper lane.
+
+    These are review queues, not the runtime opportunity catalog. The rows
+    come from scraper candidate files and keep their `NEEDS_HUMAN_REVIEW`,
+    `ACCEPTED`, or `REJECTED` status exactly as written there.
+    """
+    names = SCRAPER_CANDIDATE_LANES.keys() if lane == "both" else (lane,)
+    return {name: _scraper_candidate_group(name, limit) for name in names}
 
 
 @app.patch("/inbox/{item_id}")
