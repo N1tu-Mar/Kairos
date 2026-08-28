@@ -6,10 +6,15 @@ import httpx
 
 from agent.scraping.agent import (
     BraveSearchClient,
+    GENERAL_LANE,
+    GeneralWebScraperAgent,
     SearchResult,
+    UNIVERSITY_LANE,
+    UniversityWebScraperAgent,
     WebScraperAgent,
     WebScraperConfig,
     host_matches_any,
+    is_university_search_result,
     normalize_candidate_url,
     target_from_result,
 )
@@ -85,10 +90,31 @@ def test_search_results_become_unreviewed_web_targets():
 
     target = target_from_result(result)
 
-    assert target.tier == "WEB_SEARCH"
+    assert target.tier == "GENERAL_WEB_SEARCH"
     assert target.url == "https://example.edu/prize"
     assert "student founder prize" in target.operator_note
-    assert target.key.startswith("web_")
+    assert "general funding" in target.operator_note
+    assert target.key.startswith("general_web_")
+
+
+def test_university_result_detection_accepts_dot_edu_and_student_language():
+    assert is_university_search_result(
+        SearchResult(title="Startup Prize", url="https://example.edu/prize")
+    )
+    assert is_university_search_result(
+        SearchResult(
+            title="Campus Pitch Competition",
+            url="https://events.example.com/pitch",
+            snippet="Cash prizes for undergraduate student founders.",
+        )
+    )
+    assert not is_university_search_result(
+        SearchResult(
+            title="Small Business Innovation Grant",
+            url="https://publicfunding.example.org/grants",
+            snippet="Non-dilutive funding for incorporated startups.",
+        )
+    )
 
 
 def test_discovery_filters_duplicates_social_hosts_and_weak_results():
@@ -141,6 +167,77 @@ def test_domain_allowlist_limits_search_fetches():
     targets, _ = agent.discover_targets()
 
     assert [t.url for t in targets] == ["https://idea.rutgers.edu/grant"]
+
+
+def test_university_agent_filters_to_university_lane_targets():
+    agent = UniversityWebScraperAgent(
+        FakeSearch(
+            [
+                SearchResult(
+                    title="Small Business Innovation Grant",
+                    url="https://publicfunding.example.org/grants",
+                    snippet="Grant funding for startups.",
+                ),
+                SearchResult(
+                    title="Campus Venture Prize",
+                    url="https://entrepreneurship.example.edu/prize",
+                    snippet="Cash prize for undergraduate student entrepreneurs.",
+                ),
+            ]
+        ),
+        config=WebScraperConfig.for_lane(
+            UNIVERSITY_LANE,
+            queries=("college startup pitch competitions",),
+            max_results_per_query=10,
+        ),
+    )
+
+    targets, notes = agent.discover_targets()
+
+    assert notes == []
+    assert [t.tier for t in targets] == ["UNIVERSITY_WEB_SEARCH"]
+    assert [t.url for t in targets] == ["https://entrepreneurship.example.edu/prize"]
+    assert "university" in targets[0].tags
+
+
+def test_general_and_university_agents_can_share_one_search_client():
+    search = FakeSearch(
+        [
+            SearchResult(
+                title="Founder Grant",
+                url="https://publicfunding.example.org/grant",
+                snippet="Non-dilutive grant funding for startup founders.",
+            ),
+            SearchResult(
+                title="University Pitch Competition",
+                url="https://innovation.example.edu/pitch",
+                snippet="Prize funding for graduate student founders.",
+            ),
+        ]
+    )
+    general = GeneralWebScraperAgent(
+        search,
+        config=WebScraperConfig.for_lane(
+            GENERAL_LANE,
+            queries=("startup grants",),
+            max_results_per_query=10,
+        ),
+    )
+    university = UniversityWebScraperAgent(
+        search,
+        config=WebScraperConfig.for_lane(
+            UNIVERSITY_LANE,
+            queries=("student pitch competitions",),
+            max_results_per_query=10,
+        ),
+    )
+
+    general_targets, _ = general.discover_targets()
+    university_targets, _ = university.discover_targets()
+
+    assert search.queries == ["startup grants", "student pitch competitions"]
+    assert {target.tier for target in general_targets} == {"GENERAL_WEB_SEARCH"}
+    assert {target.tier for target in university_targets} == {"UNIVERSITY_WEB_SEARCH"}
 
 
 def test_run_reuses_scraper_pipeline_and_marks_rows_for_review(tmp_path):
