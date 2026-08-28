@@ -243,6 +243,12 @@ uv run python scripts/run_scout.py --schedule --hour 6
 # the Section 11.11 golden set — 15 drafts, 8 with traps, prints the number
 uv run python scripts/run_eval.py
 
+# search-backed scraper lanes. Both use the same BRAVE_SEARCH_API_KEY or
+# KAIROS_SEARCH_API_KEY. They write review candidates, not seed rows.
+uv run python scripts/run_web_scraper.py --lane university
+uv run python scripts/run_web_scraper.py --lane general
+uv run python scripts/run_web_scraper.py --lane both --out-dir data
+
 # the API
 uv run fastapi dev api/main.py
 
