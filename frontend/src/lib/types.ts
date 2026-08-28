@@ -107,6 +107,69 @@ export interface Opportunity {
   retrieved_at: string;
 }
 
+// Scraper candidates
+
+export type ScraperLaneName = "university" | "general";
+export type ScraperReviewStatus = "NEEDS_HUMAN_REVIEW" | "ACCEPTED" | "REJECTED";
+
+export interface ScraperEvidence {
+  text: string;
+  source_url: string;
+  method: string;
+}
+
+export interface ScraperFetchRecord {
+  url: string;
+  final_url: string;
+  status_code: number | null;
+  robots_allowed: boolean;
+  robots_url: string;
+  crawl_delay_s: number | null;
+  fetched_at: string;
+  content_hash: string;
+  raw_path: string;
+  renderer: "httpx" | "playwright";
+  failure: string | null;
+  bytes: number;
+}
+
+export interface ScraperCandidate {
+  scrape_id: string;
+  title: string;
+  organization: string;
+  source_url: string;
+  award_type: string | null;
+  award_min: number | null;
+  award_max: number | null;
+  institution: string[] | null;
+  degree_levels: string[] | null;
+  applicant_type: string[] | null;
+  equity_required: boolean | null;
+  team_size_min: number | null;
+  team_size_max: number | null;
+  deadline: string | null;
+  deadline_iso: string | null;
+  evidence: Record<string, ScraperEvidence>;
+  unknown_fields: string[];
+  caveats: string[];
+  founder_reviews: unknown[];
+  fetch: ScraperFetchRecord;
+  scraped_at: string;
+  review_status: ScraperReviewStatus;
+}
+
+export interface ScraperCandidateGroup {
+  lane: ScraperLaneName;
+  label: string;
+  source_file: string;
+  total: number;
+  candidates: ScraperCandidate[];
+}
+
+export type ScraperCandidateGroups = Partial<
+  Record<ScraperLaneName, ScraperCandidateGroup>
+>;
+
 // ── Founder ──────────────────────────────────────────────────────────────────
 
 export interface KnowledgeChunk {
