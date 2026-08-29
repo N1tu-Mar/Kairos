@@ -220,6 +220,21 @@ Numbered below.
     and both the secret version and the EventBridge connection carry
     `ignore_changes` — but no rotation Lambda exists.
 
+18. **Close the DNS-rebinding window in the scrape address guard.**
+    `agent/scraping/netguard.py` resolves a host, checks every address it
+    answers with, and refuses anything not publicly routable — on the URL
+    given *and* on every redirect hop, which is the half that was missing
+    while `follow_redirects=True` did the hopping. What it cannot close is
+    the gap between the check and the connection: httpx resolves the name a
+    second time to open the socket, and a record that is public on the first
+    lookup and internal on the second still gets through.
+
+    Closing it means resolving once, pinning that address, and connecting to
+    it directly with a `Host` header — a transport-level change to how every
+    fetch is made, not a bigger blocklist. Worth doing before the scraper
+    runs anywhere with credentials worth stealing; the current guard is the
+    cheap 90% and is written down here rather than assumed away.
+
 ---
 
 ## Completed foundations

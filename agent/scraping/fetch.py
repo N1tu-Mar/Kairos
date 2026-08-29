@@ -34,6 +34,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from agent.scraping.models import FetchRecord, content_hash
+from agent.scraping.netguard import BlockedAddress, assert_public_url
 from agent.scraping.robots import USER_AGENT, RobotsCache
 
 log = logging.getLogger("kairos.scraping.fetch")
@@ -56,6 +57,12 @@ _JS_REQUIRED = re.compile(
 #: Nothing on these sites is a 400KB page, and a surprise one is a
 #: denial-of-wallet vector for whatever reads the archive later.
 MAX_BYTES = 4_000_000
+
+#: Redirect hops followed before giving up. Every hop is address-checked, so
+#: this bounds work rather than exposure: a chain longer than this is a loop
+#: or a tarpit, and neither is a page worth waiting for. httpx's own default
+#: is 20; a funding programme that needs more than five is not real.
+MAX_REDIRECTS = 5
 
 
 class FetchRefused(RuntimeError):
@@ -153,6 +160,41 @@ class PoliteFetcher:
 
     # ── the one network call ─────────────────────────────────────────────
 
+    def _get_following_redirects(self, url: str) -> httpx.Response:
+        """GET `url`, checking every hop's address before opening a socket.
+
+        httpx's own `follow_redirects=True` is what this replaces, and the
+        reason is that it made the address check decorative: the check ran on
+        the URL we were handed, and the redirect chain after it went wherever
+        it liked. A page that 302s to `169.254.170.2` passed the front door
+        and fetched the credential endpoint anyway.
+
+        Raises `BlockedAddress` for a hop that must not be fetched, and
+        `httpx.HTTPError` for an ordinary network failure. A chain longer
+        than `MAX_REDIRECTS` is a loop or a tarpit; both are `httpx.
+        TooManyRedirects`, which the caller already records as a fetch error.
+        """
+        current = url
+        for _ in range(MAX_REDIRECTS + 1):
+            assert_public_url(current)
+            response = httpx.get(
+                current,
+                timeout=self.timeout_s,
+                # Off on purpose. The loop is here so the guard above runs on
+                # every hop; handing this back to httpx re-opens the hole.
+                follow_redirects=False,
+                headers={"User-Agent": USER_AGENT, "Accept": "text/html,*/*"},
+            )
+            if not response.has_redirect_location:
+                return response
+            # `.join` resolves a relative Location against the URL it came
+            # from, which is what a browser does and what the spec requires.
+            current = str(response.url.join(response.headers["location"]))
+
+        raise httpx.TooManyRedirects(
+            f"more than {MAX_REDIRECTS} redirects", request=response.request
+        )
+
     def fetch(self, url: str, *, allow_js: bool = False) -> tuple[str, FetchRecord]:
         """Fetch one page. Returns `(text, record)`; text is "" on failure.
 
@@ -177,12 +219,13 @@ class PoliteFetcher:
         self._wait_turn(host, decision.crawl_delay_s)
 
         try:
-            response = httpx.get(
-                url,
-                timeout=self.timeout_s,
-                follow_redirects=True,
-                headers={"User-Agent": USER_AGENT, "Accept": "text/html,*/*"},
-            )
+            response = self._get_following_redirects(url)
+        except BlockedAddress as exc:
+            # Refused before a socket was opened. Recorded like a robots
+            # denial — a decision about the run, not an error in it.
+            record.failure = f"BLOCKED_ADDRESS: {exc}"
+            log.warning("blocked_address", extra={"url": url})
+            return "", record
         except httpx.HTTPError as exc:
             record.failure = f"FETCH_ERROR: {type(exc).__name__}: {exc}"
             return "", record
