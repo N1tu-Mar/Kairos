@@ -1,3 +1,11 @@
+"""The Drafter step: what is asked, what is refused, and what is demoted.
+
+Three defences, each with its own test: a cold knowledge base disables
+drafting entirely, blocklisted and already-recalled fields are never sent
+to the model at all, and a citation that does not resolve demotes its
+field to NEEDS_FOUNDER rather than shipping unsourced.
+"""
+
 from __future__ import annotations
 
 import pytest

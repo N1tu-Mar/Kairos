@@ -1,3 +1,10 @@
+"""The Auditor step, with a scripted auditor.
+
+Two failure directions, both covered: an auditor that claims support
+without quoting anything, and an auditor that simply says nothing about a
+field. Neither may read as approval.
+"""
+
 from __future__ import annotations
 
 import pytest

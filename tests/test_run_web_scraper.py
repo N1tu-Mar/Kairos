@@ -1,3 +1,9 @@
+"""The web-scraper CLI: lane selection and output routing.
+
+No network. The search client and the fetcher are both fakes, so what is
+under test is the wiring — which lanes run, and where each one writes.
+"""
+
 from __future__ import annotations
 
 import json

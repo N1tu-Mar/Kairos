@@ -1,3 +1,9 @@
+"""Charging a model call against the run budget.
+
+Every sub-agent entry point takes a budget precisely so a call site
+cannot forget to charge. These assert what happens at the ceiling.
+"""
+
 from __future__ import annotations
 
 import pytest

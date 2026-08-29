@@ -1,3 +1,10 @@
+"""Loading the seed catalog.
+
+The verification boundary: an unverified row is excluded unless a caller
+explicitly opts in, and a malformed file is an error rather than an empty
+catalog.
+"""
+
 from __future__ import annotations
 
 import json

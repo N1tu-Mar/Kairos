@@ -1,3 +1,8 @@
+"""The ship gate, the last thing between a draft and a real application.
+
+Fail-closed: an exception inside the gate is a BLOCK, never a pass.
+"""
+
 from __future__ import annotations
 
 from agent.guardrails import ship_gate

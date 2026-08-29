@@ -1,3 +1,10 @@
+"""The API surface against persisted ground truth.
+
+These assert that what the endpoints return is what the pipeline wrote,
+not a re-derivation — a read surface that recomputes anything can disagree
+with the run it is describing.
+"""
+
 from __future__ import annotations
 
 from agent.models import InboxItem, RunReport

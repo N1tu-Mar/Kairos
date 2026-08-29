@@ -1,3 +1,10 @@
+"""The deterministic eligibility gate, one opportunity at a time.
+
+No model. The cases that matter are the three-valued ones — an unstated
+rule must become UNKNOWN rather than a silent pass, and injected text in
+a description must not be able to move a structured verdict.
+"""
+
 from __future__ import annotations
 
 from datetime import timedelta

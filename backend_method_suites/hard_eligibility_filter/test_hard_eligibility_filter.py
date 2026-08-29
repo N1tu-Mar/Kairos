@@ -1,3 +1,10 @@
+"""The hard filter over a batch of opportunities.
+
+Everything it drops has to carry a rejection naming the check, the
+founder value and the required value — a drop with no explanation is
+indistinguishable from a bug.
+"""
+
 from __future__ import annotations
 
 from datetime import timedelta

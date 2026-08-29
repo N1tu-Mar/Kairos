@@ -1,3 +1,8 @@
+"""The ranking key: how surfaced opportunities are ordered.
+
+Pure and total, so the order is reproducible for the same inputs.
+"""
+
 from __future__ import annotations
 
 from agent.guardrails import rank_key

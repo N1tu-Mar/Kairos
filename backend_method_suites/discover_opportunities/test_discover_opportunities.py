@@ -1,3 +1,10 @@
+"""Discovery across several sources: deduplication and partial failure.
+
+A source that dies must be reported and must not take the working sources
+with it. Deduplication is first-source-wins, and which source won is part
+of the result rather than an implementation detail.
+"""
+
 from __future__ import annotations
 
 from agent.tools.discovery import SourceError, discover_opportunities

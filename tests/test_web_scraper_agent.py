@@ -1,3 +1,10 @@
+"""The search-driven scraper: URL normalisation, filtering, and target building.
+
+No network. Everything here is about what the agent decides to fetch
+*before* it fetches anything: which URLs are worth a request, which hosts
+are skipped, and what provenance a candidate carries when it is written.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone

@@ -1,3 +1,11 @@
+"""Shared fixtures for the method suites.
+
+These suites exercise one backend method at a time against real
+persistence — a temporary SQLite file per test — with the model layer
+faked. The environment fixture mirrors `tests/conftest.py`; see its
+docstring for why it is duplicated rather than imported.
+"""
+
 from __future__ import annotations
 
 import json

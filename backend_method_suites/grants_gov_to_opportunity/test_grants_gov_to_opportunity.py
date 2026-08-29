@@ -1,3 +1,9 @@
+"""Mapping a Grants.gov hit onto the Opportunity model.
+
+The boundary where an external payload becomes an internal record. A
+field the API does not state must arrive as None, not as a default.
+"""
+
 from __future__ import annotations
 
 from agent.tools.discovery import GrantsGovSource

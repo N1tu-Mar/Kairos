@@ -1,3 +1,10 @@
+"""The escalation policy: which judged opportunities are worth interrupting for.
+
+Surfacing everything is the same as surfacing nothing. These fix the
+boundary — what gets a notification, what is surfaced passively, and what
+is skipped with a recorded reason.
+"""
+
 from __future__ import annotations
 
 from datetime import timedelta

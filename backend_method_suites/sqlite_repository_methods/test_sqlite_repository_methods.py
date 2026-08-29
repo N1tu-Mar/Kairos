@@ -1,3 +1,9 @@
+"""The repository methods directly, without an API in front of them.
+
+Idempotency and append-only behaviour are enforced by the database here,
+not by the callers, so this is where those guarantees are pinned.
+"""
+
 from __future__ import annotations
 
 from agent.models import InboxItem

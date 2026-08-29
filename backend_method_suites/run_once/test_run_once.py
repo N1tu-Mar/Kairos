@@ -1,3 +1,10 @@
+"""The whole pipeline run, offline.
+
+Sub-agents are fakes. What is under test is the orchestration: the order
+of the stages, what reaches the report, and what happens when a stage
+raises.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
