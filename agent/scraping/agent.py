@@ -104,6 +104,13 @@ class SearchApiError(RuntimeError):
 
 @dataclass(frozen=True)
 class SearchResult:
+    """One hit from a search provider, normalised across providers.
+
+    `rank` is the provider's ordering, kept so a candidate's operator note
+    can say where it came from. Everything here is attacker-influenced text —
+    a title and snippet are whatever the indexed page chose to say — so it is
+    used for filtering and provenance notes, never trusted as fact.
+    """
     title: str
     url: str
     snippet: str = ""
@@ -113,6 +120,12 @@ class SearchResult:
 
 
 class SearchClient(Protocol):
+    """The one boundary an external search API enters through.
+
+    Implementations raise `SearchApiError` for a provider-level failure.
+    `discover_targets` catches *any* exception per query and records a note,
+    so a broken provider degrades the sweep rather than ending it.
+    """
     def search(self, query: str, *, count: int) -> list[SearchResult]: ...
 
 
@@ -154,6 +167,12 @@ LANES = {lane.name: lane for lane in (GENERAL_LANE, UNIVERSITY_LANE)}
 
 
 def lane_by_name(name: str) -> ScraperLane:
+    """Resolve a lane name, or raise `ValueError` listing the valid ones.
+
+    Unknown names fail loudly rather than falling back to the general lane —
+    a typo'd lane silently writing to the wrong candidate file is the failure
+    this prevents.
+    """
     try:
         return LANES[name]
     except KeyError as exc:
@@ -176,6 +195,7 @@ class BraveSearchClient:
         timeout_s: float = 15.0,
         http_client: httpx.Client | None = None,
     ) -> None:
+        """An injected `http_client` is what lets tests exercise this without a network; otherwise one is created per client and lives as long as it does."""
         self.api_key = api_key.strip()
         self.base_url = base_url
         self.timeout_s = timeout_s
@@ -183,6 +203,11 @@ class BraveSearchClient:
 
     @classmethod
     def from_env(cls) -> "BraveSearchClient":
+        """Build from `BRAVE_SEARCH_API_KEY`, falling back to `KAIROS_SEARCH_API_KEY`.
+
+        A missing or blank key raises `SearchApiError` here rather than
+        producing a client that fails on first use.
+        """
         api_key = os.getenv("BRAVE_SEARCH_API_KEY") or os.getenv("KAIROS_SEARCH_API_KEY")
         if not api_key or not api_key.strip():
             raise SearchApiError(
@@ -191,6 +216,12 @@ class BraveSearchClient:
         return cls(api_key)
 
     def search(self, query: str, *, count: int) -> list[SearchResult]:
+        """One provider call, mapped to `SearchResult`s.
+
+        No retry and no rate limiting — the crawl delay in `PoliteFetcher`
+        governs page fetches, not search calls, and a sweep issues one search per
+        configured query.
+        """
         if not self.api_key:
             raise SearchApiError("Brave search API key is empty.")
 
@@ -235,6 +266,13 @@ class BraveSearchClient:
 
 @dataclass(frozen=True)
 class WebScraperConfig:
+    """What one sweep is allowed to do: which queries, how many pages, how far.
+
+    `max_pages` is the hard ceiling on fetches for the whole sweep, not per
+    query. `require_opportunity_hint` is a cheap pre-filter applied to the
+    search result's own text, so a page is rejected before it is ever
+    fetched.
+    """
     lane: ScraperLane = GENERAL_LANE
     queries: tuple[str, ...] = GENERAL_QUERIES
     domains: tuple[str, ...] = ()
@@ -246,6 +284,12 @@ class WebScraperConfig:
 
     @classmethod
     def for_lane(cls, lane: ScraperLane | str, **overrides: Any) -> "WebScraperConfig":
+        """Build a config from a lane, letting `overrides` win over the lane's defaults.
+
+        Note `raw_dir` is forced to the module-level `RAW_DIR` before overrides
+        apply, so a lane cannot redirect where evidence is archived but an
+        explicit caller still can.
+        """
         selected = lane_by_name(lane) if isinstance(lane, str) else lane
         values: dict[str, Any] = {
             "lane": selected,
@@ -266,6 +310,17 @@ class WebScraperAgent:
     fetcher: PoliteFetcher | None = None
 
     def discover_targets(self) -> tuple[list[Target], list[str]]:
+        """Search every query and return the fetchable targets, plus notes.
+
+        Three things happen per hit, in order: the URL is normalised (which is
+        also the dedupe key), it is filtered by `_should_fetch`, and it becomes a
+        `Target`. Deduplication is by normalised URL across all queries, so the
+        first query to find a page owns its provenance note.
+
+        `max_pages` returns early — the remaining queries are never issued — so
+        the cap bounds search calls as well as fetches. A query whose search call
+        fails records a note and is skipped; the sweep continues.
+        """
         targets: list[Target] = []
         notes: list[str] = []
         seen: set[str] = set()
@@ -296,6 +351,16 @@ class WebScraperAgent:
         return targets, notes
 
     def run(self) -> tuple[list[ScrapedOpportunity], ScrapeRun]:
+        """Discover targets, then hand them to the shared scrape pipeline.
+
+        `discover=False`: the pipeline must not follow links out of these pages.
+        Search chose what to fetch, and link-following would put pages nobody
+        vetted into the candidate file.
+
+        An empty target list still returns a `ScrapeRun` with notes, so "the
+        search found nothing" is a recorded outcome rather than an empty result
+        indistinguishable from a sweep that never ran.
+        """
         targets, notes = self.discover_targets()
         if not targets:
             run = ScrapeRun(run_id=f"web_scrape_{uuid.uuid4().hex[:12]}")
@@ -325,6 +390,12 @@ class WebScraperAgent:
         path: Path | None = None,
         run_log: Path | None = None,
     ) -> tuple[Path, list[ScrapedOpportunity], ScrapeRun]:
+        """Run the sweep and write the candidates file plus a run-log line.
+
+        Writes to the lane's `output_path` unless overridden. Everything written
+        is `NEEDS_HUMAN_REVIEW` — this is a review queue, and nothing here can
+        reach a founder until a person marks it ACCEPTED.
+        """
         records, run = self.run()
         written = write_candidates(
             records,
@@ -335,6 +406,16 @@ class WebScraperAgent:
         return written, records, run
 
     def _should_fetch(self, result: SearchResult) -> bool:
+        """Whether a search hit is worth spending a fetch on.
+
+        Four filters, cheapest first, all applied before any request: the domain
+        allowlist when the lane has one, the university signal for that lane, a
+        skip-list of hosts (aggregators and social sites), and the opportunity
+        hint regex over the hit's own title, snippet and URL.
+
+        The hint filter matches on provider-supplied text, so it is a heuristic
+        about what search *said* the page is, not about what it contains.
+        """
         if self.config.domains and not host_matches_any(result.url, self.config.domains):
             return False
 
@@ -362,6 +443,7 @@ class GeneralWebScraperAgent(WebScraperAgent):
         config: WebScraperConfig | None = None,
         fetcher: PoliteFetcher | None = None,
     ) -> None:
+        """Preset for the general lane. Same behaviour as `WebScraperAgent` with `GENERAL_LANE` config."""
         super().__init__(
             search_client=search_client,
             config=config or WebScraperConfig.for_lane(GENERAL_LANE),
@@ -378,6 +460,7 @@ class UniversityWebScraperAgent(WebScraperAgent):
         config: WebScraperConfig | None = None,
         fetcher: PoliteFetcher | None = None,
     ) -> None:
+        """Preset for the university lane, which additionally requires a university signal per hit."""
         super().__init__(
             search_client=search_client,
             config=config or WebScraperConfig.for_lane(UNIVERSITY_LANE),
@@ -386,6 +469,17 @@ class UniversityWebScraperAgent(WebScraperAgent):
 
 
 def normalize_candidate_url(url: str) -> str | None:
+    """Canonicalise a search hit's URL, or None if it is not worth fetching.
+
+    Doing both jobs in one function is deliberate: the normalised form is the
+    deduplication key, so two URLs that differ only by tracking parameters,
+    trailing slash or host case must not be fetched twice.
+
+    Returns None for non-HTTP schemes, hosts that failed to parse, and paths
+    ending in a binary extension. Note the fragment is dropped and the query
+    is kept minus tracking parameters — a page whose identity genuinely lives
+    in its fragment would collapse into its parent here.
+    """
     raw = (url or "").strip()
     parts = urlsplit(raw)
     if parts.scheme not in {"http", "https"} or not parts.netloc:
@@ -403,6 +497,11 @@ def normalize_candidate_url(url: str) -> str | None:
 
 
 def host_matches_any(url: str, domains: tuple[str, ...]) -> bool:
+    """Whether the URL's host is, or is a subdomain of, any listed domain.
+
+    Suffix matching is anchored on a dot, so `notexample.edu` does not match
+    `example.edu`. `www.` is stripped from both sides.
+    """
     host = urlsplit(url).netloc.lower().removeprefix("www.")
     for domain in domains:
         cleaned = domain.lower().strip().removeprefix("www.")
@@ -423,6 +522,16 @@ def is_university_search_result(result: SearchResult) -> bool:
 
 
 def target_from_result(result: SearchResult, *, lane: ScraperLane = GENERAL_LANE) -> Target:
+    """Turn a search hit into a scrape `Target` with its provenance recorded.
+
+    The key is a hash of the URL, so the same page discovered by two lanes
+    gets two keys — lane-scoped by design, since the lanes write to separate
+    candidate files.
+
+    `operator_note` carries the query and rank that found it, which is what a
+    reviewer needs to judge whether the hit is spurious. The snippet is
+    truncated to 240 characters; it is untrusted text from the indexed page.
+    """
     title = result.title or _title_from_url(result.url)
     note = (
         f"Discovered by {result.source} {lane.label} search query {result.query!r}"
@@ -444,15 +553,22 @@ def target_from_result(result: SearchResult, *, lane: ScraperLane = GENERAL_LANE
 
 
 def _clean_text(value: str) -> str:
+    """Strip tags and collapse whitespace. Not sanitisation — it makes provider text readable, nothing more."""
     value = re.sub(r"<[^>]+>", "", value or "")
     return re.sub(r"\s+", " ", value).strip()
 
 
 def _title_from_url(url: str) -> str:
+    """Fall back to a title derived from the URL's last path segment.
+
+    Used when the provider gave no title. Returns the whole URL when the
+    path is empty, so a target always has something a reviewer can read.
+    """
     path = urlsplit(url).path.strip("/").rsplit("/", 1)[-1]
     return path.replace("-", " ").replace("_", " ").strip().title() or url
 
 
 def _host_label(url: str) -> str:
+    """The hostname, used as the organisation when nothing better is known."""
     host = urlsplit(url).netloc.lower().removeprefix("www.")
     return host or "unknown"
