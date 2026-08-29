@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { ApiError, getJobStatus, httpStatusFor } from "@/lib/api";
+import { getJobStatus } from "@/lib/api";
+import { errorResponse } from "@/lib/errors";
 
 /**
  * Thin proxy over `GET /founders/{id}/jobs/{job_id}` — the poll target.
@@ -26,19 +27,10 @@ export async function GET(
     const status = await getJobStatus(decodeURIComponent(jobId));
     return NextResponse.json(status);
   } catch (error) {
-    if (error instanceof ApiError) {
-      return NextResponse.json(
-        { error: error.userMessage, detail: error.message, kind: error.kind },
-        { status: httpStatusFor(error) },
-      );
-    }
-    return NextResponse.json(
-      {
-        error: "The run's status could not be read.",
-        detail: error instanceof Error ? error.message : String(error),
-        kind: "unknown",
-      },
-      { status: 500 },
+    return errorResponse(
+      error,
+      "GET /api/runs/[jobId]",
+      "The run's status could not be read.",
     );
   }
 }

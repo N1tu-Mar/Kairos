@@ -51,11 +51,20 @@ export class ApiError extends Error {
     this.status = status;
   }
 
-  /** One line the UI can show a human without leaking a stack trace. */
+  /**
+   * One line the UI can show a human without leaking a stack trace.
+   *
+   * It also must not name the deployment. This used to interpolate
+   * `apiBaseUrl()` into the unreachable case, which meant an unauthenticated
+   * stranger could ask the dashboard where its backend lives by taking the
+   * backend down — or just by waiting for it to be down. The address helps
+   * nobody who cannot already read the environment, and the operator now
+   * gets it in the server log instead (`src/lib/errors.ts`).
+   */
   get userMessage(): string {
     switch (this.kind) {
       case "unreachable":
-        return `Could not reach the Kairos API at ${apiBaseUrl()}. Is the FastAPI backend running?`;
+        return "Could not reach the Kairos API. Is the FastAPI backend running?";
       case "timeout":
         return "The Kairos API did not respond in time.";
       case "not_found":

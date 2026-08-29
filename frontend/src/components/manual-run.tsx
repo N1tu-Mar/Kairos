@@ -193,14 +193,18 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
       }
 
       if (!response.ok) {
-        const body = (payload ?? {}) as { error?: string; detail?: string };
+        const body = (payload ?? {}) as { error?: string; requestId?: string };
         inFlight.current = false;
         setStatus({
           phase: "error",
           message:
             body.error ??
             `The backend returned ${response.status} and the run did not start.`,
-          detail: body.detail,
+          // The proxy no longer returns `detail` — it named the backend's
+          // host and port to anyone who could make a request fail. What comes
+          // back instead is the id the server logged the detail under, which
+          // is the half a person can actually do something with.
+          detail: body.requestId,
         });
         return;
       }
