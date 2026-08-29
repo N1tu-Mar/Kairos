@@ -230,8 +230,9 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
       <h2 className="font-serif text-lg tracking-tight text-ink">Run Kairos now</h2>
       <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-muted">
         Starts one run by hand, immediately. The run happens on the backend, so
-        it keeps going if you close this page. This does not create a schedule.
-        Production scheduling calls the same endpoint on a timer.
+        it keeps going if you close this page. It runs once and does not create
+        a schedule, so come back whenever you like and the results will be
+        waiting.
       </p>
 
       {!compact ? (
