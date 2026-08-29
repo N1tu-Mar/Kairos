@@ -202,6 +202,13 @@ def test_job_error_is_sanitised_on_the_row_the_api_serves(tmp_path):
     from api.repository import SqliteRepository
 
     class ExplodingRepo(SqliteRepository):
+        """Fails with a message carrying both a path and a live-looking token.
+
+        Both are things a real exception message can pick up from whatever
+        was nearby. The assertion is that neither survives into the job's
+        persisted `error`, which is served over HTTP.
+        """
+
         def get_profile(self, founder_id):
             raise RuntimeError(
                 "db at /data/state/kairos.db died; "

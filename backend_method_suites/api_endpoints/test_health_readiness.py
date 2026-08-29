@@ -24,6 +24,8 @@ def test_health_stays_ok_when_the_database_is_gone(api_client):
     from api.main import app
 
     class DeadRepo:
+        """Storage that raises on every read."""
+
         def get_profile(self, founder_id):
             raise RuntimeError("disk gone")
 
@@ -47,6 +49,8 @@ def test_ready_detects_an_unavailable_database(api_client):
     from api.main import app
 
     class DeadRepo:
+        """The same dead storage, this time expected to fail readiness."""
+
         def get_profile(self, founder_id):
             raise RuntimeError("disk gone")
 

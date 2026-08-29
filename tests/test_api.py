@@ -18,6 +18,11 @@ from tests.factories import draft, generated, opportunity, profile
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
+    """A `TestClient` over the real app, backed by a fresh SQLite file.
+
+    Entered as a context manager so the app's `lifespan` runs — that is what
+    builds the repository and the executor on `app.state`.
+    """
     monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/test.db")
     from agent import config
 
@@ -28,6 +33,11 @@ def client(monkeypatch, tmp_path):
 
 
 def seed_run(repo: SqliteRepository) -> RunReport:
+    """Persist a profile and one finished run with rejections and skips.
+
+    The fixture the read endpoints are asserted against: every number these
+    tests check has to come back out of storage unchanged.
+    """
     repo.save_profile(profile())
     report = RunReport(
         run_id="run_1",
@@ -189,6 +199,7 @@ def test_an_unknown_opportunity_is_404(client):
 
 
 def scraped_candidate(scrape_id: str, title: str, scraped_at: str) -> dict:
+    """One scraper candidate row as the JSON the API serves it in."""
     url = f"https://example.edu/{scrape_id}"
     return {
         "scrape_id": scrape_id,

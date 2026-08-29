@@ -27,10 +27,16 @@ pytestmark = pytest.mark.asyncio
 
 
 def repo() -> SqliteRepository:
+    """A fresh in-memory repository. Nothing survives the test."""
     return SqliteRepository("sqlite:///:memory:")
 
 
 def budget(tmp_path, **overrides) -> RunBudget:
+    """A budget with caps high enough not to interfere, unless a test overrides one.
+
+    `daily_usd_cap=0.0` disables the dollar cap rather than setting a low
+    one, so a test that trips a cap always tripped the cap it meant to.
+    """
     base = dict(
         max_run_tokens=1_000_000,
         max_assessments=25,
@@ -42,6 +48,12 @@ def budget(tmp_path, **overrides) -> RunBudget:
 
 
 def agents(*assessments) -> SubAgents:
+    """Sub-agents whose Assessor returns the given assessments in order.
+
+    The Drafter and Auditor get no canned responses, so calling either raises
+    out of `FakeAgent` — these tests cover the run loop, and an unexpected
+    drafting call must fail loudly.
+    """
     return SubAgents(
         assessor=FakeAgent(*assessments),
         assessor_version="v1",
@@ -53,12 +65,17 @@ def agents(*assessments) -> SubAgents:
 
 
 def assessment(verdict="APPLY", hours=4.0, **kw) -> Assessment:
+    """An `Assessment` with a `[DEMO]` reason. Override any field by keyword."""
     return Assessment(
         verdict=verdict, reason=f"[DEMO] {verdict} reason", effort_hours=hours, **kw
     )
 
 
 class ListSource:
+    """A source that returns a fixed list and ignores `since`.
+
+    Named `"seed"` so failures attribute to a real `SourceName`.
+    """
     name = "seed"
 
     def __init__(self, opportunities):
@@ -209,6 +226,7 @@ async def test_a_throttled_run_halts_and_surfaces_nothing(tmp_path, monkeypatch)
     from agent.prompting import MAX_THROTTLE_ATTEMPTS
 
     async def instant(seconds):
+        """Replaces `asyncio.sleep` so backoff is exercised without waiting for it."""
         return None
 
     monkeypatch.setattr(_asyncio, "sleep", instant)
@@ -268,6 +286,8 @@ async def test_a_blown_token_ceiling_halts_and_surfaces_nothing(tmp_path):
 
 async def test_a_dead_source_does_not_stop_the_run(tmp_path):
     class DeadSource:
+        """A source that always fails. The run must continue on the others."""
+
         name = "grants_gov"
 
         def fetch(self, since):
@@ -289,6 +309,8 @@ async def test_a_dead_source_does_not_stop_the_run(tmp_path):
 
 async def test_an_unexpected_crash_is_reported_not_hidden(tmp_path):
     class ExplodingSource:
+        """Fetches fine — the failure this test injects is downstream of it."""
+
         name = "seed"
 
         def fetch(self, since):
@@ -411,6 +433,13 @@ async def test_every_opportunity_a_run_saw_is_persisted(tmp_path):
 
 async def test_a_failing_opportunity_write_does_not_halt_a_completed_run(tmp_path):
     class BrokenOnOpportunities:
+        """A repository that works except for `save_opportunity`.
+
+        Delegates everything else through `__getattr__`, so the only thing
+        that changes is the one write under test — a hand-written stub
+        would also have to be kept in sync with the real interface.
+        """
+
         def __init__(self, inner):
             self._inner = inner
 
