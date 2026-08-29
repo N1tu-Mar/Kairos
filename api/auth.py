@@ -68,6 +68,12 @@ class Principal:
     method: str = "unknown"
 
     def owns(self, founder_id: str) -> bool:
+        """Whether this principal may touch `founder_id`.
+
+        Membership in a closed set, not a pattern or a prefix match. A principal
+        with an empty `founder_ids` owns nothing and every check fails — which is
+        the intended reading of a revoked credential, not a bug.
+        """
         return founder_id in self.founder_ids
 
 
@@ -82,12 +88,25 @@ ANONYMOUS_LOCAL = Principal(
 
 
 class Authenticator(Protocol):
+    """One method: turn a raw `Authorization` header into a `Principal`.
+
+    Every implementation must fail closed — raise `AuthError` rather than
+    return a principal with an empty set — because callers only catch the
+    exception. Returning a permissive principal on an unreadable credential
+    store would be silently authorizing.
+    """
     def authenticate(self, authorization: str | None) -> Principal:
         """Resolve a credential to a principal, or raise `AuthError`."""
         ...
 
 
 def _bearer(authorization: str | None) -> str:
+    """Pull the token out of an `Authorization: Bearer <token>` header.
+
+    Raises `AuthError` for missing, non-bearer and empty-value headers alike.
+    The message distinguishes missing from malformed for the operator's logs;
+    neither reaches the client, which sees one generic 401.
+    """
     if not authorization:
         raise AuthError("missing credential")
     scheme, _, value = authorization.partition(" ")
@@ -112,11 +131,18 @@ class SharedTokenAuthenticator:
         *,
         production: bool = False,
     ) -> None:
+        """`token=""` means run open, which is only reachable when `production` is False; in production an empty token becomes an `AuthError` on every request instead of a mode."""
         self.token = token
         self.founder_id = founder_id
         self.production = production
 
     def authenticate(self, authorization: str | None) -> Principal:
+        """Compare the bearer token against the one configured token.
+
+        The comparison is constant-time so the response latency cannot be used to
+        recover the token a character at a time. Every holder resolves to the
+        same `Principal`, because a shared secret cannot prove more than that.
+        """
         if not self.token:
             if self.production:
                 # An open API in production is a misconfiguration, not a mode.
@@ -163,6 +189,12 @@ class Credential:
     expires_at: float | None = None
 
     def valid_at(self, now: float) -> bool:
+        """Whether this credential is usable at `now` (unix seconds).
+
+        Revoked always loses. `expires_at is None` never expires — deliberate for
+        service credentials, and the reason the field is documented as
+        inappropriate for a person's token.
+        """
         if self.revoked:
             return False
         return self.expires_at is None or self.expires_at > now
@@ -201,11 +233,24 @@ class StaticTokenFileAuthenticator:
     """
 
     def __init__(self, path: Path | str) -> None:
+        """Nothing is read here. The first `authenticate` triggers the initial load, so constructing this against a missing file is not an error — it becomes a fail-closed empty credential set at request time."""
         self.path = Path(path)
         self._credentials: dict[str, Credential] = {}
         self._mtime: float | None = None
 
     def _reload_if_changed(self) -> None:
+        """Re-read the credential file when its mtime has moved.
+
+        Every failure path here empties `_credentials`, so an unreadable or
+        corrupt file denies everyone rather than keeping the last-known-good set.
+        That is the safe direction, and it is also a self-inflicted outage worth
+        knowing about before editing the file in production.
+
+        Detection is mtime-only. A write that lands within the same filesystem
+        mtime granularity as the previous one is not noticed — on a filesystem
+        with one-second timestamps, two rotations in the same second leave the
+        second one unloaded until something else touches the file.
+        """
         try:
             mtime = self.path.stat().st_mtime
         except OSError:
@@ -251,6 +296,11 @@ class StaticTokenFileAuthenticator:
         self._mtime = mtime
 
     def authenticate(self, authorization: str | None) -> Principal:
+        """Resolve a bearer token to a principal via its SHA-256 digest.
+
+        The file is re-checked on every call, so revocation takes effect on the
+        next request rather than on the next restart.
+        """
         self._reload_if_changed()
         supplied = _bearer(authorization)
         digest = hash_token(supplied)
@@ -321,6 +371,12 @@ def authorize(principal: Principal, founder_id: str, *, write: bool = False) -> 
 
 #: Actions worth a security audit event: anything that changes state a
 #: founder would notice, plus rejected authentication.
+#:
+#: Documentation only — `audit_event` does not check its `action` against
+#: this set, and nothing else imports it. A call site that passes an action
+#: not listed here is still recorded, and adding an audited action without
+#: adding it here goes unnoticed. If that guarantee is wanted, it has to be
+#: an assertion in `audit_event`, not this constant.
 AUDITED_ACTIONS = frozenset(
     {
         "profile.write",
@@ -364,9 +420,14 @@ class InMemoryAuditSink:
 
     Production sends these to CloudWatch through the structured logger; this
     exists so a test can assert an event was emitted without parsing logs.
+
+    Currently unreferenced: `audit_event` writes to the `kairos.audit`
+    logger directly and nothing wires a sink in front of it, so this class
+    is a seam that was never connected rather than one in use.
     """
 
     events: list[dict] = field(default_factory=list)
 
     def record(self, **event: object) -> None:
+        """Append one event. No filtering, no redaction — callers pass ids and counts only."""
         self.events.append(dict(event))
