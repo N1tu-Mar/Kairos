@@ -42,6 +42,13 @@ def live_agents():
 
 
 async def main() -> int:
+    """CLI entry for the golden set. Returns 0 whatever the score.
+
+    Deliberately not a pass/fail gate: this prints a measurement, and a
+    threshold that silently changes what gets reported is how an eval stops
+    being one. `--live` is the only mode whose number may be published
+    without the "defense layer" qualifier.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--live",

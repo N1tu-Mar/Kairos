@@ -27,6 +27,11 @@ FORMS_DIR = REPO_ROOT / "data" / "forms"
 
 
 def load_forms(directory: Path = FORMS_DIR) -> dict[str, ApplicationForm]:
+    """Load every form JSON in `directory`, keyed by opportunity id.
+
+    A later file with the same `opportunity_id` overwrites an earlier one, so
+    the count printed by this script counts opportunities, not files.
+    """
     forms = {}
     for path in sorted(directory.glob("*.json")):
         form = ApplicationForm.model_validate(json.loads(path.read_text()))
@@ -35,6 +40,16 @@ def load_forms(directory: Path = FORMS_DIR) -> dict[str, ApplicationForm]:
 
 
 def report(rows: list[dict], forms: dict[str, ApplicationForm]) -> dict:
+    """Build the coverage report: which catalog rows have a form, and how complete each is.
+
+    Also reports `forms_with_no_catalog_row` — a form transcribed for an
+    opportunity that is no longer in the catalog, which is the direction of
+    drift that otherwise goes unnoticed.
+
+    Protected fields are recomputed from `blocklisted()` rather than read off
+    the form's `protected` flag, so the report shows what the gate would
+    actually refuse rather than what the curator marked.
+    """
     real_forms = {k: f for k, f in forms.items() if not k.startswith("demo_")}
     verified_ids = {r["id"] for r in rows if r.get("verified")}
 
@@ -80,6 +95,7 @@ def report(rows: list[dict], forms: dict[str, ApplicationForm]) -> dict:
 
 
 def main() -> int:
+    """CLI entry. Always returns 0 — this reports a gap, it does not fail on one."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=Path, default=SEED)
     parser.add_argument("--forms", type=Path, default=FORMS_DIR)

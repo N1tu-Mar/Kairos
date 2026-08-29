@@ -47,6 +47,12 @@ _CURATION_KEYS = ("verified", "verified_at", "verification_note", "unreachable")
 
 
 def normalize_url(url: str) -> str:
+    """Canonical form of a source URL, for duplicate detection.
+
+    Two rows pointing at the same page must collapse even when one has a
+    trailing slash or a different scheme, because the point of the dedupe is
+    to catch two researchers finding the same program.
+    """
     return re.sub(r"/+$", "", (url or "").strip().lower()).replace("https://", "http://")
 
 
@@ -82,6 +88,16 @@ def stale_note(row: dict, today: date) -> str | None:
 
 
 def merge(batches: list[Path], existing: list[dict], today: date) -> tuple[list[dict], dict]:
+    """Fold batch files into the existing rows and report every decision.
+
+    First file wins on a collision, and every skip is categorised —
+    unreachable, invalid, duplicate, stale — so the caller can print them.
+    Nothing is dropped silently: a row that does not make it into the output
+    appears in exactly one of those lists.
+
+    Validation is against the real `Opportunity` model, so an invented key
+    fails here rather than reaching the catalog.
+    """
     rows = list(existing)
     by_id = {r.get("id"): r for r in rows}
     by_url = {normalize_url(r.get("source_url", "")): r for r in rows if r.get("source_url")}
@@ -136,6 +152,12 @@ def merge(batches: list[Path], existing: list[dict], today: date) -> tuple[list[
 
 
 def main() -> int:
+    """CLI entry. Writes the candidate file unless `--dry-run`. Always returns 0.
+
+    What it writes is unverified by construction — `verify_seed.py` is what
+    re-fetches each page and re-finds each quote, and only that can mark a
+    row verified.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("batches", nargs="+", type=Path)
     parser.add_argument("--candidates", type=Path, default=CANDIDATES)

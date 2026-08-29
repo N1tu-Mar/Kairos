@@ -30,6 +30,12 @@ from agent.scraping.registry import TARGETS  # noqa: E402
 
 
 def main() -> int:
+    """CLI entry for the operator-run sweep. 0 on success, 1 when no target matched.
+
+    Writes only to the candidates file, never to the seed catalog: everything
+    it produces is `NEEDS_HUMAN_REVIEW` and needs a person before it can
+    reach a run.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--priority", type=int, default=2, help="fetch targets at or above")
     parser.add_argument("--key", action="append", help="fetch only these registry keys")

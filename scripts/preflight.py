@@ -36,12 +36,19 @@ FAIL = "FAIL"
 
 @dataclass
 class Check:
+    """One preflight result: what was checked, the verdict, and a line explaining it.
+
+    `status` is OK, WARN or FAIL. WARN exists so the local posture — an open
+    API, zero prices — can be reported honestly without failing a check that
+    is correct for localhost.
+    """
     name: str
     status: str
     detail: str
 
 
 def check(name: str, status: str, detail: str = "") -> Check:
+    """Build a `Check`. A shorthand so the check functions read as a list of findings."""
     return Check(name, status, detail)
 
 
@@ -186,6 +193,13 @@ def _looks_like_a_raw_token(data: dict) -> bool:
 
 
 def _check_schema(settings, production: bool) -> list[Check]:
+    """Whether the database exists and is at a migration revision.
+
+    Opens the repository with `create_schema=False` on purpose: this must
+    report a missing schema, not create one. An unmigrated database is a WARN
+    locally and a FAIL in production, where it means the deploy skipped
+    `alembic upgrade head`.
+    """
     from api.repository import SqliteRepository
 
     try:
@@ -305,6 +319,12 @@ def check_deployment(url: str, token: str | None) -> list[Check]:
 
 
 def _get(url: str, token: str | None = None) -> dict | None:
+    """GET and parse JSON, or None on any failure.
+
+    None is deliberately ambiguous — unreachable, timed out, or not JSON —
+    because every caller treats all three the same: the check could not be
+    performed. Never raises, so one dead endpoint cannot end the preflight.
+    """
     request = urllib.request.Request(url)
     if token:
         request.add_header("Authorization", f"Bearer {token}")
@@ -316,6 +336,12 @@ def _get(url: str, token: str | None = None) -> dict | None:
 
 
 def _status(url: str, token: str | None = None) -> int | None:
+    """GET and return the HTTP status, or None if the request never completed.
+
+    An HTTP error status is a result, not a failure: 401 and 403 are exactly
+    what a credential check is looking for, so `HTTPError` is unwrapped to
+    its code rather than swallowed.
+    """
     request = urllib.request.Request(url)
     if token:
         request.add_header("Authorization", f"Bearer {token}")
@@ -332,6 +358,12 @@ def _status(url: str, token: str | None = None) -> int | None:
 
 
 def main() -> int:
+    """CLI entry. 0 when nothing FAILed, 1 otherwise. WARNs are printed and do not fail.
+
+    `--env` overrides `KAIROS_ENV`, so the production posture can be checked
+    from a laptop without setting the variable and changing how the rest of
+    the process behaves.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--env",

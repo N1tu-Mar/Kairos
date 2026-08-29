@@ -57,6 +57,7 @@ EXEMPT_PREFIXES = ("./", "docker://")
 
 
 class Problem(NamedTuple):
+    """One finding, located. `file` and `line` make the output pasteable into an editor."""
     file: str
     line: int
     message: str
@@ -175,6 +176,13 @@ def ref_exists(action: str, ref: str) -> bool:
     owner_repo = "/".join(action.split("/")[:2])
 
     def api(path: str) -> tuple[int, dict]:
+        """Call the GitHub API and return `(status_code, body)`.
+
+        Never raises: transport failures and unparseable bodies come back as a
+        zero status, so a network problem reads as "could not check" rather than
+        as a failing pin. Uses `GITHUB_TOKEN` when present, purely for the higher
+        rate limit — every endpoint touched here is public.
+        """
         request = urllib.request.Request(
             f"https://api.github.com/repos/{owner_repo}/{path}",
             headers={"Accept": "application/vnd.github+json"},
@@ -330,6 +338,12 @@ def check_online(paths: list[Path]) -> list[Problem]:
 
 
 def main() -> int:
+    """CLI entry. 0 when every workflow checks out, 1 when any problem is found.
+
+    `--online` adds the checks that need the network — that each pinned SHA
+    resolves upstream, and that no pin has fallen behind. Offline runs check
+    structure only, so a green offline run is not proof the pins are good.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--online",

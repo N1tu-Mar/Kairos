@@ -83,6 +83,12 @@ def compare(committed: dict, expected: dict) -> tuple[list[str], list[str]]:
 
 
 def main() -> int:
+    """CLI entry. 0 when the lockfile matches CI's resolution, 1 when it drifts.
+
+    Exits 0 and skips the check when `npm` is not on PATH — a missing
+    toolchain is not evidence of drift, and failing here would break every
+    Python-only contributor's preflight.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--fix",
