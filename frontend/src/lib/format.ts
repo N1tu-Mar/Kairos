@@ -10,10 +10,22 @@ export function isDemo(text: string | null | undefined): boolean {
   return (text ?? "").includes("[DEMO]");
 }
 
+/**
+ * Thousands-separated integer, en-US.
+ */
 export function formatInt(value: number): string {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+/**
+ * Human duration from seconds. `—` for negatives and non-finite values.
+ *
+ * Three bands: milliseconds under a second, one decimal of seconds under a
+ * minute, then `Xm Ys`. The em dash is the shared "no value" marker used
+ * by every formatter here, so an unset field and a malformed one look the
+ * same on screen — deliberate, since neither is something the reader can
+ * act on.
+ */
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "—";
   if (seconds < 1) return `${Math.round(seconds * 1000)} ms`;
@@ -23,10 +35,23 @@ export function formatDuration(seconds: number): string {
   return `${minutes}m ${rest}s`;
 }
 
+/**
+ * Dollars to four decimal places.
+ *
+ * Four, not two: a run's spend is routinely under a cent, and rounding it
+ * to $0.00 would make a real cost indistinguishable from the unpriced case.
+ */
 export function formatUsd(value: number): string {
   return `$${value.toFixed(4)}`;
 }
 
+/**
+ * Absolute date and time, in the *viewer's* locale timezone.
+ *
+ * The API sends UTC. This renders local, so a timestamp shown here and one
+ * in a server log will not match unless the reader is on UTC. `—` for null
+ * and unparseable input.
+ */
 export function formatTimestamp(iso: string | null): string {
   if (!iso) return "—";
   const date = new Date(iso);
@@ -37,6 +62,13 @@ export function formatTimestamp(iso: string | null): string {
   }).format(date);
 }
 
+/**
+ * Relative time ("3 hours ago"), bucketed to minutes, hours or days.
+ *
+ * Computed against `Date.now()` at render time. In a server-rendered page
+ * that is the server's clock at render, so a page held open does not
+ * update — it says how old the data was when the page was built.
+ */
 export function formatRelative(iso: string | null): string {
   if (!iso) return "—";
   const then = new Date(iso).getTime();
@@ -116,6 +148,12 @@ export function runHeadline(report: RunReport): string {
   return `Scanned ${report.scanned}. Discarded ${report.filtered_out}. Judged ${report.judged}. Surfaced ${report.surfaced}.`;
 }
 
+/**
+ * Split on underscores and whitespace, capitalise each word.
+ *
+ * Used for machine tokens (`first_degree`, `not_done`). Only the first
+ * letter is touched, so an acronym keeps whatever case it arrived in.
+ */
 export function titleCase(token: string): string {
   return token
     .split(/[_\s]+/)

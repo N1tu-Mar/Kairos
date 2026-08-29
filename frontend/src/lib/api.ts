@@ -88,6 +88,22 @@ interface RequestOptions {
   timeoutMs?: number;
 }
 
+/**
+ * The one fetch in this app. Every read and write goes through here.
+ *
+ * Three things it guarantees that individual callers must not re-implement:
+ *
+ * - The bearer token is attached **server-side only**. This module is
+ *   `server-only`, so the credential never reaches the browser.
+ * - `cache: "no-store"`. Every view reflects live pipeline state, and a
+ *   cached render of a run that has since finished is a lie.
+ * - Every failure becomes an `ApiError` with a `kind` — timeout,
+ *   unreachable, not_found, http, malformed. Callers branch on the kind
+ *   rather than on a message.
+ *
+ * The abort timer is cleared in `finally`, so a slow-but-successful
+ * response does not leave a pending timeout behind.
+ */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, timeoutMs = readTimeoutMs() } = options;
   const url = `${apiBaseUrl()}${path}`;
@@ -154,18 +170,34 @@ async function optional<T>(promise: Promise<T>): Promise<T | null> {
 
 // ── Reads ────────────────────────────────────────────────────────────────────
 
+/**
+ * Backend liveness. Does not check the database — see `/ready` for that.
+ */
 export function getHealth(): Promise<{ status: string }> {
   return request("/health");
 }
 
+/**
+ * The founder profile. Throws `ApiError('not_found')` when none has been saved.
+ */
 export function getProfile(id = founderId()): Promise<FounderProfile> {
   return request(`/founders/${encodeURIComponent(id)}`);
 }
 
+/**
+ * As {@link getProfile}, but `null` on a 404 — the first-boot state, not an error.
+ */
 export function getProfileOrNull(id = founderId()): Promise<FounderProfile | null> {
   return optional(getProfile(id));
 }
 
+/**
+ * Surfaced opportunities, newest first.
+ *
+ * `includePassive=false` hides overflow items. Note the backend applies its
+ * row limit before that filter, so the false case can return fewer rows
+ * than the limit while more non-passive items exist.
+ */
 export function getInbox(
   id = founderId(),
   includePassive = true,
@@ -174,6 +206,9 @@ export function getInbox(
   return request(`/founders/${encodeURIComponent(id)}/inbox${query}`);
 }
 
+/**
+ * Recent run reports, newest first. Capped by `limit`; {@link getRun} reaches older ones.
+ */
 export function listRuns(id = founderId(), limit = 20): Promise<RunReport[]> {
   return request(`/founders/${encodeURIComponent(id)}/runs?limit=${limit}`);
 }
@@ -212,6 +247,12 @@ export function getOpportunity(opportunityId: string): Promise<Opportunity> {
   return request(`/opportunities/${encodeURIComponent(opportunityId)}`);
 }
 
+/**
+ * Search-discovered candidate rows per lane — a review queue, not the live catalog.
+ *
+ * These rows carry their own review status and have not been through
+ * verification; nothing here has reached a founder.
+ */
 export function getScraperCandidates(limit = 4): Promise<ScraperCandidateGroups> {
   return request(`/scraper/candidates?limit=${limit}`);
 }
@@ -248,10 +289,16 @@ export function listDrafts(
   return request(`/founders/${encodeURIComponent(id)}/drafts${query}`);
 }
 
+/**
+ * One draft with its counts. Throws on a draft that does not exist or is not this founder's.
+ */
 export function getDraft(draftId: string): Promise<DraftResponse> {
   return request(`/drafts/${encodeURIComponent(draftId)}`);
 }
 
+/**
+ * As {@link getDraft}, but `null` rather than throwing on a 404.
+ */
 export function getDraftOrNull(draftId: string): Promise<DraftResponse | null> {
   return optional(getDraft(draftId));
 }
@@ -293,6 +340,9 @@ export function getJobStatus(
   );
 }
 
+/**
+ * Recent run jobs, newest first — in-flight and finished alike.
+ */
 export function listJobs(id = founderId(), limit = 20): Promise<RunJob[]> {
   return request(`/founders/${encodeURIComponent(id)}/jobs?limit=${limit}`);
 }

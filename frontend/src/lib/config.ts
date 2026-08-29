@@ -10,6 +10,12 @@ function env(key: string, fallback: string): string {
   return value ? value : fallback;
 }
 
+/**
+ * Read a positive integer from the environment, falling back on anything else.
+ *
+ * Zero, negatives and unparseable values all fall back rather than raise —
+ * a malformed timeout should not stop the dashboard from rendering.
+ */
 function intEnv(key: string, fallback: number): number {
   const raw = process.env[key]?.trim();
   if (!raw) return fallback;
@@ -17,6 +23,13 @@ function intEnv(key: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/**
+ * The FastAPI base URL, without a trailing slash.
+ *
+ * Defaults to localhost so a clean checkout runs. Not a `NEXT_PUBLIC_` var:
+ * this module is server-only and the browser never learns the backend's
+ * address.
+ */
 export function apiBaseUrl(): string {
   return env("KAIROS_API_URL", "http://127.0.0.1:8000").replace(/\/+$/, "");
 }
