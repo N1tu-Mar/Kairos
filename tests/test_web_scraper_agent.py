@@ -314,6 +314,8 @@ def test_brave_search_client_maps_web_results():
     )
 
     class FakeHttp:
+        """An httpx client returning one canned provider response."""
+
         def get(self, *args, **kwargs):
             return response
 

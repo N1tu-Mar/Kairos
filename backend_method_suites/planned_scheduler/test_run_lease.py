@@ -54,6 +54,12 @@ def test_simultaneous_acquisition_from_many_threads(tmp_path):
     barrier = threading.Barrier(8)
 
     def attempt():
+        """Try to take the lease, from this thread's own RunLock over the same directory.
+
+        A separate `RunLock` per thread on purpose: the guarantee under
+        test is cross-process, enforced by SQLite, not by shared in-memory
+        state.
+        """
         lock = RunLock(lock_dir)
         barrier.wait()
         results.append(lock.acquire(founder_id="founder_demo", run_kind="daily"))

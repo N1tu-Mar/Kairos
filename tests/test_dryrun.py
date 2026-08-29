@@ -17,6 +17,7 @@ DEMO_CATALOG = "data/opportunities.demo.json"
 
 
 async def dry_run(tmp_path):
+    """Execute one dry run and return its report — no model, no network."""
     ctx = new_run_context(
         profile=profile(),
         repo=SqliteRepository("sqlite:///:memory:"),

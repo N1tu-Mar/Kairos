@@ -25,11 +25,13 @@ NOW = datetime(2026, 8, 22)
 
 @pytest.fixture
 def search_hits() -> list[dict]:
+    """Canned Grants.gov search hits with the field names the real API returns."""
     return json.loads((FIXTURES / "grants_gov_search2.json").read_text())["data"]["oppHits"]
 
 
 @pytest.fixture
 def detail() -> dict:
+    """A canned `fetchOpportunity` payload."""
     return json.loads((FIXTURES / "grants_gov_fetchOpportunity.json").read_text())["data"]
 
 
@@ -109,12 +111,18 @@ def test_mapping_without_detail_still_produces_a_valid_opportunity(search_hits):
 
 
 def write_seed(tmp_path: Path, rows: list[dict]) -> Path:
+    """Write a seed catalog file to `tmp_path` and return its path."""
     path = tmp_path / "opportunities.seed.json"
     path.write_text(json.dumps(rows))
     return path
 
 
 def seed_row(**overrides) -> dict:
+    """One catalog row as the JSON the seed file holds, not as an `Opportunity`.
+
+    Staying in JSON is the point: these tests cover the file-to-model
+    boundary, and building an `Opportunity` directly would skip it.
+    """
     row = {
         "id": "seed_1",
         "title": "[DEMO] Student Innovation Fund",
@@ -161,11 +169,15 @@ def test_malformed_seed_catalog_raises(tmp_path):
 
 
 class FakeSource:
+    """A source returning a fixed list, or raising if given an exception."""
+
     def __init__(self, name: SourceName, result):
+        """Pass opportunities to return them; pass an exception to raise it from `fetch`."""
         self.name = name
         self._result = result
 
     def fetch(self, since):
+        """Return the canned list, or raise the canned exception."""
         if isinstance(self._result, Exception):
             raise self._result
         return self._result

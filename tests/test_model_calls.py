@@ -36,10 +36,12 @@ pytestmark = pytest.mark.asyncio
 
 
 def an_assessment() -> Assessment:
+    """A minimal valid `Assessment`, for tests about the call mechanics rather than the content."""
     return Assessment(verdict="APPLY", reason="[DEMO] fits", effort_hours=3.0)
 
 
 async def call(agent, b, **kwargs):
+    """Invoke a sub-agent through the real structured-output path with a fake agent behind it."""
     return await structured_call(
         agent, Assessment, "prompt", agent_name="assessor", budget=b, tier="reasoning", **kwargs
     )
@@ -116,6 +118,7 @@ async def test_a_tripped_per_call_limit_abstains_without_retrying():
 
 
 def throttle_error(code: str = "ThrottlingException") -> ClientError:
+    """A `ModelThrottledException` as Bedrock raises it — the transient condition backoff is for."""
     return ClientError({"Error": {"Code": code, "Message": "slow down"}}, "Converse")
 
 

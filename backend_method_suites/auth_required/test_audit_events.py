@@ -22,6 +22,7 @@ TOKEN = "audit-suite-token"
 
 @pytest.fixture
 def audited(monkeypatch, tmp_path, caplog):
+    """A client whose audit events are captured rather than only logged."""
     monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/audit.db")
     monkeypatch.setenv("KAIROS_API_TOKEN", TOKEN)
     config.settings.cache_clear()
@@ -32,10 +33,12 @@ def audited(monkeypatch, tmp_path, caplog):
 
 
 def auth() -> dict[str, str]:
+    """An `Authorization` header for the configured test token."""
     return {"Authorization": f"Bearer {TOKEN}"}
 
 
 def events(caplog, action: str) -> list[logging.LogRecord]:
+    """The audit events recorded so far, in order."""
     return [
         record
         for record in caplog.records

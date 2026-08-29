@@ -41,6 +41,7 @@ PRE_JOBS_TABLES = EXPECTED_TABLES - {"jobs"}
 
 
 def alembic(*args: str, db_url: str) -> subprocess.CompletedProcess:
+    """Run an Alembic command against `db_url`, returning the completed process."""
     return subprocess.run(
         [sys.executable, "-m", "alembic", *args],
         cwd=REPO_ROOT,
@@ -55,6 +56,7 @@ def alembic(*args: str, db_url: str) -> subprocess.CompletedProcess:
 
 
 def tables(db_url: str) -> set[str]:
+    """The table names present in a database."""
     engine = sa.create_engine(db_url)
     try:
         return set(sa.inspect(engine).get_table_names())
@@ -76,6 +78,7 @@ def indexes(db_url: str, table: str) -> dict[str, bool]:
 
 @pytest.fixture
 def fresh_db(tmp_path) -> str:
+    """A database path that does not exist yet, for testing a migration from nothing."""
     return f"sqlite:///{tmp_path}/fresh.db"
 
 

@@ -21,6 +21,11 @@ def row(
     review_status="NEEDS_HUMAN_REVIEW",
     **overrides,
 ):
+    """One scraper candidate row as JSON. Defaults to NEEDS_HUMAN_REVIEW — the state everything is written in.
+
+    A test that wants a usable row has to pass `review_status="ACCEPTED"`
+    explicitly, which keeps the review boundary visible in every call.
+    """
     base = {
         "scrape_id": scrape_id,
         "title": "Campus Innovation Fund",
@@ -71,7 +76,9 @@ def row(
 
 @pytest.fixture
 def candidates(tmp_path):
+    """Returns a writer: call it with rows to get a candidates file path."""
     def write(rows):
+        """Write these rows to a candidates file under `tmp_path`."""
         path = tmp_path / "campus.json"
         path.write_text(json.dumps(rows))
         return path
@@ -213,14 +220,18 @@ class TestLiveSweep:
 
 
 class _Failure:
+    """Stands in for a `FetchRecord` failure — just the two fields the source reads."""
+
     def __init__(self, url, failure):
+        """`url` and `failure` are all the reporting path touches."""
         self.url = url
         self.failure = failure
 
 
 def _run(failures=()):
+    """A minimal stand-in for a `ScrapeRun` carrying the given failures."""
     class Run:
-        pass
+        """An empty object the failures are attached to."""
 
     run = Run()
     run.failures = [_Failure(u, f) for u, f in failures]

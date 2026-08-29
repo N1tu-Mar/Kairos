@@ -89,10 +89,12 @@ def two_founders(monkeypatch, tmp_path):
 
 
 def a() -> dict[str, str]:
+    """Founder A's credential."""
     return {"Authorization": f"Bearer {TOKEN_A}"}
 
 
 def b() -> dict[str, str]:
+    """Founder B's credential. Every test here checks A cannot reach B's data, and vice versa."""
     return {"Authorization": f"Bearer {TOKEN_B}"}
 
 

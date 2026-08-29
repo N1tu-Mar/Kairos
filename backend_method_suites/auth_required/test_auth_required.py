@@ -22,6 +22,7 @@ TOKEN = "test-token-abc"
 
 @pytest.fixture
 def secured_client(monkeypatch, tmp_path):
+    """A `TestClient` with a real token configured, so every route requires a credential."""
     monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/auth.db")
     monkeypatch.setenv("KAIROS_API_TOKEN", TOKEN)
     config.settings.cache_clear()
@@ -31,10 +32,12 @@ def secured_client(monkeypatch, tmp_path):
 
 
 def auth() -> dict[str, str]:
+    """An `Authorization` header for the configured test token."""
     return {"Authorization": f"Bearer {TOKEN}"}
 
 
 def seed_item(client: TestClient) -> None:
+    """Persist one inbox item, so the authorized and unauthorized paths have a real resource to reach for."""
     client.app.state.repo.save_inbox_item(
         InboxItem(
             item_id="run_1:opp_1",

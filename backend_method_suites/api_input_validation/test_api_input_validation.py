@@ -24,6 +24,7 @@ from tests.factories import profile
 
 @pytest.fixture
 def client(api_client):
+    """A `TestClient` over the real app against a fresh database, entered so `lifespan` runs."""
     api_client.put(
         "/founders/founder_demo",
         json=profile(founder_id="founder_demo").model_dump(mode="json"),

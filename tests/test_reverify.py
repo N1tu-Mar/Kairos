@@ -28,10 +28,12 @@ TODAY = date(2026, 8, 27)
 
 @pytest.fixture
 def fetcher():
+    """An offline `Fetcher` reading recorded pages from the fixture directory."""
     return reverify_mod.Fetcher(fixture_dir=FIXTURES)
 
 
 def row(**overrides):
+    """One catalog row as JSON, with a live-looking URL and evidence. Override any field by keyword."""
     base = {
         "id": "campus_fund",
         "title": "Campus Innovation Fund",

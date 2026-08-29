@@ -12,19 +12,26 @@ from tests.factories import TODAY, opportunity
 
 
 class ListSource:
+    """A source returning a fixed list of opportunities."""
+
     name = "seed"
 
     def __init__(self, *opportunities):
+        """`name` doubles as the SourceName recorded on any failure."""
         self.opportunities = list(opportunities)
 
     def fetch(self, since):
+        """Return the canned list, ignoring `since`."""
         return self.opportunities
 
 
 class DeadSource:
+    """A source that always raises `SourceError`, to exercise partial failure."""
+
     name = "grants_gov"
 
     def fetch(self, since):
+        """Always raise. The run must report this and keep the other sources' rows."""
         raise SourceError("timeout")
 
 

@@ -29,10 +29,12 @@ from tests.factories import generated
 
 @pytest.fixture
 def repo():
+    """An in-memory repository, optionally with a specific matcher and threshold."""
     return SqliteRepository("sqlite:///:memory:")
 
 
 def remember(repo, founder: str, field: DraftField) -> None:
+    """Store one answered field for the founder, so `recall` has something to find."""
     repo.remember_answer(founder, field)
 
 

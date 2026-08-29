@@ -42,6 +42,11 @@ def test_concurrent_adds_lose_nothing(tmp_path):
     barrier = threading.Barrier(16)
 
     def spend():
+        """Charge one amount, after the barrier releases every thread at once.
+
+        The barrier is what makes this a real concurrency test rather than
+        a sequential one — without it the threads would likely not overlap.
+        """
         barrier.wait()
         DailyLedger(tmp_path).add(0.25, today=day)
 

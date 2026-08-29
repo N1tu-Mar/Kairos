@@ -10,6 +10,7 @@ from agent.budget import BudgetExceeded, DailyLedger, RunBudget, TierPrice
 
 
 def budget(tmp_path, **overrides) -> RunBudget:
+    """A `RunBudget` with a ledger under `tmp_path`. Override any cap by keyword."""
     base = dict(
         max_run_tokens=1_000,
         max_assessments=3,

@@ -22,6 +22,11 @@ pytestmark = pytest.mark.asyncio
 
 
 async def scorecard():
+    """Run the offline golden set once and return its scorecard.
+
+    Session-scoped work done eagerly, so several assertions share one run
+    rather than re-executing the case set per test.
+    """
     cases = load_cases().cases
     return score([await run_case(c) for c in cases])
 

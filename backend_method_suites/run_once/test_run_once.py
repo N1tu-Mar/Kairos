@@ -30,10 +30,13 @@ OPEN_RULES = EligibilityRules(
 
 @dataclass
 class ListSource:
+    """A source returning a fixed list of opportunities, ignoring `since`."""
+
     opportunities: list
     name: str = "seed"
 
     def fetch(self, since):
+        """Return the canned list."""
         return self.opportunities
 
 

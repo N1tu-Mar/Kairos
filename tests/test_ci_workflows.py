@@ -33,10 +33,17 @@ USES = re.compile(
 
 
 def workflow_files() -> list[Path]:
+    """Every workflow YAML in `.github/workflows`."""
     return sorted(WORKFLOW_DIR.glob("*.yml"))
 
 
 def uses_lines(path: Path) -> list[tuple[int, str, str, str | None]]:
+    """Every `uses:` line in a workflow, with its line number.
+
+    Parsed as text rather than as YAML on purpose: the pin and its trailing
+    version comment are what these tests check, and a YAML load discards the
+    comment.
+    """
     out = []
     for lineno, line in enumerate(path.read_text().splitlines(), start=1):
         match = USES.match(line)

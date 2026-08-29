@@ -48,6 +48,7 @@ FORM = form(
 
 
 async def run_drafter(*proposed, kb_override=None, recalled=None):
+    """Run `draft_application` with a scripted Drafter and return the resulting draft."""
     agent = FakeAgent(DraftProposal(fields=list(proposed)))
     result = await draft_application(
         agent,

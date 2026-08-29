@@ -39,14 +39,17 @@ FIXTURES = Path(__file__).parent / "fixtures" / "rutgers"
 
 
 def page(name: str) -> str:
+    """Read one recorded HTML fixture."""
     return html_to_text((FIXTURES / f"{name}.html").read_text(encoding="utf-8"))
 
 
 def blocks(name: str) -> list[str]:
+    """Split fixture text into the context blocks the extractors read."""
     return extract.to_blocks(page(name))
 
 
 def target(**overrides) -> Target:
+    """A scrape `Target` for a fixture page."""
     base = dict(
         key="t",
         title="[TEST] Competition",
@@ -59,6 +62,7 @@ def target(**overrides) -> Target:
 
 
 def record(**overrides) -> FetchRecord:
+    """A `ScrapedOpportunity` built from a fixture, as the pipeline would produce it."""
     base = dict(
         url="https://idea.rutgers.edu/programs/scarletpitch",
         final_url="https://idea.rutgers.edu/programs/scarletpitch",

@@ -28,6 +28,7 @@ def _wait_terminal(api_client, founder_id: str, job_id: str, timeout_s: float = 
 
 
 def _trigger(api_client, **overrides):
+    """POST a run for the demo founder, returning the response."""
     body = {"use_demo_catalog": True, "include_grants_gov": False, "source": "manual"}
     body.update(overrides)
     return api_client.post("/founders/founder_demo/runs", json=body)
@@ -198,6 +199,13 @@ def test_start_failure_is_recorded_and_releases_the_lease(tmp_path):
     from api.jobs import execute_job, new_job
 
     class ExplodingRepo(SqliteRepository):
+        """Fails on `get_profile`, so the run cannot start.
+
+        Exercises the `startup` failure class: the job must reach a
+        terminal state and release its lease even though the pipeline
+        never ran.
+        """
+
         def get_profile(self, founder_id):
             raise RuntimeError("database on fire, Authorization: Bearer sk-secret99")
 
@@ -243,6 +251,7 @@ def test_run_that_outlives_the_timeout_fails_with_the_timeout_class(
     config.settings.cache_clear()
 
     async def hang_forever(ctx, sources):
+        """A run that never finishes, so the timeout path is the one exercised."""
         await asyncio.sleep(3600)
 
     monkeypatch.setattr(job_module, "run_once", hang_forever)

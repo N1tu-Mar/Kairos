@@ -69,6 +69,7 @@ REFERENCE = {
 
 
 def row(**overrides):
+    """One catalog row as JSON. Defaults match the reference set's first program, so a test varies only what it is about."""
     base = {
         "id": "alpha_fund",
         "title": "Alpha Innovation Fund",
@@ -82,6 +83,7 @@ def row(**overrides):
 
 
 def run(rows, campus_rows=(), forms=(), reference=None):
+    """Score these rows against the reference set and return the result."""
     return bench.score(
         reference or REFERENCE, list(rows), list(campus_rows), set(forms), TODAY
     )
@@ -247,6 +249,11 @@ class TestTheShippedReferenceSet:
 
     @pytest.fixture
     def reference(self):
+        """The shipped reference set, read from disk rather than constructed.
+
+        These tests are about the real file — a fixture built in code
+        would pass while the committed one had drifted.
+        """
         return json.loads(REFERENCE_PATH.read_text())
 
     def test_it_is_version_controlled_and_versioned(self, reference):

@@ -548,6 +548,7 @@ async def test_a_cold_knowledge_base_abstains_from_drafting_entirely():
 
 
 def ledger_budget(tmp_path, **overrides):
+    """A budget whose ledger is a real file under `tmp_path`, for the spend-cap cases."""
     base = dict(
         max_run_tokens=100_000,
         max_assessments=25,
