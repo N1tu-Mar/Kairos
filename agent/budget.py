@@ -38,6 +38,7 @@ class BudgetExceeded(RuntimeError):
     """A cap tripped. Caught once, at the orchestrator, and reported."""
 
     def __init__(self, cap: str, detail: str) -> None:
+        """`cap` is the machine-readable id (ASSESSMENT_CAP, DAILY_USD_CAP, …) and `detail` the human line. Both are kept as attributes so the orchestrator can branch on the cap without parsing the message."""
         super().__init__(f"{cap}: {detail}")
         self.cap = cap
         self.detail = detail
@@ -84,6 +85,12 @@ class TierPrice:
     output_per_mtok: float = 0.0
 
     def cost(self, input_tokens: int, output_tokens: int) -> float:
+        """USD for one call at this tier.
+
+        Zero prices give exactly 0.0 — the visibly-wrong value, never an invented
+        estimate. That is what makes the dollar cap unenforceable when prices are
+        unset, which `UnenforceableSpendCap` refuses to start under.
+        """
         return (
             input_tokens * self.input_per_mtok + output_tokens * self.output_per_mtok
         ) / 1_000_000
@@ -100,6 +107,7 @@ class DailyLedger:
     """
 
     def __init__(self, state_dir: Path) -> None:
+        """Nothing touches the filesystem here; the database is created lazily on the first `_connect`. Constructing a ledger against an unwritable directory is therefore not an error until it is used."""
         self.dir = Path(state_dir)
         self.path = self.dir / "daily_spend.sqlite3"
         #: The pre-migration ledger. Imported once, then kept as a backup —
@@ -107,6 +115,13 @@ class DailyLedger:
         self.legacy_path = self.dir / "daily_spend.json"
 
     def _refuse(self, exc: Exception) -> BudgetExceeded:
+        """Build the `BudgetExceeded` raised whenever the total cannot be verified.
+
+        Every failure path in this class funnels through here, so the posture is
+        stated once: an unreadable ledger halts the run. It never falls back to
+        zero, because a zero total is indistinguishable from "nothing spent yet"
+        and would silently reset the day's cap.
+        """
         return BudgetExceeded(
             "DAILY_USD_CAP",
             f"spend ledger at {self.path} is unreadable ({exc}); "
@@ -114,6 +129,14 @@ class DailyLedger:
         )
 
     def _connect(self) -> sqlite3.Connection:
+        """Open the ledger, creating the table and importing any legacy JSON.
+
+        Called per operation rather than held open, so a long-lived process does
+        not pin the writer lock between charges. `timeout=10` is what makes two
+        concurrent processes wait for each other instead of raising "database is
+        locked" — with the caveat that a charge blocked for longer than that
+        becomes a refusal, which is the safe direction.
+        """
         self.dir.mkdir(parents=True, exist_ok=True)
         try:
             conn = sqlite3.connect(self.path, timeout=10)
@@ -151,6 +174,12 @@ class DailyLedger:
             raise self._refuse(exc) from exc
 
     def spent_today(self, today: date | None = None) -> float:
+        """Today's UTC total, or 0.0 if nothing has been charged yet.
+
+        The day key is UTC, not local: a run at 6pm Pacific charges against the
+        next UTC day, so the cap window does not line up with a local calendar
+        day. Read-only — it never creates today's row.
+        """
         today = today or datetime.now(timezone.utc).date()
         conn = self._connect()
         try:
@@ -370,6 +399,12 @@ class RunBudget:
         self.assessments_made += 1
 
     def remaining_tokens(self) -> int:
+        """Tokens left in this run's ceiling, floored at zero.
+
+        Floored rather than allowed to go negative because it feeds
+        `strands_limits`, and a negative per-call limit is not a meaningful
+        request. Zero here means the next `charge` will halt the run.
+        """
         return max(0, self.max_run_tokens - self.usage.total_tokens)
 
     def strands_limits(self, share: float = 0.25) -> dict[str, int]:

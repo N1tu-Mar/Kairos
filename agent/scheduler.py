@@ -84,9 +84,11 @@ class Lease:
         )
 
     def __enter__(self) -> "Lease":
+        """Enter the context. Returns the lease whether or not it was acquired — check `.acquired`; a `with` block is not proof you hold it."""
         return self
 
     def __exit__(self, *exc) -> None:
+        """Release on the way out, including on an exception. Releasing a lease that was never acquired is a no-op."""
         self.release()
 
 
@@ -100,6 +102,11 @@ class RunLock:
     """
 
     def __init__(self, root: Path | str, ttl_seconds: int = DEFAULT_LEASE_TTL_S) -> None:
+        """Create the state directory and the lease table if they are absent.
+
+        Unlike the ledger this does touch the filesystem eagerly, so an
+        unwritable state directory fails here rather than at the first run.
+        """
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.path = self.root / "leases.sqlite3"
@@ -121,6 +128,12 @@ class RunLock:
     def _connect(self) -> sqlite3.Connection:
         # The busy timeout makes concurrent acquirers queue on the writer
         # lock instead of failing with SQLITE_BUSY.
+        """Open the lease database.
+
+        `timeout=10` makes concurrent acquirers queue on SQLite's writer lock
+        instead of failing with SQLITE_BUSY. Contention beyond that raises, which
+        the caller sees as a failed acquisition rather than a stolen lease.
+        """
         return sqlite3.connect(self.path, timeout=10)
 
     def acquire(
@@ -262,6 +275,7 @@ class ScheduledRunFailureLog:
     """
 
     def __init__(self, path: Path | str, limit: int = FAILURE_HISTORY_LIMIT) -> None:
+        """No file is created here — `record` creates the parent directory and the file on the first write, so an unused log leaves nothing behind."""
         self.path = Path(path)
         self.limit = limit
 
@@ -274,6 +288,13 @@ class ScheduledRunFailureLog:
         retry_count: int = 0,
         failure_class: str = "unknown",
     ) -> SchedulerFailure:
+        """Append one sanitised failure line and return it.
+
+        `detail` goes through `_sanitize_detail` before it is written: these
+        strings come from exception messages, which carry whatever was nearby.
+        The file is opened in append mode per call, so an interleaved write from
+        another process costs at most one torn line — which `_load` skips.
+        """
         failure = SchedulerFailure(
             founder_id=founder_id,
             at=datetime.now(timezone.utc).isoformat(),
@@ -289,6 +310,13 @@ class ScheduledRunFailureLog:
         return failure
 
     def _trim(self) -> None:
+        """Keep the file at `limit` lines by rewriting it.
+
+        Read-then-replace, not atomic against a concurrent `record`: an append
+        that lands between the read and the `os.replace` is lost. Accepted
+        because CloudWatch is the ledger of record and this is the dashboard's
+        view. An unreadable file is left alone rather than truncated.
+        """
         try:
             lines = self.path.read_text(encoding="utf-8").splitlines()
         except OSError:
@@ -301,6 +329,13 @@ class ScheduledRunFailureLog:
         os.replace(tmp, self.path)
 
     def _load(self) -> list[SchedulerFailure]:
+        """Parse every line, skipping any that do not decode.
+
+        Skipping is deliberate: one torn line from a concurrent write costs that
+        entry, not the whole history. It also means a systematically malformed
+        file reads as empty rather than raising, so "no failures" here is not
+        proof that none were recorded.
+        """
         if not self.path.exists():
             return []
         failures: list[SchedulerFailure] = []
@@ -322,5 +357,10 @@ class ScheduledRunFailureLog:
         return list(reversed(mine))[:limit]
 
     def latest(self, founder_id: str) -> SchedulerFailure | None:
+        """The most recent failure for a founder, or None.
+
+        Reads and filters the whole file to return one row — fine at the bounded
+        size this log is kept to, and the reason the bound matters.
+        """
         failures = self.recent(founder_id, limit=1)
         return failures[0] if failures else None
