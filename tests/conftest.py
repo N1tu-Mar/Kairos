@@ -18,6 +18,27 @@ from agent import config
 
 @pytest.fixture(autouse=True)
 def fake_env(monkeypatch, tmp_path):
+    """Autouse: give every test a resolvable config and a private state directory.
+
+    Four things, and each is load-bearing:
+
+    - The two model IDs are stamped with `[DEMO]` so anything that leaks into
+      an assertion or a fixture file is visibly not a real model.
+    - `KAIROS_STATE_DIR` points at `tmp_path`, so the spend ledger and the
+      lease database are per-test files and never the developer's own.
+    - The daily USD cap is zeroed, so a test cannot be halted by yesterday's
+      spend.
+    - `KAIROS_API_TOKEN` is deleted, because a developer's `.env` may set one
+      and these suites assume the open local mode.
+
+    `settings.cache_clear()` runs on both sides: before, so this fixture's
+    values are what get read; after, so a test that set its own variables
+    cannot leak them into the next one.
+
+    Note what it does *not* clear — every other `KAIROS_*` variable a `.env`
+    may set (prices in particular) is still visible to tests. A test that
+    depends on a variable being unset has to `monkeypatch.delenv` it itself.
+    """
     monkeypatch.setenv("BEDROCK_MODEL_REASONING", "[DEMO]reasoning-model")
     monkeypatch.setenv("BEDROCK_MODEL_CLASSIFY", "[DEMO]classify-model")
     monkeypatch.setenv("KAIROS_STATE_DIR", str(tmp_path / "state"))
@@ -68,6 +89,14 @@ class FakeAgent:
     default_usage = {"inputTokens": 100, "outputTokens": 50, "totalTokens": 150}
 
     def __init__(self, *responses, usage: dict | None = None, stop_reason: str = "end_turn"):
+        """Canned responses are consumed in order.
+
+        An `Exception` in the list is raised rather than returned, which is
+        how a failure path is exercised.
+
+        `prompts` and `limits` record every call, so a test can assert what the
+        pipeline would have sent and what budget it would have imposed.
+        """
         self.responses = list(responses)
         self.prompts: list[str] = []
         self.limits: list[dict | None] = []
@@ -75,6 +104,12 @@ class FakeAgent:
         self.stop_reason = stop_reason
 
     async def invoke_async(self, prompt, *, structured_output_model=None, limits=None):
+        """Return the next canned response, wrapped as an `AgentResult`.
+
+        Running out of responses is an `AssertionError` rather than a `None`
+        return: an unexpected extra model call should fail the test loudly, not
+        silently produce an empty answer.
+        """
         self.prompts.append(prompt)
         self.limits.append(limits)
         if not self.responses:
@@ -93,4 +128,8 @@ class FakeAgent:
 
 @pytest.fixture
 def fake_agent():
+    """The `FakeAgent` class itself, not an instance.
+
+    Tests construct one with their own canned responses.
+    """
     return FakeAgent

@@ -26,6 +26,11 @@ TODAY = date(2026, 8, 22)
 
 
 def profile(**overrides) -> FounderProfile:
+    """A founder profile with sane defaults. Override one field by keyword.
+
+    The defaults are chosen to be *eligible* for `opportunity()` so a test
+    asserting a rejection has to state which field it changed.
+    """
     base = dict(
         founder_id="founder_demo",
         degree_level="undergrad",
@@ -47,6 +52,15 @@ def profile(**overrides) -> FounderProfile:
 
 
 def opportunity(**overrides) -> Opportunity:
+    """A demo opportunity.
+
+    `eligibility=` takes an `EligibilityRules`; everything else is a plain
+    keyword override.
+
+    `verified=False` and the `[DEMO]` title mean this row would be excluded
+    from a real run by `SeedCatalog` — deliberate, so a fixture cannot become
+    a live catalog entry by being copied into a data file.
+    """
     rules = overrides.pop("eligibility", None) or EligibilityRules()
     base = dict(
         id="demo_opp_1",
@@ -67,6 +81,11 @@ def opportunity(**overrides) -> Opportunity:
 
 
 def kb(*texts: str, traction: dict[str, float] | None = None) -> KnowledgeBase:
+    """A knowledge base from raw strings, one chunk each, ids `c0`, `c1`, ….
+
+    The ids are positional, so `span("c1")` refers to the second string
+    passed here — that coupling is what lets provenance tests stay short.
+    """
     return KnowledgeBase(
         founder_id="founder_demo",
         chunks=[
@@ -78,10 +97,12 @@ def kb(*texts: str, traction: dict[str, float] | None = None) -> KnowledgeBase:
 
 
 def span(chunk_id: str = "c0", text: str = "supporting text") -> SourceSpan:
+    """A source span pointing at chunk `c0` unless told otherwise."""
     return SourceSpan(chunk_id=chunk_id, source="pitch_deck.pdf p.1", text=text)
 
 
 def draft(*fields: DraftField, **overrides) -> Draft:
+    """A draft wrapping the given fields, with demo ids."""
     base = dict(
         draft_id="draft_1",
         founder_id="founder_demo",
@@ -98,6 +119,13 @@ def generated(
     question: str = "Describe your traction to date.",
     provenance=None,
 ) -> DraftField:
+    """A GENERATED field that would pass the gate.
+
+    Carries provenance, a model id, a prompt version and a SUPPORTED audit.
+
+    The starting point for negative tests — strip one of those attributes and
+    assert the gate blocks. `provenance=[]` is the interesting override.
+    """
     return DraftField(
         field_id=field_id,
         question=question,
@@ -111,6 +139,7 @@ def generated(
 
 
 def form(*fields: ApplicationField) -> ApplicationForm:
+    """An application form wrapping the given fields, with demo ids."""
     return ApplicationForm(
         opportunity_id="demo_opp_1",
         name="[DEMO] form",
