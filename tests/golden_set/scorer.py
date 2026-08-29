@@ -27,6 +27,13 @@ from tests.golden_set.runner import CaseRun
 
 @dataclass(frozen=True)
 class FieldOutcome:
+    """What happened to one field, against what should have happened.
+
+    `truth` is the human judgment from the case file; `shipped` is what the
+    pipeline actually released. Every metric on the scorecard is a count over
+    these two.
+    """
+
     case_id: str
     field_id: str
     truth: str
@@ -40,15 +47,24 @@ class FieldOutcome:
 
     @property
     def leaked(self) -> bool:
+        """The failure that matters: an unsupported claim reached a real application."""
         return self.truth == "WITHHOLD" and self.shipped
 
     @property
     def over_withheld(self) -> bool:
+        """The cost side: a supported claim was withheld, so the founder answers a question they should not have."""
         return self.truth == "SHIP" and not self.shipped
 
 
 @dataclass
 class Scorecard:
+    """Every field outcome across the run, plus the blocked cases.
+
+    The two error directions are counted separately and never netted against
+    each other — a leak and an unnecessary question are not interchangeable,
+    and a single "accuracy" number would let one hide the other.
+    """
+
     outcomes: list[FieldOutcome] = field(default_factory=list)
     blocked_cases: list[tuple[str, str]] = field(default_factory=list)
     total_cases: int = 0
@@ -57,22 +73,27 @@ class Scorecard:
 
     @property
     def shipped(self) -> list[FieldOutcome]:
+        """Every field that reached a real application."""
         return [o for o in self.outcomes if o.shipped]
 
     @property
     def leaks(self) -> list[FieldOutcome]:
+        """Shipped fields that should have been withheld. The number that must be zero."""
         return [o for o in self.outcomes if o.leaked]
 
     @property
     def should_withhold(self) -> list[FieldOutcome]:
+        """Fields the case file says must not ship — the denominator for abstention accuracy."""
         return [o for o in self.outcomes if o.truth == "WITHHOLD"]
 
     @property
     def should_ship(self) -> list[FieldOutcome]:
+        """Fields the case file says are supported — the denominator for the question rate."""
         return [o for o in self.outcomes if o.truth == "SHIP"]
 
     @property
     def over_withheld(self) -> list[FieldOutcome]:
+        """Supported fields that were withheld anyway."""
         return [o for o in self.outcomes if o.over_withheld]
 
     @property
@@ -89,6 +110,11 @@ class Scorecard:
 
     @property
     def abstention_accuracy(self) -> float | None:
+        """Share of must-withhold fields that were actually withheld.
+
+        `None` when the case set contains nothing to withhold, rather than 1.0 —
+        a perfect score over an empty denominator is not a result.
+        """
         if not self.should_withhold:
             return None
         withheld = sum(1 for o in self.should_withhold if not o.shipped)
@@ -96,6 +122,11 @@ class Scorecard:
 
     @property
     def unnecessary_question_rate(self) -> float | None:
+        """Share of supported fields that were withheld anyway.
+
+        The cost of failing closed, reported alongside the leak count rather than
+        netted against it.
+        """
         if not self.should_ship:
             return None
         return len(self.over_withheld) / len(self.should_ship)
@@ -109,6 +140,13 @@ class Scorecard:
 
 
 def score(runs: list[CaseRun]) -> Scorecard:
+    """Turn a list of case runs into a scorecard.
+
+    A blocked draft ships nothing, so every field in it is withheld —
+    supported fields in a blocked draft are marked `collateral` so the
+    unnecessary questions caused by draft-level blocking can be reported
+    separately from ones this field earned.
+    """
     card = Scorecard(total_cases=len(runs))
 
     for run in runs:
@@ -148,6 +186,11 @@ def score(runs: list[CaseRun]) -> Scorecard:
 
 
 def _pct(value: float | None) -> str:
+    """Format a ratio as a percentage, or `n/a` for `None`.
+
+    `None` reaches here from every metric with an empty denominator, and it
+    prints as `n/a` rather than `0%` — the two mean different things.
+    """
     return "n/a" if value is None else f"{value * 100:.1f}%"
 
 

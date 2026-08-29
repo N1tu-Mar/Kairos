@@ -67,11 +67,17 @@ class Case(BaseModel):
     truth: dict[str, Truth]
 
     def knowledge_base(self, founder_id: str) -> KnowledgeBase:
+        """The closed world for this case, bound to a founder id.
+
+        Copies both collections, so a case can be run twice without the first run
+        having mutated it.
+        """
         return KnowledgeBase(
             founder_id=founder_id, chunks=list(self.chunks), traction=dict(self.traction)
         )
 
     def form(self) -> ApplicationForm:
+        """The case's fields as an `ApplicationForm`, named after the opportunity."""
         return ApplicationForm(
             opportunity_id=self.opportunity.id,
             name=f"{self.opportunity.title} application",
@@ -80,6 +86,12 @@ class Case(BaseModel):
         )
 
     def draft_proposal(self) -> DraftProposal:
+        """The fixture Drafter output, as the model the real pipeline would receive.
+
+        Offline this is what the case file states. With `--live` it is discarded
+        and replaced by whatever Bedrock returns — the same scorer runs over
+        both, which is what makes the two modes comparable.
+        """
         return DraftProposal(fields=list(self.proposal))
 
     def permissive_audit(self) -> list[FieldAudit]:
@@ -103,22 +115,38 @@ class Case(BaseModel):
         ]
 
     def audit_fields(self) -> list[FieldAudit]:
+        """The case's own auditor if it states one, otherwise the permissive default.
+
+        A case that states an auditor is testing what happens when the auditor
+        catches something; every other case measures the gate with the auditor
+        deliberately unhelpful.
+        """
         return self.auditor if self.auditor is not None else self.permissive_audit()
 
 
 @dataclass(frozen=True)
 class CaseSet:
+    """The loaded cases, split into traps and clean cases.
+
+    `trap` is a per-case declaration, so the split is only as honest as the
+    case files. `describe()` prints the real counts rather than the intended
+    ratio, which is how a drift toward all-traps or all-clean is noticed.
+    """
+
     cases: list[Case]
 
     @property
     def traps(self) -> list[Case]:
+        """Cases containing a deliberate trap — something the gate must catch."""
         return [c for c in self.cases if c.trap]
 
     @property
     def clean(self) -> list[Case]:
+        """Cases with nothing to catch. These measure over-withholding, which is the cost side of the gate."""
         return [c for c in self.cases if not c.trap]
 
     def describe(self) -> str:
+        """One line of counts, for the eval header."""
         return (
             f"{len(self.cases)} cases: {len(self.traps)} with traps, "
             f"{len(self.clean)} clean"

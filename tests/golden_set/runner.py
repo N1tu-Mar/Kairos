@@ -59,19 +59,34 @@ class ScriptedAgent:
     """
 
     def __init__(self, response) -> None:
+        """One response, returned for every call. `prompts` records what it was asked, so a test can assert what the pipeline would have sent."""
         self.response = response
         self.prompts: list[str] = []
 
     async def invoke_async(self, prompt, *, structured_output_model=None, limits=None):
+        """Return the fixture, ignoring the prompt and the requested schema.
+
+        The schema is ignored on purpose: the fixture is already a validated
+        model, and re-validating it here would test the case file rather than the
+        pipeline.
+        """
         self.prompts.append(prompt)
         return _ScriptedResult(structured_output=self.response)
 
 
 @dataclass
 class _ScriptedMetrics:
+    """Zero usage. No model was called, so no tokens were spent.
+
+    A plausible-looking count here would flow into the same ledger that
+    enforces the daily cap, which would make the offline eval charge for work
+    it never did.
+    """
+
     accumulated_usage: dict = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
+        """Default the usage dict without sharing one mutable default across instances."""
         if self.accumulated_usage is None:
             self.accumulated_usage = {
                 "inputTokens": 0,
@@ -82,11 +97,14 @@ class _ScriptedMetrics:
 
 @dataclass
 class _ScriptedResult:
+    """Stands in for `AgentResult`, with zero-usage metrics."""
+
     structured_output: object
     metrics: _ScriptedMetrics = None  # type: ignore[assignment]
     stop_reason: str = "end_turn"
 
     def __post_init__(self) -> None:
+        """Default the metrics, again avoiding a shared mutable default."""
         if self.metrics is None:
             self.metrics = _ScriptedMetrics()
 
@@ -116,12 +134,19 @@ class CaseRun:
         }
 
     def status_of(self, field_id: str) -> str:
+        """The final status of one field, or `"MISSING"` if the draft has no such field.
+
+        `MISSING` is distinct from `NEEDS_FOUNDER`: one means the pipeline never
+        produced the field at all, the other means it deliberately declined to
+        answer it.
+        """
         for f in self.draft.fields:
             if f.field_id == field_id:
                 return f.status
         return "MISSING"
 
     def note_of(self, field_id: str) -> str:
+        """The audit note left on a field, or an empty string."""
         for f in self.draft.fields:
             if f.field_id == field_id:
                 return f.audit_note or ""
@@ -129,6 +154,13 @@ class CaseRun:
 
 
 def profile_for(case: Case) -> FounderProfile:
+    """The sparse founder profile every case is drafted against.
+
+    Deliberately carries no knowledge base of its own, so the only material
+    available to the Drafter is the case's own chunks — otherwise a case
+    could appear grounded because of a fixture profile rather than because of
+    its evidence.
+    """
     return FounderProfile(
         founder_id=EVAL_FOUNDER,
         degree_level="undergrad",
