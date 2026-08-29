@@ -1,6 +1,7 @@
 import "server-only";
 
 import { apiBaseUrl, apiToken, founderId, readTimeoutMs } from "@/lib/config";
+import { currentAccessToken } from "@/lib/supabase/server";
 import type {
   DraftResponse,
   FounderProfile,
@@ -123,8 +124,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     const headers: Record<string, string> = {};
     if (body) headers["content-type"] = "application/json";
-    // Attached server-side only; the browser never sees this credential.
-    const token = apiToken();
+    // The *user's* token when someone is signed in, and the shared token only
+    // in the local single-founder mode where no identity provider exists.
+    //
+    // This is the difference the login work exists to make. With a shared
+    // token the proxy acted for the founder on behalf of whoever asked it to,
+    // so the backend's authorization never saw a real caller. With a session
+    // token FastAPI verifies the signature, reads that subject's rows in
+    // `founder_members`, and a dashboard with no session for a founder cannot
+    // act as one.
+    const token = (await currentAccessToken()) || apiToken();
     if (token) headers.authorization = `Bearer ${token}`;
     response = await fetch(url, {
       method,
