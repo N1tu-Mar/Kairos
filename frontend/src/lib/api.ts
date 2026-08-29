@@ -1,6 +1,12 @@
 import "server-only";
 
-import { apiBaseUrl, apiToken, founderId, readTimeoutMs } from "@/lib/config";
+import {
+  apiBaseUrl,
+  apiBaseUrlProblem,
+  apiToken,
+  founderId,
+  readTimeoutMs,
+} from "@/lib/config";
 import { currentAccessToken } from "@/lib/supabase/server";
 import type {
   DraftResponse,
@@ -32,7 +38,10 @@ export type ApiErrorKind =
   | "timeout"
   | "unreachable"
   | "http"
-  | "malformed";
+  | "malformed"
+  // The dashboard's own configuration is wrong, so no request was attempted.
+  // Distinct from `unreachable`, which means a request was made and failed.
+  | "misconfigured";
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -64,6 +73,10 @@ export class ApiError extends Error {
    */
   get userMessage(): string {
     switch (this.kind) {
+      case "misconfigured":
+        // The one case where naming the variable is the entire fix. It names
+        // the setting, never its value.
+        return `${this.message} Fix it in frontend/.env.local, then restart the dev server.`;
       case "unreachable":
         return "Could not reach the Kairos API. Is the FastAPI backend running?";
       case "timeout":
@@ -87,6 +100,9 @@ export function httpStatusFor(error: ApiError): number {
       return 504;
     case "unreachable":
       return 502;
+    // The dashboard is broken, not the backend. 500, not 502.
+    case "misconfigured":
+      return 500;
     default:
       return error.status ?? 502;
   }
@@ -116,6 +132,13 @@ interface RequestOptions {
  */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, timeoutMs = readTimeoutMs() } = options;
+
+  // Checked before the fetch, not after it fails. A bad base URL makes every
+  // request fail in a way indistinguishable from a stopped backend, and the
+  // reader then goes and restarts a healthy one.
+  const problem = apiBaseUrlProblem();
+  if (problem) throw new ApiError("misconfigured", problem, path);
+
   const url = `${apiBaseUrl()}${path}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
