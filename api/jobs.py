@@ -55,6 +55,7 @@ RUN_KIND = "pipeline"
 
 
 def _now() -> datetime:
+    """Timezone-aware UTC now. Job timestamps are compared against each other and against lease expiries, so a naive value here would raise at comparison time."""
     return datetime.now(timezone.utc)
 
 
@@ -66,6 +67,14 @@ def new_job(
     use_demo_catalog: bool,
     include_grants_gov: bool,
 ) -> RunJob:
+    """Build an unpersisted `RunJob` in the `queued` state.
+
+    The caller persists it — that write is what makes the job real and what
+    enforces idempotency, because the unique index on `founder_id::key` is in
+    the database rather than in a check here. Two concurrent requests with the
+    same key both get a job object out of this function; only one of them
+    survives `save_job`.
+    """
     return RunJob(
         job_id=f"job_{uuid.uuid4().hex[:12]}",
         founder_id=founder_id,
@@ -77,6 +86,16 @@ def new_job(
 
 
 def load_forms() -> dict[str, ApplicationForm]:
+    """Load every transcribed application form, keyed by opportunity id.
+
+    Read fresh on each job rather than cached at import, so editing a form
+    JSON takes effect on the next run without a restart. A form whose JSON
+    fails validation raises here and is reported as a `startup` failure — the
+    run does not silently proceed with the form missing.
+
+    Only one form per opportunity survives: later files with the same
+    `opportunity_id` overwrite earlier ones in glob order.
+    """
     import json
 
     directory = REPO_ROOT / "data" / "forms"
@@ -90,6 +109,13 @@ def load_forms() -> dict[str, ApplicationForm]:
 
 
 def build_sources(job: RunJob):
+    """Assemble the discovery sources for one job, in priority order.
+
+    Seed catalog always; Grants.gov only when the job asked for it; campus
+    always, but gated twice — `enable_browser` decides whether it yields
+    anything at all, and `allow_live_scrape=False` means it can only read rows
+    a person already accepted. A job never crawls.
+    """
     config = settings()
     catalog = "opportunities.demo.json" if job.use_demo_catalog else "opportunities.seed.json"
     sources = [
@@ -117,7 +143,18 @@ def build_sources(job: RunJob):
 
 
 class JobExecutor(Protocol):
+    """The seam between accepting a job and running it.
+
+    `LocalJobExecutor` is the in-process implementation. A queue-backed one
+    would enqueue the job id in `submit`, and `cancel` would have to reach
+    across processes — which is why `cancel` returns a bool rather than
+    asserting success. `False` means "not running here", not "not running".
+    """
+
+    #: Start the job. Takes ownership of `lease` — the executor releases it.
     def submit(self, job: RunJob, lease: Lease) -> None: ...
+
+    #: Try to cancel. False when this executor is not running that job.
     def cancel(self, job_id: str) -> bool: ...
 
 
@@ -192,6 +229,12 @@ async def execute_job(job: RunJob, repo, lease: Lease, failure_log: ScheduledRun
 
 
 def _fail(job: RunJob, repo, failure_log, exc: Exception, *, failure_class: str) -> None:
+    """Write the terminal `failed` state and log it under `failure_class`.
+
+    Called from the paths where the run never produced a report. A run that
+    finishes with `halted_reason` is not a failure and does not come through
+    here.
+    """
     job.status = "failed"
     # Sanitised here, not only on the way to the failure log: this string is
     # persisted and served by GET /founders/{id}/jobs/{job_id}. An exception
@@ -218,11 +261,19 @@ class LocalJobExecutor:
     """
 
     def __init__(self, repo, failure_log: ScheduledRunFailureLog) -> None:
+        """`_tasks` maps job id to the running asyncio task, and is the only thing that makes `cancel` possible — it is in-process state, so it is empty after a restart and `recover_orphaned_jobs` is what cleans up instead."""
         self.repo = repo
         self.failure_log = failure_log
         self._tasks: dict[str, asyncio.Task] = {}
 
     def submit(self, job: RunJob, lease: Lease) -> None:
+        """Fire the job as a background asyncio task and return immediately.
+
+        The done-callback drops the task from `_tasks` on every terminal path,
+        including cancellation, so the map cannot grow without bound. Nothing
+        awaits the task: its result and its failure are both recorded in the job
+        row by `execute_job`, which is the point of the durable boundary.
+        """
         task = asyncio.create_task(
             execute_job(job, self.repo, lease, self.failure_log),
             name=f"kairos-{job.job_id}",
