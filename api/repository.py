@@ -42,6 +42,7 @@ T = TypeVar("T")
 
 
 def _now() -> datetime:
+    """Current UTC instant. Every timestamp written here is timezone-aware; a naive datetime compared against an aware one raises, and that has been the source of more than one ordering bug."""
     return datetime.now(timezone.utc)
 
 
@@ -49,6 +50,13 @@ def _now() -> datetime:
 
 
 class ProfileRow(SQLModel, table=True):
+    """One founder profile, latest version only.
+
+    Unlike runs and drafts this row is overwritten in place: the profile is
+    current state, not history. If you ever need "what did the profile say
+    when this run happened", it is not recoverable from here — the run report
+    is where that has to be captured.
+    """
     __tablename__ = "profiles"
     founder_id: str = Field(primary_key=True)
     updated_at: datetime = Field(default_factory=_now)
@@ -56,6 +64,12 @@ class ProfileRow(SQLModel, table=True):
 
 
 class RunRow(SQLModel, table=True):
+    """One completed run report.
+
+    `started_at` is indexed because every read of this table is "most recent
+    first, capped" — see `list_runs`. `founder_id` is indexed for the same
+    reason: no query here is ever cross-founder.
+    """
     __tablename__ = "runs"
     run_id: str = Field(primary_key=True)
     founder_id: str = Field(index=True)
@@ -64,6 +78,11 @@ class RunRow(SQLModel, table=True):
 
 
 class InboxRow(SQLModel, table=True):
+    """One surfaced opportunity for one founder.
+
+    The write path only ever creates these with `state == "new"`; every other
+    state transition comes from a person via `set_inbox_state`.
+    """
     __tablename__ = "inbox"
     item_id: str = Field(primary_key=True)
     #: `founder_id::opportunity_id`. Unique, so a double-notify is a
@@ -112,6 +131,13 @@ class JobRow(SQLModel, table=True):
 
 
 class DraftRow(SQLModel, table=True):
+    """One draft application.
+
+    Both `founder_id` and `opportunity_id` are indexed because `list_drafts`
+    filters on either or both. The draft body lives in `payload`, so nothing
+    about a field's status or provenance is queryable from SQL — that is the
+    deliberate document-store tradeoff described in the module docstring.
+    """
     __tablename__ = "drafts"
     draft_id: str = Field(primary_key=True)
     founder_id: str = Field(index=True)
@@ -139,32 +165,55 @@ class AnswerRow(SQLModel, table=True):
 
 
 class Repository(Protocol):
+    """The only persistence surface `agent/` is allowed to see.
+
+    Everything below is grouped by record type. Two properties hold across
+    every method and are worth stating once rather than repeating:
+
+    *   **No authorization happens here.** `get_draft(draft_id)` will hand
+        back any founder's draft. Checking that the caller owns the record
+        is `api/auth.py`'s job. A new endpoint that reads by bare id and
+        skips that check is a cross-founder data leak.
+    *   **Reads deserialise the JSON payload, not the indexed columns.**
+        The columns exist only for ordering and filtering. If a payload and
+        its extracted column ever disagree, queries follow the column and
+        the returned object follows the payload.
+    """
+
     def save_profile(self, profile: FounderProfile) -> None: ...
     def get_profile(self, founder_id: str) -> FounderProfile | None: ...
 
+    # Runs: append-only history. `latest_run`/`list_runs` are capped,
+    # `get_run` is the only way back to an old one.
     def save_run(self, report: RunReport) -> None: ...
     def latest_run(self, founder_id: str) -> RunReport | None: ...
     def get_run(self, run_id: str) -> RunReport | None: ...
     def list_runs(self, founder_id: str, limit: int = 20) -> list[RunReport]: ...
 
+    # Opportunities: upserted by id, shared across founders.
     def save_opportunity(self, opportunity: Opportunity) -> None: ...
     def get_opportunity(self, opportunity_id: str) -> Opportunity | None: ...
 
+    # Inbox: `has_surfaced` + the unique index on `save_inbox_item` are
+    # the two halves of never notifying the same founder twice.
     def has_surfaced(self, founder_id: str, opportunity_id: str) -> bool: ...
     def save_inbox_item(self, item: InboxItem) -> bool: ...
     def list_inbox(self, founder_id: str, limit: int = 50) -> list[InboxItem]: ...
     def get_inbox_item(self, item_id: str) -> InboxItem | None: ...
     def set_inbox_state(self, item_id: str, state: InboxState) -> InboxItem | None: ...
 
+    # Drafts: mutable during a run, keyed by `draft_id`.
     def save_draft(self, draft: Draft) -> None: ...
     def get_draft(self, draft_id: str) -> Draft | None: ...
     def list_drafts(
         self, founder_id: str, opportunity_id: str | None = None
     ) -> list[Draft]: ...
 
+    # Recall: what makes application 2 shorter than application 1.
     def remember_answer(self, founder_id: str, field: DraftField) -> None: ...
     def recall(self, founder_id: str, question: str) -> DraftField | None: ...
 
+    # Jobs: the durable half of the async run boundary.
     def save_job(self, job: RunJob) -> None: ...
     def get_job(self, job_id: str) -> RunJob | None: ...
     def get_job_by_key(self, founder_id: str, idempotency_key: str) -> RunJob | None: ...
@@ -237,6 +286,7 @@ class SqliteRepository:
     # -- profiles --
 
     def save_profile(self, profile: FounderProfile) -> None:
+        """Upsert the profile, redacting secrets on the way in."""
         with Session(self.engine) as session:
             row = session.get(ProfileRow, profile.founder_id) or ProfileRow(
                 founder_id=profile.founder_id, payload=""
@@ -249,6 +299,7 @@ class SqliteRepository:
             session.commit()
 
     def get_profile(self, founder_id: str) -> FounderProfile | None:
+        """Load a profile by founder id, or None if this founder has never saved one."""
         with Session(self.engine) as session:
             row = session.get(ProfileRow, founder_id)
             return FounderProfile.model_validate_json(row.payload) if row else None
@@ -256,6 +307,13 @@ class SqliteRepository:
     # -- runs --
 
     def save_run(self, report: RunReport) -> None:
+        """Upsert a run report keyed by `run_id`.
+
+        `started_at` and `founder_id` are copied out of the report into indexed
+        columns on insert only. If a report is ever re-saved with a different
+        `started_at`, the column keeps the original value and the payload keeps
+        the new one — they would disagree, and list ordering follows the column.
+        """
         with Session(self.engine) as session:
             row = session.get(RunRow, report.run_id) or RunRow(
                 run_id=report.run_id,
@@ -268,6 +326,7 @@ class SqliteRepository:
             session.commit()
 
     def list_runs(self, founder_id: str, limit: int = 20) -> list[RunReport]:
+        """Most recent runs for one founder, newest first, capped at `limit`."""
         with Session(self.engine) as session:
             rows = session.exec(
                 select(RunRow)
@@ -278,6 +337,7 @@ class SqliteRepository:
             return [RunReport.model_validate_json(r.payload) for r in rows]
 
     def latest_run(self, founder_id: str) -> RunReport | None:
+        """The most recent run for a founder, or None if they have never run one."""
         runs = self.list_runs(founder_id, limit=1)
         return runs[0] if runs else None
 
@@ -313,6 +373,7 @@ class SqliteRepository:
             session.commit()
 
     def get_opportunity(self, opportunity_id: str) -> Opportunity | None:
+        """One opportunity by id, or None if no run has ever recorded it."""
         with Session(self.engine) as session:
             row = session.get(OpportunityRow, opportunity_id)
             return Opportunity.model_validate_json(row.payload) if row else None
@@ -356,6 +417,11 @@ class SqliteRepository:
             return True
 
     def list_inbox(self, founder_id: str, limit: int = 50) -> list[InboxItem]:
+        """Inbox items for one founder, newest first, capped at `limit`.
+
+        No state filter: dismissed and applied items come back too, and the
+        caller (or the dashboard) decides what to show.
+        """
         with Session(self.engine) as session:
             rows = session.exec(
                 select(InboxRow)
@@ -366,6 +432,11 @@ class SqliteRepository:
             return [InboxItem.model_validate_json(r.payload) for r in rows]
 
     def get_inbox_item(self, item_id: str) -> InboxItem | None:
+        """One inbox item by id, or None.
+
+        Note this does not take a `founder_id` — authorization that the caller
+        owns this item is the API layer's job, not the repository's.
+        """
         with Session(self.engine) as session:
             row = session.get(InboxRow, item_id)
             return InboxItem.model_validate_json(row.payload) if row else None
@@ -391,6 +462,11 @@ class SqliteRepository:
     # -- drafts --
 
     def save_draft(self, draft: Draft) -> None:
+        """Upsert a draft keyed by `draft_id`.
+
+        Drafts are the one record type that legitimately mutates during a run,
+        so re-saving the same id is the normal path, not a conflict.
+        """
         with Session(self.engine) as session:
             row = session.get(DraftRow, draft.draft_id) or DraftRow(
                 draft_id=draft.draft_id,
@@ -403,6 +479,7 @@ class SqliteRepository:
             session.commit()
 
     def get_draft(self, draft_id: str) -> Draft | None:
+        """One draft by id, or None."""
         with Session(self.engine) as session:
             row = session.get(DraftRow, draft_id)
             return Draft.model_validate_json(row.payload) if row else None
@@ -454,6 +531,7 @@ class SqliteRepository:
             session.commit()
 
     def get_job(self, job_id: str) -> RunJob | None:
+        """One job by id, or None. The dashboard polls this while a run is in flight."""
         with Session(self.engine) as session:
             row = session.get(JobRow, job_id)
             return RunJob.model_validate_json(row.payload) if row else None
@@ -469,6 +547,7 @@ class SqliteRepository:
             return RunJob.model_validate_json(row.payload) if row else None
 
     def list_jobs(self, founder_id: str, limit: int = 20) -> list[RunJob]:
+        """Jobs for one founder, newest first, capped at `limit`."""
         with Session(self.engine) as session:
             rows = session.exec(
                 select(JobRow)
