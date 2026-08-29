@@ -155,6 +155,18 @@ def build_record(
             "because it was named explicitly in the target list, at exactly that URL, "
             "and it was not crawled."
         )
+    elif target.tier == "UNIVERSITY_WEB_SEARCH":
+        opportunity.caveats.append(
+            "[university web search] This page was discovered by a search API "
+            "result from the university/student-founder scraper lane, fetched "
+            "exactly once, and has not been human reviewed."
+        )
+    elif target.tier == "GENERAL_WEB_SEARCH":
+        opportunity.caveats.append(
+            "[general web search] This page was discovered by a search API result "
+            "from the broad public-web scraper lane, fetched exactly once, and has "
+            "not been human reviewed."
+        )
     elif target.tier == "WEB_SEARCH":
         opportunity.caveats.append(
             "[web search] This page was discovered by a search API result, fetched "

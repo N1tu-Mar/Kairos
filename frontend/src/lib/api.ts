@@ -12,6 +12,7 @@ import type {
   RunReport,
   RunTrigger,
   SchedulerFailure,
+  ScraperCandidateGroups,
 } from "@/lib/types";
 
 /**
@@ -209,6 +210,10 @@ export function getRun(
  */
 export function getOpportunity(opportunityId: string): Promise<Opportunity> {
   return request(`/opportunities/${encodeURIComponent(opportunityId)}`);
+}
+
+export function getScraperCandidates(limit = 4): Promise<ScraperCandidateGroups> {
+  return request(`/scraper/candidates?limit=${limit}`);
 }
 
 /**

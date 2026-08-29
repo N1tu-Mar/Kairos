@@ -6,6 +6,8 @@ import type {
   Opportunity,
   RunJob,
   RunReport,
+  ScraperCandidate,
+  ScraperCandidateGroup,
 } from "@/lib/types";
 
 /** Shapes copied from what the FastAPI test suite actually stores. */
@@ -175,6 +177,62 @@ export function opportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     verified: true,
     verified_at: "2026-08-22T00:00:00Z",
     retrieved_at: "2026-08-22T00:00:00Z",
+    ...overrides,
+  };
+}
+
+export function scraperCandidate(
+  overrides: Partial<ScraperCandidate> = {},
+): ScraperCandidate {
+  return {
+    scrape_id: "university_web_abc123",
+    title: "Campus Venture Prize",
+    organization: "Example University Innovation Center",
+    source_url: "https://innovation.example.edu/prize",
+    award_type: "cash prize",
+    award_min: 1_000,
+    award_max: 5_000,
+    institution: ["Example University"],
+    degree_levels: ["undergraduate", "graduate"],
+    applicant_type: ["student founder"],
+    equity_required: false,
+    team_size_min: 1,
+    team_size_max: 4,
+    deadline: "May 1, 2027",
+    deadline_iso: "2027-05-01",
+    evidence: {},
+    unknown_fields: ["equity_required"],
+    caveats: ["[university web search] This page has not been human reviewed."],
+    founder_reviews: [],
+    fetch: {
+      url: "https://innovation.example.edu/prize",
+      final_url: "https://innovation.example.edu/prize",
+      status_code: 200,
+      robots_allowed: true,
+      robots_url: "https://innovation.example.edu/robots.txt",
+      crawl_delay_s: null,
+      fetched_at: "2026-08-28T06:00:00Z",
+      content_hash: "abc123",
+      raw_path: "",
+      renderer: "httpx",
+      failure: null,
+      bytes: 2048,
+    },
+    scraped_at: "2026-08-28T06:00:00Z",
+    review_status: "NEEDS_HUMAN_REVIEW",
+    ...overrides,
+  };
+}
+
+export function scraperCandidateGroup(
+  overrides: Partial<ScraperCandidateGroup> = {},
+): ScraperCandidateGroup {
+  return {
+    lane: "university",
+    label: "university funding",
+    source_file: "opportunities.university-web.candidates.json",
+    total: 1,
+    candidates: [scraperCandidate()],
     ...overrides,
   };
 }

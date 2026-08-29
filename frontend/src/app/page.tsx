@@ -5,12 +5,14 @@ import { InboxItemCard } from "@/components/inbox-item-card";
 import { ManualRunControl } from "@/components/manual-run";
 import { RunSummary } from "@/components/run-summary";
 import { SchedulerFailures } from "@/components/scheduler-failures";
+import { ScraperCandidates } from "@/components/scraper-candidates";
 import { EmptyState, Note } from "@/components/states";
 import { Page, PageHeader, Section } from "@/components/primitives";
 import {
   getInbox,
   getLatestRun,
   getOpportunities,
+  getScraperCandidates,
   listSchedulerFailures,
 } from "@/lib/api";
 import { formatRelative, runHeadline } from "@/lib/format";
@@ -19,6 +21,7 @@ import type {
   Opportunity,
   RunReport,
   SchedulerFailure,
+  ScraperCandidateGroups,
 } from "@/lib/types";
 
 /**
@@ -34,14 +37,18 @@ export default async function BriefingPage() {
   let inbox: InboxItem[] = [];
   let runError: unknown = null;
   let inboxError: unknown = null;
+  let scraperError: unknown = null;
+  let scraperCandidates: ScraperCandidateGroups = {};
 
   let failures: SchedulerFailure[] = [];
 
-  const [runResult, inboxResult, failureResult] = await Promise.allSettled([
-    getLatestRun(),
-    getInbox(),
-    listSchedulerFailures(),
-  ]);
+  const [runResult, inboxResult, failureResult, scraperResult] =
+    await Promise.allSettled([
+      getLatestRun(),
+      getInbox(),
+      listSchedulerFailures(),
+      getScraperCandidates(),
+    ]);
 
   if (runResult.status === "fulfilled") report = runResult.value;
   else runError = runResult.reason;
@@ -52,6 +59,12 @@ export default async function BriefingPage() {
   // A failure to read the failure log is not itself worth an alarm on the
   // briefing — the run summary below already reports a backend that is down.
   if (failureResult.status === "fulfilled") failures = failureResult.value;
+
+  if (scraperResult.status === "fulfilled") {
+    scraperCandidates = scraperResult.value;
+  } else {
+    scraperError = scraperResult.reason;
+  }
 
   const active = inbox.filter((item) => !item.passive);
   const passive = inbox.filter((item) => item.passive);
@@ -109,6 +122,17 @@ export default async function BriefingPage() {
             by hand below — it will scan, filter, judge, and write down every
             decision it makes.
           </EmptyState>
+        )}
+      </Section>
+
+      <Section
+        title="Research queue"
+        description="Search-discovered candidates waiting for review, split by where the scraper looked."
+      >
+        {scraperError ? (
+          <ApiErrorState error={scraperError} what="the scraper candidates" />
+        ) : (
+          <ScraperCandidates groups={scraperCandidates} />
         )}
       </Section>
 

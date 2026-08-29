@@ -1,10 +1,14 @@
-"""Search-backed web scraper for funding opportunities.
+"""Search-backed web scrapers for funding opportunities.
 
-This agent does one job: turn search results into scrape candidates. It does
+These agents do one job: turn search results into scrape candidates. They do
 not assess fit, draft applications, notify founders, or promote anything into
 the seed catalog. Search-discovered pages are fetched once, extracted through
 the existing evidence-first scraper, deduplicated, and left as
 NEEDS_HUMAN_REVIEW candidates.
+
+One `SearchClient` can feed multiple lanes. The lane decides the query set,
+candidate filter, output file, and review label; the search API boundary stays
+shared so swapping Brave for another provider is still one adapter change.
 """
 
 from __future__ import annotations
@@ -25,24 +29,44 @@ import httpx
 from agent.scraping.fetch import PoliteFetcher
 from agent.scraping.models import ScrapedOpportunity, ScrapeRun
 from agent.scraping.pipeline import RAW_DIR, scrape, write_candidates
-from agent.scraping.registry import Target
+from agent.scraping.registry import Target, Tier
 
 log = logging.getLogger("kairos.scraping.agent")
 
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
-DEFAULT_WEB_CANDIDATES_PATH = RAW_DIR.parent / "opportunities.web.candidates.json"
+DEFAULT_GENERAL_WEB_CANDIDATES_PATH = RAW_DIR.parent / "opportunities.web.candidates.json"
+DEFAULT_UNIVERSITY_WEB_CANDIDATES_PATH = (
+    RAW_DIR.parent / "opportunities.university-web.candidates.json"
+)
+DEFAULT_WEB_CANDIDATES_PATH = DEFAULT_GENERAL_WEB_CANDIDATES_PATH
 
-DEFAULT_QUERIES: tuple[str, ...] = (
+GENERAL_QUERIES: tuple[str, ...] = (
+    '"startup grant" "student founder"',
+    '"small business" grant startup non-dilutive',
+    '"founder" "pitch competition" "cash prize"',
+    '"entrepreneur" fellowship grant application',
+)
+
+UNIVERSITY_QUERIES: tuple[str, ...] = (
     '"student founder" grant OR prize OR pitch competition',
     '"undergraduate" startup grant application',
     '"university" entrepreneurship "pitch competition" prize',
     '"student entrepreneurs" "cash prize" application',
 )
+DEFAULT_QUERIES = GENERAL_QUERIES
 
 _OPPORTUNITY_HINT = re.compile(
     r"\b(grant|grants|funding|fund|prize|prizes|award|awards|fellowship|"
     r"scholarship|competition|challenge|pitch|accelerator|incubator|"
     r"venture|startup|entrepreneur\w*|innovation|commercializ\w*|seed)\b",
+    re.I,
+)
+
+_UNIVERSITY_HINT = re.compile(
+    r"\b(university|college|campus|undergraduate|graduate|student founder|"
+    r"student founders|student entrepreneur|student entrepreneurs|students|"
+    r"entrepreneurship center|innovation center|business school|school of "
+    r"business|pitch competition)\b|\.edu\b",
     re.I,
 )
 
@@ -90,6 +114,51 @@ class SearchResult:
 
 class SearchClient(Protocol):
     def search(self, query: str, *, count: int) -> list[SearchResult]: ...
+
+
+@dataclass(frozen=True)
+class ScraperLane:
+    """A named search lane over the shared search-provider boundary."""
+
+    name: str
+    label: str
+    tier: Tier
+    queries: tuple[str, ...]
+    output_path: Path
+    tags: tuple[str, ...]
+    domains: tuple[str, ...] = ()
+    priority: int = 2
+    require_university_signal: bool = False
+
+
+GENERAL_LANE = ScraperLane(
+    name="general",
+    label="general funding",
+    tier="GENERAL_WEB_SEARCH",
+    queries=GENERAL_QUERIES,
+    output_path=DEFAULT_GENERAL_WEB_CANDIDATES_PATH,
+    tags=("web search", "general funding"),
+)
+
+UNIVERSITY_LANE = ScraperLane(
+    name="university",
+    label="university funding",
+    tier="UNIVERSITY_WEB_SEARCH",
+    queries=UNIVERSITY_QUERIES,
+    output_path=DEFAULT_UNIVERSITY_WEB_CANDIDATES_PATH,
+    tags=("web search", "university", "student founder"),
+    require_university_signal=True,
+)
+
+LANES = {lane.name: lane for lane in (GENERAL_LANE, UNIVERSITY_LANE)}
+
+
+def lane_by_name(name: str) -> ScraperLane:
+    try:
+        return LANES[name]
+    except KeyError as exc:
+        available = ", ".join(sorted(LANES))
+        raise ValueError(f"unknown scraper lane {name!r}; expected one of {available}") from exc
 
 
 class BraveSearchClient:
@@ -166,13 +235,26 @@ class BraveSearchClient:
 
 @dataclass(frozen=True)
 class WebScraperConfig:
-    queries: tuple[str, ...] = DEFAULT_QUERIES
+    lane: ScraperLane = GENERAL_LANE
+    queries: tuple[str, ...] = GENERAL_QUERIES
     domains: tuple[str, ...] = ()
     max_results_per_query: int = 10
     max_pages: int = 25
     allow_js: bool = False
     require_opportunity_hint: bool = True
     raw_dir: Path = RAW_DIR
+
+    @classmethod
+    def for_lane(cls, lane: ScraperLane | str, **overrides: Any) -> "WebScraperConfig":
+        selected = lane_by_name(lane) if isinstance(lane, str) else lane
+        values: dict[str, Any] = {
+            "lane": selected,
+            "queries": selected.queries,
+            "domains": selected.domains,
+            "raw_dir": RAW_DIR,
+        }
+        values.update(overrides)
+        return cls(**values)
 
 
 @dataclass
@@ -206,7 +288,7 @@ class WebScraperAgent:
                 if normalized in seen or not self._should_fetch(result):
                     continue
                 seen.add(normalized)
-                targets.append(target_from_result(result))
+                targets.append(target_from_result(result, lane=self.config.lane))
 
                 if len(targets) >= self.config.max_pages:
                     return targets, notes
@@ -231,7 +313,8 @@ class WebScraperAgent:
         )
         run.notes.extend(notes)
         run.notes.append(
-            f"web search produced {len(targets)} fetchable URL(s) from "
+            f"{self.config.lane.label} search produced {len(targets)} "
+            f"fetchable URL(s) from "
             f"{len(self.config.queries)} query/queries"
         )
         return records, run
@@ -239,20 +322,23 @@ class WebScraperAgent:
     def write(
         self,
         *,
-        path: Path = DEFAULT_WEB_CANDIDATES_PATH,
+        path: Path | None = None,
         run_log: Path | None = None,
     ) -> tuple[Path, list[ScrapedOpportunity], ScrapeRun]:
         records, run = self.run()
         written = write_candidates(
             records,
             run,
-            path=path,
+            path=path or self.config.lane.output_path,
             run_log=run_log or self.config.raw_dir / "scrape_runs.jsonl",
         )
         return written, records, run
 
     def _should_fetch(self, result: SearchResult) -> bool:
         if self.config.domains and not host_matches_any(result.url, self.config.domains):
+            return False
+
+        if self.config.lane.require_university_signal and not is_university_search_result(result):
             return False
 
         host = urlsplit(result.url).netloc.lower().removeprefix("www.")
@@ -265,6 +351,38 @@ class WebScraperAgent:
                 return False
 
         return True
+
+
+class GeneralWebScraperAgent(WebScraperAgent):
+    """Broad public-web funding scraper over the shared search provider."""
+
+    def __init__(
+        self,
+        search_client: SearchClient,
+        config: WebScraperConfig | None = None,
+        fetcher: PoliteFetcher | None = None,
+    ) -> None:
+        super().__init__(
+            search_client=search_client,
+            config=config or WebScraperConfig.for_lane(GENERAL_LANE),
+            fetcher=fetcher,
+        )
+
+
+class UniversityWebScraperAgent(WebScraperAgent):
+    """University and student-founder opportunity scraper over shared search."""
+
+    def __init__(
+        self,
+        search_client: SearchClient,
+        config: WebScraperConfig | None = None,
+        fetcher: PoliteFetcher | None = None,
+    ) -> None:
+        super().__init__(
+            search_client=search_client,
+            config=config or WebScraperConfig.for_lane(UNIVERSITY_LANE),
+            fetcher=fetcher,
+        )
 
 
 def normalize_candidate_url(url: str) -> str | None:
@@ -295,24 +413,33 @@ def host_matches_any(url: str, domains: tuple[str, ...]) -> bool:
     return False
 
 
-def target_from_result(result: SearchResult) -> Target:
+def is_university_search_result(result: SearchResult) -> bool:
+    """Whether a hit belongs in the university/student-founder lane."""
+    host = urlsplit(result.url).netloc.lower().removeprefix("www.")
+    if host.endswith(".edu"):
+        return True
+    haystack = f"{result.title} {result.snippet} {result.url}"
+    return bool(_UNIVERSITY_HINT.search(haystack))
+
+
+def target_from_result(result: SearchResult, *, lane: ScraperLane = GENERAL_LANE) -> Target:
     title = result.title or _title_from_url(result.url)
     note = (
-        f"Discovered by {result.source} search query {result.query!r}"
+        f"Discovered by {result.source} {lane.label} search query {result.query!r}"
         f" at rank {result.rank or 'unknown'}."
     )
     if result.snippet:
         note = f"{note} Search snippet: {result.snippet[:240]}"
 
     return Target(
-        key=f"web_{hashlib.sha1(result.url.encode('utf-8')).hexdigest()[:12]}",
+        key=f"{lane.name}_web_{hashlib.sha1(result.url.encode('utf-8')).hexdigest()[:12]}",
         title=title,
         organization=_host_label(result.url),
         url=result.url,
-        tier="WEB_SEARCH",
-        priority=2,
+        tier=lane.tier,
+        priority=lane.priority,
         operator_note=note,
-        tags=("web search",),
+        tags=lane.tags,
     )
 
 
