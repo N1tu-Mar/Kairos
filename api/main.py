@@ -141,6 +141,18 @@ class InboxStateUpdate(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Build everything the process needs, once, before the first request.
+
+    Order matters and is not arbitrary: the authenticator exists before any
+    request can be authenticated, the repository before the demo profile is
+    seeded, and `recover_orphaned_jobs` runs before the executor is installed
+    so no new job can be created while the crash repair is deciding which
+    rows are orphans.
+
+    Everything lands on `app.state`, which makes it per-application rather
+    than global — a test builds a second app with its own repository without
+    disturbing this one.
+    """
     config = settings()
     if not config.api_token and not config.credentials_file:
         log.warning(
@@ -275,6 +287,12 @@ app.add_middleware(
 
 
 def _seed_demo_profile(repo: SqliteRepository) -> None:
+    """Insert the demo founder if this database has never seen them.
+
+    Writes only when absent, so a profile edited through `PUT /founders/{id}`
+    survives a restart instead of being reset to the shipped JSON. A missing
+    `demo_founder.json` is not an error — a real deployment has no demo row.
+    """
     path = REPO_ROOT / "data" / "demo_founder.json"
     if not path.exists():
         return
@@ -347,6 +365,11 @@ def _read_scraper_candidates(path: Path) -> list[ScrapedOpportunity]:
 
 
 def _scraper_candidate_group(name: str, limit: int) -> ScraperCandidateGroup:
+    """Read one lane's candidate file, newest first, capped at `limit`.
+
+    `total` is the count before the cap, so the dashboard can say "showing 6
+    of 41" rather than implying the file holds six rows.
+    """
     lane = SCRAPER_CANDIDATE_LANES[name]
     candidates = sorted(
         _read_scraper_candidates(lane.output_path),
@@ -453,6 +476,7 @@ def ready(response: Response) -> dict:
 
 @app.get("/founders/{founder_id}")
 def get_founder(founder_id: ResourceId, actor: Principal = Depends(principal)) -> FounderProfile:
+    """One founder profile. Ownership-checked, and 404 for a founder that is not yours."""
     owned(founder_id, actor)
     profile = app.state.repo.get_profile(founder_id)
     if profile is None:
@@ -509,6 +533,17 @@ def get_inbox(
     limit: ListLimit = 50,
     actor: Principal = Depends(principal),
 ) -> list:
+    """Surfaced opportunities for one founder, newest first.
+
+    `include_passive=False` drops passively-surfaced items — the ones the run
+    recorded but did not consider worth interrupting for.
+
+    Note the ordering: `limit` is applied by the database and the passive
+    filter afterwards in Python, so `include_passive=False` can return fewer
+    than `limit` rows while more non-passive rows exist further back. The
+    dashboard asks for a generous limit rather than paginating, which hides
+    this; a caller that pages through this endpoint would not be so lucky.
+    """
     owned(founder_id, actor)
     items = app.state.repo.list_inbox(founder_id, limit)
     return items if include_passive else [i for i in items if not i.passive]
@@ -520,12 +555,14 @@ def list_runs(
     limit: ListLimit = 20,
     actor: Principal = Depends(principal),
 ) -> list[RunReport]:
+    """Recent run reports for one founder, newest first, capped at `limit`."""
     owned(founder_id, actor)
     return app.state.repo.list_runs(founder_id, limit)
 
 
 @app.get("/founders/{founder_id}/runs/latest")
 def latest_run(founder_id: ResourceId, actor: Principal = Depends(principal)) -> RunReport:
+    """The most recent run report. 404 when the founder has never had a run."""
     owned(founder_id, actor)
     report = app.state.repo.latest_run(founder_id)
     if report is None:
@@ -708,6 +745,11 @@ async def trigger_run(
     if profile is None:
         raise HTTPException(404, f"no profile for {founder_id}")
 
+    # Idempotency is checked before the lease, so a retry of a key that
+    # already landed returns the original job rather than colliding with the
+    # run it started and getting a 409. The check is not itself atomic —
+    # two simultaneous retries can both miss here — which is why the unique
+    # index is re-caught around `save_job` below.
     if trigger.idempotency_key:
         existing = app.state.repo.get_job_by_key(founder_id, trigger.idempotency_key)
         if existing is not None:
@@ -756,6 +798,8 @@ async def trigger_run(
                 return existing
         raise
 
+    # Ownership of the lease passes to the executor here: from this line on,
+    # releasing it is `execute_job`'s `finally`, not this function's.
     app.state.executor.submit(job, lease)
     audit_event(
         actor=actor.subject,
@@ -774,6 +818,7 @@ def list_jobs(
     limit: ListLimit = 20,
     actor: Principal = Depends(principal),
 ) -> list[RunJob]:
+    """Recent jobs for one founder, newest first — running and finished alike."""
     owned(founder_id, actor)
     return app.state.repo.list_jobs(founder_id, limit)
 
@@ -820,6 +865,11 @@ def cancel_job(
     if job.terminal():
         return {"cancelled": False, "status": job.status}
     cancelled = app.state.executor.cancel(job_id)
+    # `job.status` was read before the cancel and is not re-read: a
+    # successful cancel still reports `"running"` here, because the task
+    # writes `cancelled` asynchronously when it reaches its next await
+    # point. Callers should treat the `cancelled` flag as the answer and
+    # poll `GET .../jobs/{job_id}` for the settled status.
     audit_event(
         actor=actor.subject,
         action="run.cancel",
