@@ -168,7 +168,11 @@ async def lifespan(app: FastAPI):
     disturbing this one.
     """
     config = settings()
-    if not config.api_token and not config.credentials_file:
+    if (
+        not config.supabase_issuer
+        and not config.api_token
+        and not config.credentials_file
+    ):
         if config.allow_open_api:
             log.warning(
                 "KAIROS_ALLOW_OPEN_API is on and no credential is configured — "
@@ -183,7 +187,6 @@ async def lifespan(app: FastAPI):
                 "No credential is configured — every request will be refused. "
                 "Set KAIROS_API_TOKEN, or KAIROS_ALLOW_OPEN_API=1 for a local demo."
             )
-    app.state.authenticator = build_authenticator(config)
     # In production the schema belongs to `alembic upgrade head`, run at
     # deploy time. create_all() cannot evolve one — it fills in missing
     # tables and says nothing about a table whose shape has drifted — so a
@@ -193,6 +196,9 @@ async def lifespan(app: FastAPI):
         config.db_url, create_schema=not config.production
     )
     _seed_demo_profile(app.state.repo)
+    # After the repository, not before: Supabase authorization reads its
+    # memberships from it, so the authenticator cannot be built first.
+    app.state.authenticator = build_authenticator(config, app.state.repo)
 
     # The async job machinery. The lease TTL is double the run timeout so a
     # live run's lease can never expire out from under it.

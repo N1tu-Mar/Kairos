@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+import jwt
+
 log = logging.getLogger("kairos.auth")
 audit_log = logging.getLogger("kairos.audit")
 
@@ -353,13 +355,136 @@ class StaticTokenFileAuthenticator:
         )
 
 
-def build_authenticator(config) -> Authenticator:
-    """Pick an authenticator from configuration.
+class SupabaseJWTAuthenticator:
+    """Verify a Supabase session token; read authorization from the database.
 
-    A credential file, when configured, wins: it is the only one of the two
-    that can tell founders apart. Otherwise the shared token, which is the
-    documented single-founder mode.
+    The adapter the `Authenticator` protocol was left open for. It answers
+    *who* — the `sub` claim of a signed token — and then asks
+    `founder_members` *what they may touch*. The token never says which
+    founders it owns, and that is the point: a claim inside a token is
+    something the token's holder can be given by mistake, while a membership
+    row is something an operator granted.
+
+    Membership is read on every request rather than cached against the token.
+    A Supabase access token lives about an hour; caching would mean a revoked
+    person kept their access until it expired, which is not what revocation
+    means.
+
+    **Key material.** Exactly one of `jwt_secret` (HS256, Supabase's shared
+    JWT secret) or `public_key` (RS256/ES256, the asymmetric signing keys)
+    must be supplied, and whichever it is fixes the accepted algorithm list.
+    That list comes from configuration and never from the token's own header,
+    which is what makes algorithm confusion — an HS256 token signed with the
+    deployment's RSA *public* key as its HMAC secret — a refusal instead of a
+    valid session. `alg: none` is unreachable for the same reason.
+
+    `iss` and `aud` are both verified. A correctly signed token from another
+    Supabase project is still a correctly signed token; the issuer is what
+    makes it not ours, and the audience separates a user session from a
+    service-role key.
     """
+
+    #: The `aud` claim Supabase puts on a signed-in user's access token. A
+    #: `service_role` token is not a person and must never resolve to one.
+    AUDIENCE = "authenticated"
+
+    def __init__(
+        self,
+        *,
+        repository,
+        issuer: str,
+        jwt_secret: str = "",
+        public_key: str = "",
+        leeway_s: int = 10,
+    ) -> None:
+        """`leeway_s` tolerates small clock skew on `exp`/`iat` and nothing else."""
+        if bool(jwt_secret) == bool(public_key):
+            # Both or neither. Neither cannot verify; both is an ambiguity
+            # about which algorithm family is trusted, and that ambiguity is
+            # exactly what algorithm confusion exploits.
+            raise ValueError(
+                "supply exactly one of jwt_secret (HS256) or public_key (RS256/ES256)"
+            )
+        self.repository = repository
+        self.issuer = issuer
+        self.leeway_s = leeway_s
+        if jwt_secret:
+            self.key = jwt_secret
+            self.algorithms = ["HS256"]
+        else:
+            self.key = public_key
+            self.algorithms = ["RS256", "ES256"]
+
+    def authenticate(self, authorization: str | None) -> Principal:
+        """Resolve a bearer token to a principal, or raise `AuthError`.
+
+        Every failure is the same `AuthError`. Which claim was wrong, whether
+        the signature failed or the token merely expired, and whether the
+        subject has any membership at all are all distinctions the caller does
+        not get — they are a probe oracle, and they go to the audit log.
+        """
+        supplied = _bearer(authorization)
+
+        try:
+            claims = jwt.decode(
+                supplied,
+                self.key,
+                algorithms=self.algorithms,
+                audience=self.AUDIENCE,
+                issuer=self.issuer,
+                leeway=self.leeway_s,
+                options={"require": ["exp", "sub", "aud", "iss"]},
+            )
+        except jwt.InvalidTokenError as exc:
+            # Covers expiry, bad signature, wrong issuer, wrong audience, a
+            # missing required claim, and anything that is not a JWT at all.
+            audit_event(
+                actor="unknown",
+                action="auth.rejected",
+                resource="supabase_jwt",
+                outcome=type(exc).__name__,
+            )
+            raise AuthError("invalid credential") from None
+
+        subject = str(claims.get("sub") or "").strip()
+        if not subject:
+            raise AuthError("invalid credential")
+
+        # Authorization is a database fact, re-read per request.
+        return Principal(
+            subject=subject,
+            founder_ids=self.repository.founder_ids_for(subject),
+            can_write=self.repository.can_write(subject),
+            method="supabase_jwt",
+        )
+
+
+def build_authenticator(config, repository=None) -> Authenticator:
+    """Pick an authenticator from configuration, strongest identity first.
+
+    1.  **Supabase** — the only one that identifies a *person*, and the only
+        one whose authorization comes from a table an operator controls
+        rather than from whoever holds a secret. Needs `repository`, since
+        that is where the memberships live.
+    2.  **Credential file** — hashed tokens, several founders, revocation.
+        Proves possession of a secret, not identity.
+    3.  **Shared token** — one secret, one founder, honest about it.
+
+    Configured-but-unusable is a startup failure, not a silent demotion: a
+    deployment that set a Supabase issuer and no key has made a mistake, and
+    falling back to a shared token would hide it behind a working API.
+    """
+    if config.supabase_issuer:
+        if repository is None:
+            raise ValueError(
+                "Supabase authentication needs a repository to read memberships from"
+            )
+        return SupabaseJWTAuthenticator(
+            repository=repository,
+            issuer=config.supabase_issuer,
+            jwt_secret=config.supabase_jwt_secret,
+            public_key=config.supabase_public_key,
+        )
     if config.credentials_file:
         return StaticTokenFileAuthenticator(config.credentials_file)
     return SharedTokenAuthenticator(
