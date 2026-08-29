@@ -187,14 +187,28 @@ class SemanticMatcher(Protocol):
 
 
 class _BaseMatcher:
+    """Shared `best_match` for matchers that only define `similarity`.
+
+    Subclasses set `name`, which is recorded on the reused `DraftField` as
+    `reuse_match` — so a reuse can name which backend produced it rather than
+    asserting a bare score.
+    """
     name = "base"
 
     def similarity(self, left: str, right: str) -> float:  # pragma: no cover
+        """Score two questions in [0, 1]. Subclass responsibility."""
         raise NotImplementedError
 
     def best_match(
         self, question: str, candidates: list[str], *, threshold: float
     ) -> Match | None:
+        """Highest-scoring candidate at or above `threshold`, else None.
+
+        Linear scan, strictly-greater comparison — so on a tie the earliest
+        candidate wins, which makes the result stable for a given candidate
+        order. Callers pass candidates from a database query whose order is not
+        guaranteed, so identical scores can resolve differently between runs.
+        """
         best: Match | None = None
         for candidate in candidates:
             score = self.similarity(question, candidate)
@@ -220,6 +234,13 @@ class LexicalMatcher(_BaseMatcher):
     name = "lexical"
 
     def similarity(self, left: str, right: str) -> float:
+        """Coverage of the shorter question's content words, diluted by the extra topics in the longer one.
+
+        Symmetric, and zero whenever the two share no content word at all. The
+        two-part shape is explained inline below; the short version is that plain
+        cosine punishes exactly the short-vs-slightly-longer pairs that are the
+        real rephrasings.
+        """
         a, b = set(tokenize(left)), set(tokenize(right))
         if not a or not b:
             return 0.0
@@ -262,6 +283,7 @@ class BedrockEmbeddingMatcher(_BaseMatcher):
     name = "bedrock-embedding"
 
     def __init__(self, embed=None, *, model_id: str = "") -> None:
+        """Requires an explicit `embed` callable. Constructing without one raises rather than reaching for a plausible-looking model ID — the same no-guessing rule as `agent/config.py`."""
         if embed is None:
             raise NotImplementedError(
                 "The live Bedrock embedding backend is not wired up. No model ID "
@@ -273,6 +295,12 @@ class BedrockEmbeddingMatcher(_BaseMatcher):
         self.model_id = model_id
 
     def similarity(self, left: str, right: str) -> float:
+        """Cosine similarity of the two embeddings, clamped to [0, 1].
+
+        Two `embed` calls per comparison and no caching, so scoring one question
+        against N candidates is 2N calls. That cost is why `recall` tries exact
+        matching first and only reaches a matcher when it misses.
+        """
         a, b = self._embed(left), self._embed(right)
         dot = sum(x * y for x, y in zip(a, b))
         norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))

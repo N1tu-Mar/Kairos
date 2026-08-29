@@ -36,11 +36,20 @@ def git_blob_hash(content: bytes) -> str:
 
 @dataclass(frozen=True)
 class Prompt:
+    """A prompt file plus the git blob hash of its contents.
+
+    The hash is stamped onto every `DraftField` and `Assessment` the prompt
+    produced, so an output can be traced to the exact prompt text that made
+    it — `git cat-file -p <version>` prints it. Editing a prompt therefore
+    changes the version of everything produced afterwards, which is the
+    intent: outputs from two different prompts must not be indistinguishable.
+    """
     name: str
     text: str
     version: str
 
     def __str__(self) -> str:
+        """The prompt text, so a `Prompt` can be interpolated where a string is expected."""
         return self.text
 
 
@@ -67,6 +76,7 @@ class Abstention(Exception):
     """
 
     def __init__(self, agent_name: str, detail: str) -> None:
+        """Keeps `agent_name` and `detail` as attributes so the orchestrator can branch on which sub-agent abstained without parsing the message."""
         super().__init__(f"{agent_name} abstained: {detail}")
         self.agent_name = agent_name
         self.detail = detail
@@ -114,6 +124,7 @@ class Throttled(Exception):
     """
 
     def __init__(self, agent_name: str, detail: str) -> None:
+        """Same shape as `Abstention.__init__`, deliberately a different type — see the class docstring for why the two must not be conflated."""
         super().__init__(f"{agent_name} was throttled: {detail}")
         self.agent_name = agent_name
         self.detail = detail
@@ -189,6 +200,15 @@ def backoff_delay(attempt: int) -> float:
 
 
 def _retry_prompt(prompt: str, attempt: int, error: str) -> str:
+    """Re-ask, with the validation error appended verbatim.
+
+    Showing the model exactly what failed is what makes a second attempt
+    worth anything. `attempt` is zero-based and displayed one-based.
+
+    The error text comes from a schema validation failure, which quotes the
+    model's own output back at it — it is never founder data, so it does not
+    go through sanitisation here.
+    """
     return (
         f"{prompt}\n\n"
         f"Your previous response could not be used (attempt {attempt + 1}): "

@@ -55,6 +55,17 @@ def new_run_context(
     agents: SubAgents | None = None,
     today: date | None = None,
 ) -> RunContext:
+    """Build the mutable state one pipeline run threads through.
+
+    The run id is generated here, which makes this the moment a run starts
+    existing — before any source is queried. `today` is injectable so
+    deadline arithmetic is testable without freezing the clock; it defaults
+    to the UTC date, so a run late in a local evening may already be
+    "tomorrow" for deadline-urgency purposes.
+
+    `agents=None` is legitimate: the deterministic half of the pipeline runs
+    without any model, which is what the dry run and most tests exercise.
+    """
     run_id = f"run_{uuid.uuid4().hex[:12]}"
     return RunContext(
         profile=profile,
