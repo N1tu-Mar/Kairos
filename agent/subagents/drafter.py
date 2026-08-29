@@ -72,10 +72,22 @@ class ProposedField(BaseModel):
 
 
 class DraftProposal(BaseModel):
+    """The Drafter's whole response: one entry per field it chose to address.
+
+    A field the Drafter omits is not an error — the orchestrator treats an
+    unmentioned field as NEEDS_FOUNDER, so silence is the safe default and an
+    empty proposal is a valid answer.
+    """
     fields: list[ProposedField]
 
 
 def build() -> tuple:
+    """Construct the Drafter agent and its prompt version.
+
+    The one agent that runs above temperature 0, because it writes prose.
+    Everything it produces is still grounding-checked and gated afterwards —
+    the temperature buys phrasing, not latitude about facts.
+    """
     return build_subagent(
         name="drafter",
         prompt_name="drafter",
@@ -92,6 +104,16 @@ def render_context(
     kb: KnowledgeBase,
     askable_field_ids: set[str],
 ) -> str:
+    """Build the Drafter's user message: the closed world, then the questions.
+
+    Only fields in `askable_field_ids` are shown. A field the gate would
+    block anyway is never put in front of the model, so the blocklist is
+    enforced by omission here as well as by correction in the gate.
+
+    Chunks are rendered with their ids because the Drafter must cite them —
+    `provenance_chunk_ids` is verified against this same list afterwards, so
+    an id it did not see here cannot be accepted.
+    """
     chunks = "\n".join(
         f"[{c.chunk_id}] (from {c.source}) {c.text}" for c in kb.chunks
     ) or "(the knowledge base is empty)"

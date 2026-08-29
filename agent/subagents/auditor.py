@@ -32,10 +32,21 @@ DESCRIPTION = (
 
 
 class ProposedAudit(BaseModel):
+    """The Auditor's response. Defaults to empty, which means "no field judged".
+
+    An absent field is not an approved field: the ship gate distinguishes
+    unaudited from audited-and-supported, and an empty audit passes nothing.
+    """
     fields: list[FieldAudit] = Field(default_factory=list)
 
 
 def build() -> tuple:
+    """Construct the Auditor agent and its prompt version.
+
+    Reasoning tier at temperature 0. A separate agent from the Drafter, with
+    its own prompt and its own context — see `render_context` for what is
+    deliberately withheld from it.
+    """
     return build_subagent(
         name="auditor",
         prompt_name="auditor",

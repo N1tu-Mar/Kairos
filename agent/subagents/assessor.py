@@ -24,6 +24,15 @@ DESCRIPTION = (
 
 
 def build() -> tuple:
+    """Construct the Assessor agent and its prompt version.
+
+    Runs on the reasoning tier at that tier's temperature — 0. Judgment is
+    meant to be reproducible for the same inputs; only the Drafter's prose
+    goes above zero.
+
+    Returns `(agent, prompt_version)`. The version is the prompt's git blob
+    hash and is stamped onto every `Assessment` this agent produces.
+    """
     return build_subagent(
         name="assessor",
         prompt_name="assessor",
