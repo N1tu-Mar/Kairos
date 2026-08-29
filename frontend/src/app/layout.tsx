@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Kairos",
   description:
-    "Non-dilutive funding a student founder is actually eligible for — watched for, judged, and mostly drafted.",
+    "Non-dilutive funding a student founder is actually eligible for. Watched for, judged, and mostly drafted.",
 };
 
 /**
@@ -50,8 +50,8 @@ export default function RootLayout({
         <footer className="border-t border-rule">
           <div className="mx-auto w-full max-w-5xl px-5 py-8 text-xs leading-relaxed text-ink-muted sm:px-8">
             <p>
-              Kairos prepares applications. It never submits one — submission
-              is a decision, and a person makes it.
+              Kairos prepares applications. It never submits one, because
+              submission is a decision and a person makes it.
             </p>
             <p className="mt-2">
               Rows marked <span className="font-mono">[DEMO]</span> are

@@ -198,7 +198,7 @@ const INBOX_STATE: Record<InboxState, { label: string; tone: Tone; title: string
   dismissed: {
     label: "Dismissed",
     tone: "neutral",
-    title: "You dismissed this. The run's verdict is unchanged — only your state on it.",
+    title: "You dismissed this. The run's verdict is unchanged; only your state on it changed.",
   },
   applied: {
     label: "Applied",

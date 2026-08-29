@@ -74,7 +74,7 @@ export function GateOutcome({ gate }: { gate: GateResult | null }) {
           </p>
           <p className="mt-1 text-sm leading-relaxed text-ink-soft">
             Every claim in it traces back to something you actually told Kairos.
-            It is ready for you to read — not ready to send.
+            It is ready for you to read, not ready to send.
           </p>
         </div>
       ) : (

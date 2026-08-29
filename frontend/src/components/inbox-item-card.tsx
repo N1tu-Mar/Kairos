@@ -205,7 +205,7 @@ export function InboxItemCard({
             </Link>
           ) : (
             <span className="text-xs text-ink-muted">
-              No draft — nothing was drafted for this one
+              Nothing was drafted for this one
             </span>
           )}
         </div>

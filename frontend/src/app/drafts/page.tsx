@@ -77,8 +77,8 @@ export default async function DraftsPage() {
         lede={
           <>
             Each one was drafted from your knowledge base and audited sentence
-            by sentence. Kairos prepares; you review and submit — no screen
-            here does it for you.
+            by sentence. Kairos prepares. You review and submit, because no
+            screen here does it for you.
           </>
         }
       />

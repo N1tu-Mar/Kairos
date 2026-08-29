@@ -255,8 +255,8 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
       className="rounded-lg border border-rule bg-surface p-5 sm:p-6"
     >
       <p className="mb-5 text-sm leading-relaxed text-ink-muted">
-        Saving replaces the whole profile at once — the backend refuses partial
-        updates so the eligibility filter never runs on a half-applied one.
+        Saving replaces the whole profile at once. The backend refuses partial
+        updates, so the eligibility filter never runs on a half-applied one.
         Traction numbers and the knowledge base are not editable here and are
         sent through unchanged.
       </p>

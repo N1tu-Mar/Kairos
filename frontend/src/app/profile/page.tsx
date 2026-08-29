@@ -65,7 +65,7 @@ export default async function ProfilePage() {
         lede={
           <>
             Only the structured fields below reach the deterministic eligibility
-            filter. Prose never does — that is what keeps text on a funding page
+            filter. Prose never does. That is what keeps text on a funding page
             from talking the filter out of its answer.
           </>
         }
@@ -110,7 +110,7 @@ export default async function ProfilePage() {
               {profile.has_faculty_advisor ? (
                 <Badge tone="ok">Yes</Badge>
               ) : (
-                <Badge tone="warn">Not yet — some funders require one</Badge>
+                <Badge tone="warn">Not yet; some funders require one</Badge>
               )}
             </DefinitionRow>
             <DefinitionRow term="Time you will spend">
@@ -194,7 +194,7 @@ export default async function ProfilePage() {
       </Section>
 
       <Note>
-        Edits here replace the profile wholesale — the backend deliberately
+        Edits here replace the profile wholesale. The backend deliberately
         accepts no partial update, so the eligibility filter never runs on a
         half-applied one. Traction and the knowledge base are updated on the
         backend, not here: they are evidence, and evidence is not edited from

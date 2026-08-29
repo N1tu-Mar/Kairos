@@ -29,7 +29,7 @@ export function InboxFilter({
     {
       key: "active",
       label: "Recommendations",
-      hint: "Surfaced and notified — these are the ones asking for your time.",
+      hint: "Surfaced and notified. These are the ones asking for your time.",
     },
     {
       key: "passive",

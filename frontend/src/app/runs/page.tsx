@@ -83,7 +83,7 @@ export default async function RunsPage() {
         lede={
           <>
             An agent&rsquo;s judgment is measured by what it discards silently.
-            Kairos does not discard silently — open any run to see the exact
+            Kairos does not discard silently. Open any run to see the exact
             check that fired on every opportunity it dropped.
           </>
         }

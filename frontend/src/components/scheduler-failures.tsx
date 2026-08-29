@@ -46,8 +46,8 @@ export function SchedulerFailures({
           : `${failures.length} runs did not complete`}
       </p>
       <p className="mt-1.5 text-sm leading-relaxed text-ink-soft">
-        These invocations produced no run at all — not a run that found
-        nothing, and not a run that stopped at a cap. Nothing was searched.
+        These invocations produced no run at all, not a run that found nothing
+        and not a run that stopped at a cap. Nothing was searched.
       </p>
 
       <ul className="mt-4 space-y-3">

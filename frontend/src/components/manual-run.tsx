@@ -136,7 +136,7 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
           setStatus({
             phase: "error",
             message:
-              "Lost contact with the Kairos API while the run was in progress. The run may still be going — check the run history.",
+              "Lost contact with the Kairos API while the run was in progress. The run may still be going, so check the run history.",
             detail: error instanceof Error ? error.message : String(error),
           });
         }
@@ -226,8 +226,8 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
       <h2 className="font-serif text-lg tracking-tight text-ink">Run Kairos now</h2>
       <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-muted">
         Starts one run by hand, immediately. The run happens on the backend, so
-        it keeps going if you close this page. This does not create a schedule —
-        production scheduling calls the same endpoint on a timer.
+        it keeps going if you close this page. This does not create a schedule.
+        Production scheduling calls the same endpoint on a timer.
       </p>
 
       {!compact ? (
@@ -351,8 +351,8 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
           ) : null}
           {status.report.surfaced === 0 && !status.report.halted_reason ? (
             <p className="text-sm text-ink-muted">
-              Nothing surfaced. That is a legitimate result — the reasons are on
-              the run detail page.
+              Nothing surfaced. That is a legitimate result, and the reasons are
+              on the run detail page.
             </p>
           ) : null}
         </div>

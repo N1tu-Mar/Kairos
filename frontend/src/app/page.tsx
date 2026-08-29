@@ -102,7 +102,7 @@ export default async function BriefingPage() {
           report ? (
             <>
               Last run {formatRelative(report.started_at)}. The number that
-              matters is the one Kairos threw away — every discard has a reason
+              matters is the one Kairos threw away. Every discard has a reason
               you can read.
             </>
           ) : null
@@ -126,7 +126,7 @@ export default async function BriefingPage() {
         ) : (
           <EmptyState title="No run has been recorded yet">
             Kairos has not looked for anything on your behalf so far. Start one
-            by hand below — it will scan, filter, judge, and write down every
+            by hand below. It will scan, filter, judge, and write down every
             decision it makes.
           </EmptyState>
         )}
@@ -162,7 +162,7 @@ export default async function BriefingPage() {
         ) : active.length === 0 ? (
           <EmptyState title="Nothing is waiting on you">
             {report && report.surfaced === 0
-              ? "The last run surfaced nothing. Kairos looked and judged that none of what it found was worth your time — that is a result, not a fault."
+              ? "The last run surfaced nothing. Kairos looked and judged that none of what it found was worth your time. That is a result, not a fault."
               : "No active recommendations right now."}
           </EmptyState>
         ) : (
@@ -190,8 +190,8 @@ export default async function BriefingPage() {
             <Note>
               {passive.length} more{" "}
               {passive.length === 1 ? "opportunity is" : "opportunities are"}{" "}
-              listed under <em>also found</em> — past the per-run surfacing cap,
-              so they are visible but never notified.{" "}
+              listed under <em>also found</em>. They sit past the per-run
+              surfacing cap, so they are visible but never notified.{" "}
               <Link
                 href="/inbox?view=passive"
                 className="text-accent underline underline-offset-4"

@@ -61,7 +61,7 @@ export default async function DraftPage({
         lede={
           <>
             Kairos prepared this application. It does not submit it, and it
-            cannot — a person reads it, fills the gaps, and decides.
+            cannot. A person reads it, fills the gaps, and decides.
           </>
         }
         actions={
@@ -124,8 +124,8 @@ export default async function DraftPage({
 
       <Note>
         Kairos stops here. Submitting a funding application is a decision with
-        your name on it, and often requires an authorised representative of your
-        institution — so the last step is always yours.
+        your name on it, and it often requires an authorized representative of
+        your institution, so the last step is always yours.
       </Note>
     </Page>
   );
