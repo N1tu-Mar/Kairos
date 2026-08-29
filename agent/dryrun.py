@@ -62,13 +62,21 @@ class StubAgent:
     """Records prompts and answers from a rule. Subclasses implement `respond`."""
 
     def __init__(self) -> None:
+        """`prompts` accumulates every prompt this stub was given, so a test can assert what the pipeline would have sent without a model existing."""
         self.prompts: list[str] = []
 
     async def invoke_async(self, prompt, *, structured_output_model=None, limits=None):
+        """Same signature as a real Strands agent, so the pipeline cannot tell the difference.
+
+        `limits` is accepted and ignored — the stub costs nothing, so there is
+        no budget to enforce. That also means a dry run exercises none of the
+        budget-enforcement paths.
+        """
         self.prompts.append(prompt)
         return StubResult(structured_output=self.respond(structured_output_model, prompt))
 
     def respond(self, output_model, prompt):  # pragma: no cover - overridden
+        """Produce the structured output for one call. Subclass responsibility."""
         raise NotImplementedError
 
 
@@ -81,19 +89,40 @@ class StubAssessor(StubAgent):
     """
 
     def __init__(self, ctx) -> None:
+        """Holds `ctx` by reference, not by copy — see the class docstring."""
         super().__init__()
         self.ctx = ctx
 
     def respond(self, output_model, prompt):
+        """Identify which opportunity the prompt is about, then judge it deterministically."""
         return self._judge(self._match(prompt))
 
     def _match(self, prompt: str):
+        """Find the retrieved opportunity whose title appears in the prompt.
+
+        Substring matching on the title, which is enough for a dry run and is
+        also its main limitation: two opportunities whose titles nest (one a
+        prefix of the other) resolve to whichever the dict yields first. Returns
+        None when nothing matches, which becomes an INSUFFICIENT_INFO verdict.
+        """
         for opportunity in self.ctx.retrieved.values():
             if opportunity.title and opportunity.title in prompt:
                 return opportunity
         return None
 
     def _judge(self, opportunity) -> Assessment:
+        """Map structured eligibility fields to a verdict, with no model involved.
+
+        The ordering is the behaviour: resolvable blockers are checked before the
+        award floor, so an opportunity that is both under-budget and missing a
+        faculty PI surfaces as an actionable MAYBE rather than a silent SKIP. An
+        unstated degree requirement is INSUFFICIENT_INFO rather than a pass —
+        the same three-valued discipline the real Assessor runs under.
+
+        This is a fixture, not a second implementation of the rules. It is not
+        kept in sync with `agent/tools/eligibility.py` and must not be read as a
+        reference for what the real filter does.
+        """
         if opportunity is None:
             return Assessment(
                 verdict="INSUFFICIENT_INFO",
@@ -148,11 +177,18 @@ class StubDrafter(StubAgent):
         # `output_model` is the Drafter's DraftProposal. Returning zero fields
         # makes every asked field NEEDS_FOUNDER, which is the correct shape
         # for "no model was consulted".
+        """Return an empty field list, so every asked field becomes NEEDS_FOUNDER."""
         return output_model(fields=[])
 
 
 class StubAuditor(StubAgent):
+    """Audits nothing. Every field comes back without a verdict.
+
+    Combined with `StubDrafter`, a dry run produces a draft with no GENERATED
+    fields, so there is nothing for the auditor to have an opinion about.
+    """
     def respond(self, output_model, prompt):
+        """Return an empty audit. Nothing was generated, so nothing is audited."""
         return output_model(fields=[])
 
 

@@ -75,8 +75,21 @@ class SourceError(RuntimeError):
 
 
 class Source(Protocol):
+    """One discovery source.
+
+    `name` is a closed `SourceName` literal so a failure can be attributed in
+    the run report. `fetch` raising `SourceError` is the contract for a total
+    failure; a source that can fail *partially* also exposes
+    `partial_failures`, which the orchestrator drains after each fetch. A new
+    source that swallows a per-page error without recording it makes the run
+    report a lie about what was searched.
+    """
+
     name: SourceName
 
+    #: Opportunities discovered since `since`. Raises `SourceError` on a
+    #: total failure. Implementations differ on whether `since` is honoured
+    #: at all — `SeedCatalog` ignores it — so it is a hint, not a guarantee.
     def fetch(self, since: datetime) -> list[Opportunity]: ...
 
 
@@ -91,6 +104,13 @@ _CURATION_KEYS = ("verification_note",)
 
 
 def _strip_curation_keys(row: dict) -> dict:
+    """Drop the human-only keys from a catalog row before validation.
+
+    Removes `_`-prefixed keys and the explicit curation list. Stripping is
+    narrow on purpose — see the note above `_CURATION_KEYS`. Adding a new
+    curation field to the JSON without adding it here makes every row fail
+    validation, which is the intended loud failure.
+    """
     return {
         k: v
         for k, v in row.items()
@@ -110,10 +130,19 @@ class SeedCatalog:
     name: SourceName = "seed"
 
     def __init__(self, path: Path, allow_unverified: bool = False) -> None:
+        """`allow_unverified` is the single switch that lets rows nobody has opened into a run. It is off by default and set explicitly by callers who know they are loading a demo catalog."""
         self.path = Path(path)
         self.allow_unverified = allow_unverified
 
     def fetch(self, since: datetime | None = None) -> list[Opportunity]:
+        """Load the catalog, dropping unverified rows unless allowed.
+
+        `since` is accepted and ignored: the catalog is hand-curated and small,
+        and every row is a current programme rather than a dated event. A missing
+        file or malformed JSON is a `SourceError`; a single row that fails
+        validation raises and takes the whole fetch with it, which is deliberate
+        for a file a person edits by hand.
+        """
         if not self.path.exists():
             raise SourceError(f"seed catalog not found at {self.path}")
         try:
@@ -184,10 +213,20 @@ class GrantsGovClient:
     """
 
     def __init__(self, base_url: str, timeout_s: float = 15.0) -> None:
+        """`base_url` is configuration, never a literal in this file — it is what a test points at a fixture server."""
         self.base_url = base_url.rstrip("/")
         self.timeout_s = timeout_s
 
     def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+        """POST and return the `data` object, or raise `SourceError`.
+
+        Two failure surfaces, both handled: transport/JSON errors, and the API's
+        in-band `errorcode`, which arrives with HTTP 200. Checking the status
+        alone would read a documented failure as a success.
+
+        Synchronous and unretried — one attempt, one timeout. Callers that need
+        resilience across pages handle it themselves.
+        """
         url = f"{self.base_url}/{path}"
         try:
             response = httpx.post(url, json=body, timeout=self.timeout_s)
@@ -226,6 +265,7 @@ class GrantsGovClient:
         return data.get("oppHits") or [], int(data.get("hitCount") or 0)
 
     def fetch_opportunity(self, opportunity_id: str) -> dict[str, Any]:
+        """Full detail for one opportunity id. Raises `SourceError` like any other call."""
         return self._post("fetchOpportunity", {"opportunityId": opportunity_id})
 
 
@@ -283,6 +323,7 @@ class GrantsGovSource:
         hydrate_concurrency: int = 4,
         skip_past_deadlines: bool = True,
     ) -> None:
+        """Every bound is clamped to at least 1 here rather than validated, so a caller passing 0 or a negative gets the smallest sane value instead of an infinite or empty loop."""
         self.client = client
         self.keywords = keywords
         self.rows_per_page = max(1, rows_per_page)
@@ -298,6 +339,16 @@ class GrantsGovSource:
     # ── paging ───────────────────────────────────────────────────────────
 
     def _search_all_pages(self, keyword: str) -> list[dict]:
+        """Page through one keyword until the cap, an empty page, or the end.
+
+        Three exit conditions, and the failure one matters most: a dead page
+        appends to `partial_failures` and breaks, keeping every page already
+        fetched. The run then reports a partial source rather than either losing
+        the results or claiming a complete search.
+
+        The row cap is enforced here rather than trusted to the API, so a server
+        returning more rows than asked for cannot blow past `max_per_keyword`.
+        """
         hits: list[dict] = []
         start = 0
         while len(hits) < self.max_per_keyword:
@@ -328,6 +379,20 @@ class GrantsGovSource:
     # ── the fetch ────────────────────────────────────────────────────────
 
     def fetch(self, since: datetime | None = None) -> list[Opportunity]:
+        """Search every keyword, filter, hydrate the survivors, and return them.
+
+        Four stages, in order: page each keyword; dedupe by opportunity id across
+        keywords (first hit wins — the keyword that found it first supplies the
+        summary fields); drop rows that are older than `since` or already closed;
+        hydrate what is left with a detail call each.
+
+        Filtering before hydration is the reason this is affordable: a detail
+        call per dead row would be one HTTP request each for opportunities that
+        can never be applied to.
+
+        `partial_failures` is reset at the top, so it always describes this fetch
+        and not the previous one. Callers must read it after every call.
+        """
         self.partial_failures = []
         today = datetime.now(tz=timezone.utc).date()
         since_date = since.date() if since else None
