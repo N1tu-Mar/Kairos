@@ -40,6 +40,13 @@ export function SourceFailures({ report }: { report: RunReport }) {
   );
 }
 
+/**
+ * Shown when a run stopped early — a budget cap, a throttle, a dead dependency.
+ *
+ * A halted run is a completed run that surfaced nothing, and it says so.
+ * Without this banner an empty result is indistinguishable from a run that
+ * looked and found nothing.
+ */
 export function HaltedBanner({ reason }: { reason: string }) {
   return (
     <div role="alert" className="rounded-md border border-alert/40 bg-alert-soft px-4 py-3">
@@ -84,6 +91,12 @@ export function RunVitals({ report }: { report: RunReport }) {
   );
 }
 
+/**
+ * The four counters plus timing for one run.
+ *
+ * Every number comes from the RunReport as computed in Python; nothing here
+ * re-derives a count.
+ */
 export function RunSummary({
   report,
   showLink = true,

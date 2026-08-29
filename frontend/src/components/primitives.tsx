@@ -10,6 +10,9 @@ export function Page({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * The heading block every page opens with: eyebrow, title, lede, actions.
+ */
 export function PageHeader({
   eyebrow,
   title,
@@ -45,6 +48,9 @@ export function PageHeader({
   );
 }
 
+/**
+ * A titled region with optional description and trailing actions.
+ */
 export function Section({
   title,
   description,
@@ -74,6 +80,9 @@ export function Section({
   );
 }
 
+/**
+ * A bordered surface. Layout only — it carries no state and no semantics.
+ */
 export function Card({
   children,
   className = "",
@@ -90,6 +99,9 @@ export function Card({
   );
 }
 
+/**
+ * A label/value pair for the fact tables. Values wrap; labels do not.
+ */
 export function DefinitionRow({
   term,
   children,
@@ -107,6 +119,9 @@ export function DefinitionRow({
   );
 }
 
+/**
+ * A thin rule between sections.
+ */
 export function Hairline() {
   return <hr className="my-10 border-0 border-t border-rule" />;
 }

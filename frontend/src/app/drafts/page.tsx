@@ -57,6 +57,9 @@ function DraftRow({ payload }: { payload: DraftResponse }) {
   );
 }
 
+/**
+ * Every draft for the founder, including ones whose inbox item was dismissed or never created.
+ */
 export default async function DraftsPage() {
   let drafts: DraftResponse[] = [];
   let error: unknown = null;

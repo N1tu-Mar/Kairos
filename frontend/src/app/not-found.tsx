@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Page, PageHeader } from "@/components/primitives";
 import { EmptyState } from "@/components/states";
 
+/**
+ * The 404 page. Reached for an unknown route and for a resource the backend reports as missing.
+ */
 export default function NotFound() {
   return (
     <Page>

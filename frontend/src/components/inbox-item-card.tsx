@@ -50,6 +50,13 @@ function DeadlineFact({ opportunity }: { opportunity: Opportunity }) {
   );
 }
 
+/**
+ * Award, deadline and source read off the `Opportunity` row rather than parsed out of the headline.
+ *
+ * Renders nothing when the opportunity failed to load — the card still
+ * shows the headline the run composed, so a missing row degrades the card
+ * instead of breaking the page.
+ */
 function StructuredFacts({ opportunity }: { opportunity: Opportunity }) {
   const award = formatAwardRange(opportunity.award_min, opportunity.award_max);
   const facts: ReactNode[] = [];
@@ -93,6 +100,9 @@ function HeadlineFacts({ facts }: { facts: string[] }) {
   );
 }
 
+/**
+ * One surfaced opportunity: why it was surfaced, what it is, and what to do about it.
+ */
 export function InboxItemCard({
   item,
   opportunity = null,

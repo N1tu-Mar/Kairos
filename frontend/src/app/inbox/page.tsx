@@ -23,6 +23,12 @@ const EMPTY_COPY: Record<string, { title: string; body: string }> = {
   },
 };
 
+/**
+ * Everything surfaced to the founder, filtered by the `view` query parameter.
+ *
+ * An unrecognised `view` falls back rather than rendering an empty list —
+ * see `parseInboxView`.
+ */
 export default async function InboxPage({
   searchParams,
 }: {

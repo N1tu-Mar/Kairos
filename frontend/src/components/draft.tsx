@@ -149,6 +149,13 @@ export function GateOutcome({ gate }: { gate: GateResult | null }) {
   );
 }
 
+/**
+ * The quoted spans behind one generated answer.
+ *
+ * Renders nothing when there are none — which is not a silent omission,
+ * because a GENERATED field with empty provenance never reaches this
+ * component: the ship gate blocks the draft first.
+ */
 function Provenance({ spans }: { spans: SourceSpan[] }) {
   if (spans.length === 0) return null;
   return (
@@ -175,6 +182,13 @@ function Provenance({ spans }: { spans: SourceSpan[] }) {
   );
 }
 
+/**
+ * One form question, its answer, where the answer came from, and its audit verdict.
+ *
+ * The status badge and the provenance block are the point: a reader must be
+ * able to tell at a glance whether a model wrote this text and what it was
+ * based on.
+ */
 export function DraftFieldCard({ field }: { field: DraftField }) {
   const needsFounder = field.status === "NEEDS_FOUNDER";
   const answered = (field.answer ?? "").trim().length > 0;
@@ -237,6 +251,9 @@ export function DraftFieldCard({ field }: { field: DraftField }) {
   );
 }
 
+/**
+ * The form's name and source, with the partial-transcription warning when the form is incomplete.
+ */
 export function DraftFormName({ name }: { name: string }) {
   if (!name) return null;
   return (

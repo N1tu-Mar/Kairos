@@ -15,6 +15,12 @@ import type { FounderProfile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The founder profile, with the eligibility fields editable inline.
+ *
+ * These are the only facts the deterministic filter reads, which is why
+ * this page exists at all.
+ */
 export default async function ProfilePage() {
   let profile: FounderProfile | null = null;
   let error: unknown = null;

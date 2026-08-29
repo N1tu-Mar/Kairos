@@ -22,6 +22,13 @@ function groupBy<T>(items: T[], key: (item: T) => string): Map<string, T[]> {
   return groups;
 }
 
+/**
+ * Everything the deterministic filter dropped, with the founder value beside the required one.
+ *
+ * This is the answer to "how do I know it isn't hiding things?" — each row
+ * names the check that fired, so a disputed verdict points at a rule rather
+ * than at a model.
+ */
 export function RejectionTable({ rejections }: { rejections: Rejection[] }) {
   if (rejections.length === 0) {
     return (
@@ -102,6 +109,13 @@ export function RejectionTable({ rejections }: { rejections: Rejection[] }) {
   );
 }
 
+/**
+ * Opportunities the pipeline judged and then chose not to surface, grouped by stage.
+ *
+ * Distinct from the rejection table: these passed the hard filter and were
+ * dropped by the Assessor or the escalation policy, which is a judgment
+ * rather than a rule.
+ */
 export function SkipList({ skips }: { skips: SkipRecord[] }) {
   if (skips.length === 0) {
     return (

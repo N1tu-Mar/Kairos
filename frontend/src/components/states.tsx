@@ -28,6 +28,12 @@ export function EmptyState({
   );
 }
 
+/**
+ * The visible failure state. An error must never render as an empty region.
+ *
+ * `hint` is where the actionable half goes — what the reader can do — as
+ * distinct from `message`, which says what went wrong.
+ */
 export function ErrorState({
   title = "Something did not load",
   message,
@@ -54,6 +60,9 @@ export function ErrorState({
   );
 }
 
+/**
+ * A shimmering placeholder block, sized by the caller.
+ */
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
@@ -63,6 +72,9 @@ export function Skeleton({ className = "" }: { className?: string }) {
   );
 }
 
+/**
+ * A stack of skeleton lines for a whole region that is still loading.
+ */
 export function LoadingBlock({ label }: { label: string }) {
   return (
     <div role="status" aria-live="polite" className="space-y-3">

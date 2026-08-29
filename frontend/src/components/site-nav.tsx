@@ -11,11 +11,20 @@ const LINKS = [
   { href: "/profile", label: "Profile" },
 ];
 
+/**
+ * Whether a nav href matches the current path.
+ *
+ * Exact match for the root so `/` is not marked active on every page;
+ * prefix match elsewhere so a detail page keeps its section highlighted.
+ */
 function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/**
+ * The top navigation. Marks the section the current path belongs to.
+ */
 export function SiteNav() {
   const pathname = usePathname() ?? "/";
   return (

@@ -12,6 +12,12 @@ import type { RunReport } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * One run in full: its counters, every rejection, and every skip.
+ *
+ * 404s for a run id that is not this founder's — the backend scopes the
+ * lookup, so a guessed id is indistinguishable from a missing one.
+ */
 export default async function RunDetailPage({
   params,
 }: {

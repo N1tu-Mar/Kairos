@@ -15,6 +15,9 @@ import type { RunReport } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * One run in the list: when it ran, its counters, and how many decisions it recorded.
+ */
 function RunRow({ report }: { report: RunReport }) {
   const decisions = report.rejections.length + report.skips.length;
   return (
@@ -57,6 +60,12 @@ function RunRow({ report }: { report: RunReport }) {
   );
 }
 
+/**
+ * Every run, newest first, capped at 50.
+ *
+ * Not paginated — older runs are reachable by id through `/runs/{runId}`,
+ * which is what keeps the transparency trail from having a horizon.
+ */
 export default async function RunsPage() {
   let runs: RunReport[] = [];
   let error: unknown = null;

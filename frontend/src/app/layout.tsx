@@ -10,6 +10,12 @@ export const metadata: Metadata = {
     "Non-dilutive funding a student founder is actually eligible for — watched for, judged, and mostly drafted.",
 };
 
+/**
+ * The document shell: fonts, global styles and the site navigation.
+ *
+ * Every page renders inside this, so anything that must appear on all
+ * screens belongs here rather than being repeated per page.
+ */
 export default function RootLayout({
   children,
 }: {

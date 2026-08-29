@@ -32,6 +32,13 @@ import type {
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * The briefing: latest run, what it surfaced, and the scraper review queues.
+ *
+ * Each data source is fetched into its own try/catch and its own error
+ * variable, so one dead endpoint degrades its section rather than failing
+ * the page. That is the pattern every page here follows.
+ */
 export default async function BriefingPage() {
   let report: RunReport | null = null;
   let inbox: InboxItem[] = [];

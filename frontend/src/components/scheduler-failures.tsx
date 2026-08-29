@@ -22,6 +22,12 @@ const FAILURE_CLASS_COPY: Record<string, string> = {
   orphaned: "The backend restarted while this run was in flight.",
 };
 
+/**
+ * Recent invocations that failed to start or finish, newest first.
+ *
+ * Details are sanitised on the backend before they are persisted, so what
+ * reaches here carries no credentials, prompts or stack traces.
+ */
 export function SchedulerFailures({
   failures,
 }: {

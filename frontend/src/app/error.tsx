@@ -5,6 +5,13 @@ import { useEffect } from "react";
 import { Page, PageHeader } from "@/components/primitives";
 import { ErrorState } from "@/components/states";
 
+/**
+ * The route error boundary.
+ *
+ * Renders the message and Next's `digest` — the id that ties this screen to
+ * the server log line — plus a retry that re-renders the segment. Logs to
+ * the console on mount so a client-side failure is not silent.
+ */
 export default function GlobalError({
   error,
   reset,

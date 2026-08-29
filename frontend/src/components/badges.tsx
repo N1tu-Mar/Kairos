@@ -24,6 +24,9 @@ const TONE_CLASS: Record<Tone, string> = {
   accent: "bg-accent-soft text-accent",
 };
 
+/**
+ * The one badge primitive. Every specific badge below maps a vocabulary onto its `tone`.
+ */
 export function Badge({
   tone = "neutral",
   children,
@@ -73,6 +76,9 @@ const INBOX_KIND: Record<InboxKind, { label: string; tone: Tone; title: string }
   },
 };
 
+/**
+ * Why an item was surfaced: APPLY, MAYBE, urgent deadline, cold start.
+ */
 export function InboxKindBadge({ kind }: { kind: InboxKind }) {
   const spec = INBOX_KIND[kind] ?? {
     label: kind,
@@ -92,6 +98,9 @@ const DRAFT_STATUS: Record<DraftStatus, { label: string; tone: Tone }> = {
   DRAFT: { label: "In progress", tone: "neutral" },
 };
 
+/**
+ * DRAFT / READY / BLOCKED. BLOCKED is the ship gate's refusal and is toned as an alert, not a warning.
+ */
 export function DraftStatusBadge({ status }: { status: DraftStatus }) {
   const spec = DRAFT_STATUS[status] ?? { label: status, tone: "neutral" as Tone };
   return <Badge tone={spec.tone}>{spec.label}</Badge>;
@@ -120,6 +129,13 @@ const FIELD_STATUS: Record<FieldStatus, { label: string; tone: Tone; title: stri
   },
 };
 
+/**
+ * Where one answer came from: known, reused, generated, or still needed from the founder.
+ *
+ * GENERATED is the only status that means a model wrote the text, which is
+ * why it is toned differently from KNOWN and REUSED rather than lumped in
+ * with them.
+ */
 export function FieldStatusBadge({ status }: { status: FieldStatus }) {
   const spec = FIELD_STATUS[status] ?? {
     label: status,
@@ -151,6 +167,13 @@ const AUDIT: Record<AuditVerdict, { label: string; tone: Tone; title: string }> 
   },
 };
 
+/**
+ * The Auditor's verdict for a field.
+ *
+ * UNVERIFIABLE is its own tone rather than being shown as a failure: the
+ * Auditor could not judge the claim, which is different from judging it
+ * unsupported.
+ */
 export function AuditBadge({ verdict }: { verdict: AuditVerdict }) {
   const spec = AUDIT[verdict] ?? {
     label: verdict,
@@ -204,6 +227,9 @@ export function DemoBadge() {
   );
 }
 
+/**
+ * Marks an item that was surfaced without a notification — the "also found" overflow.
+ */
 export function PassiveBadge() {
   return (
     <Badge

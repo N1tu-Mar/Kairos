@@ -50,6 +50,13 @@ const REVIEW_STATUS: Record<
   },
 };
 
+/**
+ * The row's human review status, falling back to a neutral badge for an unrecognised value.
+ *
+ * The fallback matters: a status the backend adds later shows up as itself
+ * rather than disappearing, so an unreviewed row can never render as though
+ * it were accepted.
+ */
 function ReviewStatusBadge({ status }: { status: ScraperReviewStatus }) {
   const spec = REVIEW_STATUS[status] ?? {
     label: titleCase(status),
@@ -63,6 +70,12 @@ function ReviewStatusBadge({ status }: { status: ScraperReviewStatus }) {
   );
 }
 
+/**
+ * The facts a reviewer skims, including how many fields the scraper could not fill.
+ *
+ * The unknown count is shown rather than hidden — a row with everything
+ * filled and a row with six unknowns must not look alike.
+ */
 function CandidateFacts({ candidate }: { candidate: ScraperCandidate }) {
   const award = formatAwardRange(candidate.award_min, candidate.award_max);
   const facts = [
@@ -94,6 +107,12 @@ function CandidateFacts({ candidate }: { candidate: ScraperCandidate }) {
   );
 }
 
+/**
+ * The first caveat that is not a founder review or an operator note.
+ *
+ * Those two prefixes are commentary added by people; this picks the
+ * scraper's own caveat, which is what a reviewer needs to see on the row.
+ */
 function firstCaveat(candidate: ScraperCandidate): string | null {
   return (
     candidate.caveats.find(
@@ -104,6 +123,9 @@ function firstCaveat(candidate: ScraperCandidate): string | null {
   );
 }
 
+/**
+ * One candidate: status, title linking to the source page, facts, and its lead caveat.
+ */
 function CandidateRow({ candidate }: { candidate: ScraperCandidate }) {
   const caveat = firstCaveat(candidate);
   return (
@@ -145,6 +167,9 @@ function CandidateRow({ candidate }: { candidate: ScraperCandidate }) {
   );
 }
 
+/**
+ * One lane's candidates with its header and counts. Shows a `total` that may exceed the rows rendered.
+ */
 function LanePanel({
   name,
   group,
@@ -202,6 +227,12 @@ function LanePanel({
   );
 }
 
+/**
+ * The scraper review queues, by lane.
+ *
+ * These rows are not in the runtime catalog. Nothing here has been surfaced
+ * to a founder, and nothing will be until a person marks it ACCEPTED.
+ */
 export function ScraperCandidates({
   groups,
 }: {

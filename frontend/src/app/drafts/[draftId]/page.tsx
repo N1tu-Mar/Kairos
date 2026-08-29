@@ -17,6 +17,12 @@ import type { DraftResponse } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * One draft: every question, its answer, where the answer came from, and the gate result.
+ *
+ * The gate result is rendered even when the draft passed, because "which
+ * checks ran" is as much the point as whether they passed.
+ */
 export default async function DraftPage({
   params,
 }: {
