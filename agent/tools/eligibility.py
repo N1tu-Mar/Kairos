@@ -61,6 +61,11 @@ FORMABLE_ENTITIES = frozenset({"llc", "c_corp", "s_corp", "nonprofit"})
 
 
 def _norm(value: str) -> str:
+    """Lowercase and reduce to space-separated alphanumerics.
+
+    Punctuation and case never decide a comparison: "U.S. Citizen" and
+    "us citizen" normalise to the same thing.
+    """
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
 
@@ -73,6 +78,12 @@ _MIN_PREFIX = 3
 
 
 def _institution_tokens(name: str) -> list[str]:
+    """Normalised, noise-stripped words of an institution name.
+
+    "The University of Georgia" becomes ["university", "georgia"], so a match
+    depends on the distinguishing words rather than on the connectives every
+    institution name contains.
+    """
     return [t for t in _norm(name).split() if t not in _INSTITUTION_NOISE]
 
 
@@ -133,6 +144,13 @@ def check_opportunity(
     blockers: list[Blocker] = []
 
     def reject(check: str, detail: str, mine: str, needed: str) -> EligibilityResult:
+        """Build the INELIGIBLE result and return it — the caller returns it immediately.
+
+        Carries the `unknown` and `blockers` accumulated *so far*, not the full
+        set: checks after the rejecting one never run, so a rejected opportunity
+        can show fewer unknowns than one that passed. The rejection is the
+        answer; the partial lists are context.
+        """
         return EligibilityResult(
             opportunity_id=opportunity.id,
             verdict="INELIGIBLE",

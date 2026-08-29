@@ -176,6 +176,12 @@ DropReason = Literal[
 
 
 class DroppedClaim(BaseModel):
+    """A claim the verifier refused, with the reason it refused it.
+
+    Kept rather than discarded so the drop is auditable: `evidence` is the
+    span the extractor cited, and `reason` is the closed vocabulary a reader
+    can count by. Frozen — a drop is a finding, not a working value.
+    """
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     field: str
@@ -200,16 +206,33 @@ class VerifiedExtraction(BaseModel):
 
     @property
     def unknown_fields(self) -> list[str]:
+        """Extractable fields with no surviving claim.
+
+        Derived from `claims` each time rather than stored, so a field whose only
+        claim was dropped is UNKNOWN automatically. That is the whole point: the
+        extractor does not get to report its own coverage.
+        """
         populated = {c.field for c in self.claims}
         return [f for f in EXTRACTABLE_FIELDS if f not in populated]
 
     def value(self, field: str) -> Any:
+        """The first surviving claim's value for `field`, or None.
+
+        None is genuinely ambiguous here — it means either "no claim survived" or
+        "the claim's value is None". Callers that need to tell those apart check
+        `unknown_fields` instead.
+        """
         for claim in self.claims:
             if claim.field == field:
                 return claim.value
         return None
 
     def evidence_for(self, field: str) -> str | None:
+        """The evidence span behind `field`'s value, or None if nothing survived.
+
+        Paired with `value`: both scan for the first claim on the field, so they
+        always describe the same claim.
+        """
         for claim in self.claims:
             if claim.field == field:
                 return claim.evidence
@@ -273,6 +296,7 @@ def verify(
     dropped: list[DroppedClaim] = []
 
     def kill(claim: EligibilityClaim, reason: DropReason, detail: str) -> None:
+        """Record a claim as dropped. The caller must `continue` — this does not skip it."""
         dropped.append(
             DroppedClaim(
                 field=claim.field,

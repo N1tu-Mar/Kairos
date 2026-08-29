@@ -74,6 +74,13 @@ _DEGREE_MAP = {
 
 
 def _degree_levels(values: list[str] | None) -> list[str] | None:
+    """Map the page's degree vocabulary onto the profile's, dropping anything unmapped.
+
+    Returns None — meaning "the source did not state it" — both when there
+    were no values and when none of them mapped. That collapse is deliberate:
+    a row listing only "alumni" yields no degree restriction rather than an
+    invented one, and `None` is the three-valued UNKNOWN the filter expects.
+    """
     if not values:
         return None
     mapped: list[str] = []
@@ -95,6 +102,12 @@ def _claims(row: dict) -> list[EligibilityClaim]:
     claims: list[EligibilityClaim] = []
 
     def add(field: str, value, evidence_key: str) -> None:
+        """Append one claim, but only when both a value and an evidence span exist.
+
+        The evidence span is what makes the claim admissible, so a value without
+        one is dropped silently — the field then reads as UNKNOWN rather than as
+        an unsourced assertion.
+        """
         span = evidence.get(evidence_key)
         if value is None or not span or not span.get("text"):
             return
@@ -211,6 +224,7 @@ class CampusDiscoverySource:
         targets=None,
         scrape_fn=None,
     ) -> None:
+        """Two independent gates. `enabled` decides whether this source yields anything at all; `allow_live_scrape` decides whether `fetch` may also refresh the review file. A job sets the first and never the second."""
         self.path = Path(path)
         self.enabled = enabled
         self.allow_live_scrape = allow_live_scrape
@@ -262,6 +276,18 @@ class CampusDiscoverySource:
     # ── the source protocol ──────────────────────────────────────────────
 
     def fetch(self, since: datetime | None = None) -> list[Opportunity]:
+        """Load the human-accepted campus rows.
+
+        Only rows marked `ACCEPTED` are returned — `NEEDS_HUMAN_REVIEW` and
+        `REJECTED` are counted and held back — so nothing the scraper found can
+        reach a founder without a person having read it first.
+
+        A missing or malformed file is a `SourceError`, but only once the source
+        is enabled: disabled returns an empty list without touching the disk, so
+        the default configuration never fails on a file it was never going to
+        read. An ACCEPTED row with no `source_url` is skipped and reported as a
+        partial failure rather than surfaced without a page to open.
+        """
         self.partial_failures = []
 
         if not self.enabled:
