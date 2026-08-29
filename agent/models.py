@@ -21,7 +21,7 @@ Two conventions carry most of the safety weight:
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -111,9 +111,15 @@ class KnowledgeChunk(Frozen):
     here, the Drafter may not make it.
     """
 
-    chunk_id: str
-    text: str
-    source: str
+    #: Longest a single fact may be. A chunk is one provenance-tagged claim —
+    #: a paragraph, not a document — and the Drafter's closed-world check gets
+    #: less useful the larger they are. Generous enough for a long answer to a
+    #: long application question, which is the biggest real one.
+    MAX_TEXT: ClassVar[int] = 20_000
+
+    chunk_id: str = Field(max_length=200)
+    text: str = Field(max_length=MAX_TEXT)
+    source: str = Field(max_length=500)
     confidence: float = Field(ge=0.0, le=1.0, default=1.0)
     created_at: datetime = Field(default_factory=_now)
 
@@ -129,22 +135,33 @@ class FounderProfile(Frozen):
     prompt injection (Section 10.6).
     """
 
-    founder_id: str
+    #: Most chunks one founder's closed world may hold. `PUT /founders/{id}`
+    #: replaces a profile wholesale, so without a cap this list is an
+    #: unbounded write: a body small enough to accept can still carry tens of
+    #: thousands of chunks, and every one is stored, re-read on each run, and
+    #: scanned by the grounding check. Well above any real intake.
+    MAX_KNOWLEDGE_CHUNKS: ClassVar[int] = 2_000
+
+    founder_id: str = Field(max_length=200)
     degree_level: DegreeLevel
-    institution: str
-    citizenship: str = Field(description='ISO-ish token, e.g. "us_citizen", "f1_visa"')
+    institution: str = Field(max_length=300)
+    citizenship: str = Field(
+        max_length=100, description='ISO-ish token, e.g. "us_citizen", "f1_visa"'
+    )
     entity_type: EntityType
-    team_size: int = Field(ge=1)
+    team_size: int = Field(ge=1, le=10_000)
     stage: Stage
     #: Numbers only. Prose belongs in `knowledge_base` where it carries a source.
-    traction: dict[str, float] = Field(default_factory=dict)
+    traction: dict[str, float] = Field(default_factory=dict, max_length=200)
     funding_range: tuple[int, int]
     equity_ok: bool
     has_faculty_advisor: bool
-    max_application_hours: int = Field(gt=0)
+    max_application_hours: int = Field(gt=0, le=10_000)
     #: US state / country tokens the founder can claim residency or study in.
-    geographies: list[str] = Field(default_factory=list)
-    knowledge_base: list[KnowledgeChunk] = Field(default_factory=list)
+    geographies: list[str] = Field(default_factory=list, max_length=500)
+    knowledge_base: list[KnowledgeChunk] = Field(
+        default_factory=list, max_length=MAX_KNOWLEDGE_CHUNKS
+    )
 
     @property
     def min_award(self) -> int:
