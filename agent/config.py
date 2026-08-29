@@ -23,6 +23,20 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+# Import-time side effect: a `.env` in the repo root is loaded into
+# `os.environ` for every process that imports anything under `agent/`,
+# including pytest. `load_dotenv()` does not override variables that are
+# already set, so a real environment still wins — but an unset one is
+# filled in from the developer's file.
+#
+# That makes some tests environment-dependent. `test_ready_flags_an_
+# unenforceable_spend_cap_in_production` sets KAIROS_ENV, KAIROS_API_TOKEN
+# and KAIROS_DAILY_USD_CAP and expects `spend_cap: unenforceable`, which
+# requires the four KAIROS_PRICE_* variables to be unset. A developer whose
+# `.env` sets live prices — as `.env.example` shows — sees that test fail
+# locally and pass in CI, where there is no `.env`. Tests that depend on a
+# variable being absent have to clear it explicitly with `monkeypatch.
+# delenv(..., raising=False)`; they cannot assume the environment is empty.
 load_dotenv()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +47,14 @@ class ConfigError(RuntimeError):
 
 
 def _require(key: str, hint: str) -> str:
+    """Read a required setting, or raise `ConfigError` naming it and how to find it.
+
+    Blank counts as missing. That is deliberate and load-bearing: the README
+    tells you to `cp .env.example .env`, which puts every key in the
+    environment set to the empty string. If blank were treated as present,
+    every one of those keys would read as configured and the failure would
+    surface later as a Bedrock call against a model id of `""`.
+    """
     value = os.getenv(key, "").strip()
     if not value:
         raise ConfigError(
@@ -63,16 +85,30 @@ def stamp_placeholder_models(label: str) -> None:
 
 
 def _int(key: str, default: int) -> int:
+    """Read an int setting, falling back to `default` when unset or blank.
+
+    A present-but-unparseable value raises `ValueError` rather than falling
+    back — a typo in a numeric cap should stop the process, not silently
+    restore a default the operator thought they had overridden.
+    """
     raw = os.getenv(key, "").strip()
     return int(raw) if raw else default
 
 
 def _float(key: str, default: float) -> float:
+    """Read a float setting. Blank means default; unparseable raises, as in `_int`."""
     raw = os.getenv(key, "").strip()
     return float(raw) if raw else default
 
 
 def _bool(key: str, default: bool = False) -> bool:
+    """Read a boolean setting.
+
+    True only for `1`, `true`, `yes`, `on` (case-insensitive). Everything else
+    is False, so a typo like `KAIROS_ENABLE_BROWSER=treu` reads as off — the
+    safe direction for every flag currently using this, all of which enable
+    something when true.
+    """
     raw = os.getenv(key, "").strip().lower()
     if not raw:
         return default
@@ -125,6 +161,12 @@ class Prices:
 
 @dataclass(frozen=True)
 class Settings:
+    """The whole resolved configuration, frozen.
+
+    Built once by `settings()` and cached. Frozen because a setting that can
+    be mutated at runtime is a setting that a log line and the code that acted
+    on it can disagree about.
+    """
     region: str
     reasoning: ModelTier
     classify: ModelTier
@@ -159,24 +201,35 @@ class Settings:
 
     @property
     def production(self) -> bool:
+        """Whether this deployment is in the strict posture. See `environment`."""
         return self.environment == "production"
 
     @property
     def data_dir(self) -> Path:
+        """Seed catalogs, form transcriptions and the demo profile."""
         return REPO_ROOT / "data"
 
     @property
     def prompts_dir(self) -> Path:
+        """Sub-agent system prompts, loaded from disk at run time."""
         return REPO_ROOT / "agent" / "prompts"
 
     @property
     def fixtures_dir(self) -> Path:
+        """Recorded HTTP fixtures. Test-only; nothing in the run path reads this."""
         return REPO_ROOT / "tests" / "fixtures"
 
 
 @lru_cache(maxsize=1)
 def settings() -> Settings:
-    """Load and validate configuration. Cached; call it, don't copy it."""
+    """Load and validate configuration. Cached; call it, don't copy it.
+
+    The cache is what makes "call it, don't copy it" safe — every caller
+    gets the same frozen object. It also means an environment change after
+    the first call is invisible until `settings.cache_clear()`, which is
+    why tests that monkeypatch `KAIROS_*` must clear it, and why
+    `stamp_placeholder_models` clears it after writing.
+    """
     hint_models = (
         "Discover it with: aws bedrock list-foundation-models "
         "--region $AWS_REGION --query "
