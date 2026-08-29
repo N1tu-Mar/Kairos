@@ -41,6 +41,12 @@ DEFAULT_CRAWL_DELAY_S = 2.0
 
 @dataclass(frozen=True)
 class RobotsDecision:
+    """The answer for one URL: whether to fetch, how slowly, and why.
+
+    `reason` is recorded so a skip is inspectable after the fact — "we did
+    not fetch this" is only useful alongside which rule said so. Frozen; a
+    decision is evidence, not a working value.
+    """
     allowed: bool
     robots_url: str
     crawl_delay_s: float
@@ -51,15 +57,28 @@ class RobotsCache:
     """One robots.txt per host, cached on disk and in memory."""
 
     def __init__(self, cache_dir: Path, timeout_s: float = 15.0) -> None:
+        """`_parsers` caches per host for the life of the process, including negative results — a host whose robots.txt failed to load is not retried within one sweep."""
         self.cache_dir = Path(cache_dir)
         self.timeout_s = timeout_s
         self._parsers: dict[str, RobotFileParser | None] = {}
 
     def _robots_url(self, url: str) -> tuple[str, str]:
+        """`(host, robots.txt URL)` for a page URL, preserving its scheme."""
         parts = urlsplit(url)
         return parts.netloc, f"{parts.scheme}://{parts.netloc}/robots.txt"
 
     def _load(self, host: str, robots_url: str) -> RobotFileParser | None:
+        """Fetch and parse a host's robots.txt, or return None meaning "do not fetch".
+
+        The status mapping is the standard's, and the two directions differ:
+        401/403 means the whole host is off limits, while any other 4xx means no
+        robots.txt is published and everything is allowed. 5xx and transport
+        errors return None — fail closed, because a server that cannot tell us
+        its rules is not a server that has none.
+
+        Cached per host including the None, so one failed load disallows that
+        host for the rest of the process rather than being retried per URL.
+        """
         if host in self._parsers:
             return self._parsers[host]
 
@@ -106,6 +125,12 @@ class RobotsCache:
         return f"{safe or 'unknown-host'}.robots.txt"
 
     def _write_cache(self, host: str, text: str) -> None:
+        """Archive the robots.txt we acted on, under a sanitised filename.
+
+        The archive is the evidence for a skip. The filename goes through
+        `_cache_name` because a host from a search API is untrusted input — see
+        that method for the traversal it prevents.
+        """
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         (self.cache_dir / self._cache_name(host)).write_text(text)
 

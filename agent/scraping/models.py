@@ -54,6 +54,7 @@ ReviewStatus = Literal["NEEDS_HUMAN_REVIEW", "ACCEPTED", "REJECTED"]
 
 
 def _now() -> datetime:
+    """Timezone-aware UTC now, for `scraped_at` and fetch timestamps."""
     return datetime.now(timezone.utc)
 
 
@@ -178,11 +179,18 @@ class ScrapedOpportunity(BaseModel):
         return True
 
     def mark_unknown(self, name: str) -> None:
+        """Record a field as unstated by the page. Idempotent, so calling it twice does not duplicate the entry."""
         if name not in self.unknown_fields:
             self.unknown_fields.append(name)
 
     @property
     def is_unknown(self) -> dict[str, bool]:
+        """Per-field UNKNOWN flags for every eligibility field.
+
+        Covers `ELIGIBILITY_FIELDS` rather than only the fields anyone touched,
+        so a field nobody attempted reads as unknown rather than missing from the
+        map entirely.
+        """
         return {f: f in self.unknown_fields for f in ELIGIBILITY_FIELDS}
 
     @property
@@ -199,6 +207,12 @@ class ScrapedOpportunity(BaseModel):
 
     @property
     def host(self) -> str:
+        """Lowercased hostname of `source_url`, without `www.`.
+
+        Used as one of the three duplicate signals in `same_program`. Stripping
+        `www.` means `www.example.edu` and `example.edu` count as one host;
+        subdomains still differ, so `grants.example.edu` does not match.
+        """
         from urllib.parse import urlsplit
 
         return urlsplit(self.source_url).netloc.lower().removeprefix("www.")
@@ -222,6 +236,7 @@ class ScrapedOpportunity(BaseModel):
 
 
 def _slug(value: str) -> str:
+    """Lowercase hyphenated slug — the normalisation behind title and organisation comparison."""
     return re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
 
 
@@ -251,6 +266,12 @@ class ScrapeRun(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
     def headline(self) -> str:
+        """One line of counters for the sweep, computed in Python.
+
+        Same shape as `RunReport.headline` and for the same reason: the number
+        that matters is how much was attempted versus how much survived, and a
+        sweep that failed halfway must not read as a complete one.
+        """
         return (
             f"Attempted {self.targets_attempted}. Fetched {self.pages_fetched}. "
             f"Extracted {self.opportunities_found}. "

@@ -101,6 +101,7 @@ class PoliteFetcher:
         timeout_s: float = 30.0,
         robots: RobotsCache | None = None,
     ) -> None:
+        """`_last_request` is per-process in-memory state, so the crawl delay is only honoured within one sweep — two concurrent processes would not see each other's timings."""
         self.raw_dir = Path(raw_dir)
         self.timeout_s = timeout_s
         self.robots = robots or RobotsCache(self.raw_dir / "robots")
@@ -109,6 +110,15 @@ class PoliteFetcher:
     # ── rate limiting ────────────────────────────────────────────────────
 
     def _wait_turn(self, host: str, delay_s: float) -> None:
+        """Sleep until this host's crawl delay has elapsed since our last request.
+
+        Uses `time.monotonic`, so a system clock change cannot make the delay
+        appear to have passed. Blocking and synchronous: the sweep is sequential
+        by design, and rate limiting a scraper with sleep is the honest version.
+
+        The timestamp is recorded even when no sleep was needed, so the delay is
+        measured request-to-request rather than sleep-to-sleep.
+        """
         previous = self._last_request.get(host)
         if previous is not None:
             elapsed = time.monotonic() - previous
@@ -119,6 +129,16 @@ class PoliteFetcher:
     # ── the archive ──────────────────────────────────────────────────────
 
     def _archive(self, url: str, body: str, record: FetchRecord) -> Path:
+        """Write the page body and a JSON sidecar, and return the body's path.
+
+        The archive is what makes an extraction re-checkable months later — the
+        claim "the page said this" is only as good as the copy of the page. The
+        filename carries a slug and a UTC timestamp, so refetching the same URL
+        adds a version rather than overwriting the evidence.
+
+        `record.raw_path` is set before the sidecar is written, because a sidecar
+        naming no body cannot be replayed.
+        """
         stamp = record.fetched_at.strftime("%Y%m%dT%H%M%SZ")
         path = self.raw_dir / "pages" / f"{_slug(url)}.{stamp}.html"
         path.parent.mkdir(parents=True, exist_ok=True)
