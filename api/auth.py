@@ -355,6 +355,32 @@ class StaticTokenFileAuthenticator:
         )
 
 
+class _RemoteJWKS:
+    """Supabase's published signing keys, fetched by `kid` and cached.
+
+    A thin wrapper over `jwt.PyJWKClient` for one reason: it gives the
+    authenticator a one-method dependency, so a test injects a fake instead
+    of reaching the network, and the object under test is the same shape as
+    the one that runs.
+
+    `PyJWKClient` does the caching and the refetch-on-unknown-kid. The cache
+    is per instance, so it lives as long as the authenticator does — which is
+    the process, since the app builds one at startup.
+    """
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+        self._client = None
+
+    def get_public_key(self, kid: str):
+        """The signing key for `kid`. Raises if the auth server has no such key."""
+        if self._client is None:
+            # Constructed lazily so a deployment starts even when the auth
+            # server is unreachable, and so no network call happens at import.
+            self._client = jwt.PyJWKClient(self.url, cache_keys=True)
+        return self._client.get_signing_key(kid).key
+
+
 class SupabaseJWTAuthenticator:
     """Verify a Supabase session token; read authorization from the database.
 
@@ -388,6 +414,10 @@ class SupabaseJWTAuthenticator:
     #: `service_role` token is not a person and must never resolve to one.
     AUDIENCE = "authenticated"
 
+    #: Algorithms accepted on the asymmetric path. ES256 is what Supabase
+    #: gives a new project; RS256 covers older ones and other providers.
+    ASYMMETRIC_ALGORITHMS = ["RS256", "ES256"]
+
     def __init__(
         self,
         *,
@@ -395,40 +425,108 @@ class SupabaseJWTAuthenticator:
         issuer: str,
         jwt_secret: str = "",
         public_key: str = "",
+        jwks=None,
         leeway_s: int = 10,
+        unknown_kid_cooldown_s: float = 300.0,
     ) -> None:
-        """`leeway_s` tolerates small clock skew on `exp`/`iat` and nothing else."""
-        if bool(jwt_secret) == bool(public_key):
-            # Both or neither. Neither cannot verify; both is an ambiguity
-            # about which algorithm family is trusted, and that ambiguity is
-            # exactly what algorithm confusion exploits.
-            raise ValueError(
-                "supply exactly one of jwt_secret (HS256) or public_key (RS256/ES256)"
-            )
+        """Pick a way to obtain the signing key. Exactly one, never two.
+
+        In order of preference:
+
+        *   **JWKS** (the default, and what an issuer alone gives you) —
+            public keys fetched from the auth server and selected by the
+            token's `kid`. The only option that survives a rotation without a
+            human pasting a new key into a secret store.
+        *   **`public_key`** — one static PEM. Works offline; goes stale the
+            moment Supabase rotates.
+        *   **`jwt_secret`** — the legacy shared HS256 secret. Supported
+            because older projects still have one; Supabase itself recommends
+            against it, since verifying means holding a value that can also
+            *mint* tokens.
+
+        `leeway_s` tolerates small clock skew on `exp`/`iat`, nothing else.
+        `unknown_kid_cooldown_s` bounds refetching — see `_resolve_key`.
+        """
+        if jwt_secret and public_key:
+            # Which algorithm family is trusted would be ambiguous, and that
+            # ambiguity is precisely what algorithm confusion exploits.
+            raise ValueError("supply either jwt_secret or public_key, not both")
+
         self.repository = repository
-        self.issuer = issuer
+        self.issuer = issuer.rstrip("/")
         self.leeway_s = leeway_s
+        self.unknown_kid_cooldown_s = unknown_kid_cooldown_s
+        self.jwt_secret = jwt_secret
+        self.public_key = public_key
+        #: kid -> when it was last looked up and found missing.
+        self._missing_kids: dict[str, float] = {}
+
         if jwt_secret:
-            self.key = jwt_secret
             self.algorithms = ["HS256"]
+            self.jwks = None
+            self.jwks_url = ""
+        elif public_key:
+            self.algorithms = list(self.ASYMMETRIC_ALGORITHMS)
+            self.jwks = None
+            self.jwks_url = ""
         else:
-            self.key = public_key
-            self.algorithms = ["RS256", "ES256"]
+            if not self.issuer:
+                raise ValueError(
+                    "an issuer is required to discover signing keys"
+                )
+            self.algorithms = list(self.ASYMMETRIC_ALGORITHMS)
+            self.jwks_url = f"{self.issuer}/.well-known/jwks.json"
+            # Built, not called: construction must not touch the network, so
+            # a deployment starts even while the auth server is unreachable.
+            self.jwks = jwks if jwks is not None else _RemoteJWKS(self.jwks_url)
+
+    def _resolve_key(self, token: str) -> str:
+        """The key this token says it was signed with.
+
+        A `kid` that has already been looked up and found missing is refused
+        without another fetch until `unknown_kid_cooldown_s` has passed. That
+        bound is the point: without it, a stream of tokens carrying random
+        `kid` values becomes a stream of outbound requests, which turns this
+        deployment into an amplifier aimed at the auth server. A `kid` never
+        seen before is always fetched, so a genuine rotation is picked up at
+        once.
+        """
+        if self.jwks is None:
+            return self.jwt_secret or self.public_key
+
+        try:
+            kid = jwt.get_unverified_header(token).get("kid")
+        except jwt.InvalidTokenError:
+            raise AuthError("invalid credential") from None
+        if not kid:
+            # Every Supabase asymmetric token carries one.
+            raise AuthError("invalid credential")
+
+        missed_at = self._missing_kids.get(kid)
+        if missed_at is not None and time.time() - missed_at < self.unknown_kid_cooldown_s:
+            raise AuthError("invalid credential")
+
+        try:
+            return self.jwks.get_public_key(kid)
+        except Exception:  # noqa: BLE001 — a lookup failure is a refusal
+            self._missing_kids[kid] = time.time()
+            raise AuthError("invalid credential") from None
 
     def authenticate(self, authorization: str | None) -> Principal:
         """Resolve a bearer token to a principal, or raise `AuthError`.
 
         Every failure is the same `AuthError`. Which claim was wrong, whether
         the signature failed or the token merely expired, and whether the
-        subject has any membership at all are all distinctions the caller does
-        not get — they are a probe oracle, and they go to the audit log.
+        subject has any membership at all are distinctions the caller does not
+        get — they are a probe oracle. They go to the audit log instead.
         """
         supplied = _bearer(authorization)
+        key = self._resolve_key(supplied)
 
         try:
             claims = jwt.decode(
                 supplied,
-                self.key,
+                key,
                 algorithms=self.algorithms,
                 audience=self.AUDIENCE,
                 issuer=self.issuer,
@@ -436,8 +534,8 @@ class SupabaseJWTAuthenticator:
                 options={"require": ["exp", "sub", "aud", "iss"]},
             )
         except jwt.InvalidTokenError as exc:
-            # Covers expiry, bad signature, wrong issuer, wrong audience, a
-            # missing required claim, and anything that is not a JWT at all.
+            # Expiry, bad signature, wrong issuer, wrong audience, a missing
+            # required claim, and anything that is not a JWT at all.
             audit_event(
                 actor="unknown",
                 action="auth.rejected",
@@ -450,7 +548,8 @@ class SupabaseJWTAuthenticator:
         if not subject:
             raise AuthError("invalid credential")
 
-        # Authorization is a database fact, re-read per request.
+        # Authorization is a database fact, re-read per request so revocation
+        # does not wait for the token to expire.
         return Principal(
             subject=subject,
             founder_ids=self.repository.founder_ids_for(subject),

@@ -282,11 +282,36 @@ def test_garbage_in_place_of_a_token_is_refused(auth):
 # ── Configuration ────────────────────────────────────────────────────────────
 
 
-def test_configuring_neither_key_is_refused_at_construction(repo):
-    """A verifier with no key cannot verify, and must not pretend otherwise.
+def test_configuring_neither_key_selects_the_jwks_path(repo):
+    """Neither key plus an issuer is the *default*, not an error.
+
+    This assertion used to be `pytest.raises(ValueError)`, from when the only
+    asymmetric option was a static PEM someone pasted in. Supabase publishes
+    its signing keys and rotates them, so an issuer alone is now the complete
+    configuration and the keys are fetched — see `test_supabase_jwks.py`.
+    """
+    auth = SupabaseJWTAuthenticator(repository=repo, issuer=ISSUER)
+
+    assert auth.jwks is not None
+
+
+def test_configuring_no_issuer_and_no_key_is_refused_at_construction(repo):
+    """With neither a key nor somewhere to fetch one, it cannot verify anything.
 
     Failing here rather than at the first request means a deployment missing
-    its secret does not start and then accept nothing — it does not start.
+    its configuration does not start and then refuse everything — it does not
+    start.
     """
     with pytest.raises(ValueError):
-        SupabaseJWTAuthenticator(repository=repo, issuer=ISSUER)
+        SupabaseJWTAuthenticator(repository=repo, issuer="")
+
+
+def test_supplying_both_key_kinds_is_refused(repo):
+    """Which algorithm family is trusted must never be ambiguous.
+
+    That ambiguity is exactly what an algorithm-confusion attack needs.
+    """
+    with pytest.raises(ValueError):
+        SupabaseJWTAuthenticator(
+            repository=repo, issuer=ISSUER, jwt_secret=SECRET, public_key="pem"
+        )
