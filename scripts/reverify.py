@@ -67,6 +67,7 @@ class Fetcher:
     """
 
     def __init__(self, timeout_s: float = 20.0, fixture_dir: Path | None = None):
+        """Passing `fixture_dir` switches every fetch to the recorded pages — that is the only difference between the online and offline modes."""
         self.timeout_s = timeout_s
         self.fixture_dir = Path(fixture_dir) if fixture_dir else None
         self._cache: dict[str, tuple[int, str, str]] = {}
@@ -80,6 +81,12 @@ class Fetcher:
         return result
 
     def _offline(self, url: str) -> tuple[int, str, str]:
+        """Serve a recorded page from the fixture directory's `index.json`.
+
+        A URL missing from the index returns status 0, the same shape a failed
+        network fetch produces, so the comparison logic downstream cannot tell
+        the two modes apart.
+        """
         index = json.loads((self.fixture_dir / "index.json").read_text())
         entry = index.get(url)
         if entry is None:
@@ -90,6 +97,12 @@ class Fetcher:
         return entry.get("status", 200), entry.get("final_url", url), body
 
     def _online(self, url: str) -> tuple[int, str, str]:  # pragma: no cover - network
+        """Fetch the page, following redirects. Status 0 on any error.
+
+        Exceptions are swallowed on purpose: this script exists to find pages
+        that have died, so a dead page is the finding rather than a crash. The
+        final URL is returned separately so a redirect is visible as a change.
+        """
         import httpx
 
         try:
@@ -115,6 +128,7 @@ def is_stale(row: dict, max_age_days: int, today: date) -> bool:
 
 
 def _same_page(a: str, b: str) -> bool:
+    """URL equality ignoring a trailing slash — the difference a redirect commonly adds."""
     return a.rstrip("/") == b.rstrip("/")
 
 
@@ -244,6 +258,13 @@ def check(row: dict, fetcher: Fetcher, today: date) -> dict:
 def reverify(
     rows: list[dict], fetcher: Fetcher, *, max_age_days: int, today: date, check_all: bool
 ) -> dict:
+    """Check every stale row and summarise the findings.
+
+    `check_all` overrides the freshness filter. Nothing here writes back to
+    the catalog: the output is a report a person reads, because a script that
+    silently "refreshes" a curated fact has replaced verification with
+    assertion.
+    """
     findings = []
     skipped_fresh = 0
     for row in rows:
@@ -275,6 +296,11 @@ def reverify(
 
 
 def main() -> int:
+    """CLI entry. Writes the JSON report and returns 0 unless the catalog could not be read.
+
+    Findings do not change the exit code — dead and changed pages are the
+    expected output of this script, not a failure of it.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=Path, default=SEED)
     parser.add_argument("--out", type=Path, default=REPORT)

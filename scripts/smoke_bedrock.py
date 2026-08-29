@@ -76,6 +76,12 @@ def explain(exc: Exception) -> str:
 
 
 async def smoke(tier_name: str) -> bool:
+    """Make one real, tiny model call on `tier_name` and report whether it worked.
+
+    The token ceiling is lowered to `SMOKE_TOKEN_CEILING` first, so a
+    misconfigured model cannot turn a connectivity check into a bill. True
+    means the call returned; it says nothing about answer quality.
+    """
     config = settings()
     tier = getattr(config, tier_name)
     budget = RunBudget.from_settings(config)
@@ -131,6 +137,11 @@ async def smoke(tier_name: str) -> bool:
 
 
 async def main() -> int:
+    """CLI entry. 0 when every requested tier answered, 1 otherwise.
+
+    The one script here that costs money. It exists so "has this ever called
+    Bedrock?" has a runnable answer rather than an assumed one.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--tier",

@@ -37,6 +37,7 @@ from agent.scraping.pipeline import RAW_DIR  # noqa: E402
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser. Separate from `main` so tests can inspect the flags."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--lane",
@@ -78,12 +79,24 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def lanes_for(value: str) -> tuple[ScraperLane, ...]:
+    """Resolve a `--lane` value to the lanes to run. `both` runs university first.
+
+    Order matters: the university lane is the narrower one, so running it
+    first means its rows are written before the general sweep spends its page
+    budget.
+    """
     if value == "both":
         return (UNIVERSITY_LANE, GENERAL_LANE)
     return (lane_by_name(value),)
 
 
 def config_for_lane(args: argparse.Namespace, lane: ScraperLane) -> WebScraperConfig:
+    """Build a lane's config, letting explicit flags override the lane's defaults.
+
+    Note `--include-weak-results` inverts into `require_opportunity_hint`,
+    so the flag reads as "fetch more" while the config field reads as "filter
+    harder".
+    """
     return WebScraperConfig.for_lane(
         lane,
         queries=tuple(args.query or lane.queries),
@@ -97,6 +110,11 @@ def config_for_lane(args: argparse.Namespace, lane: ScraperLane) -> WebScraperCo
 
 
 def output_path_for(args: argparse.Namespace, lane: ScraperLane) -> Path:
+    """Where this lane's candidates go: `--out`, else `--out-dir`/lane-file, else the lane's own path.
+
+    `--out` with `--lane both` sends both lanes to the same file, and the
+    second write wins. Use `--out-dir` when running both.
+    """
     if args.out is not None:
         return args.out
     if args.out_dir is not None:
@@ -110,6 +128,7 @@ def agent_for_lane(
     config: WebScraperConfig,
     fetcher=None,
 ) -> WebScraperAgent:
+    """Pick the agent subclass for a lane, falling back to the base agent for an unknown one."""
     if lane.name == UNIVERSITY_LANE.name:
         return UniversityWebScraperAgent(search, config=config, fetcher=fetcher)
     if lane.name == GENERAL_LANE.name:
@@ -118,6 +137,7 @@ def agent_for_lane(
 
 
 def print_summary(lane: ScraperLane, path: Path, records, run) -> None:
+    """Print one lane's counters and a line per candidate row."""
     print()
     print(f"[{lane.name}] {run.headline()}")
     for record in records:
@@ -136,6 +156,7 @@ def print_summary(lane: ScraperLane, path: Path, records, run) -> None:
 
 
 def main(argv: list[str] | None = None, *, search_client=None, fetcher=None) -> int:
+    """CLI entry. 0 when every requested lane completed, non-zero on a search-provider failure."""
     parser = build_parser()
     args = parser.parse_args(argv)
 

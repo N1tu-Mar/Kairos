@@ -58,6 +58,7 @@ EXEMPT_PREFIXES = ("./", "docker://")
 
 class Problem(NamedTuple):
     """One finding, located. `file` and `line` make the output pasteable into an editor."""
+
     file: str
     line: int
     message: str

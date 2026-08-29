@@ -88,6 +88,12 @@ def same_site(a: str, b: str) -> bool:
     not something this script will bless — it goes to a human.
     """
     def tail(url: str) -> str:
+        """The registrable tail of a host — the last two labels, lowercased.
+
+        Crude by design: it treats `foo.example.edu` and `example.edu` as one
+        site so a redirect within an institution is not reported as a move, and
+        it is knowingly wrong for multi-part public suffixes.
+        """
         host = urlsplit(url).netloc.lower().split(":")[0].removeprefix("www.")
         return ".".join(host.split(".")[-2:])
 
@@ -153,6 +159,13 @@ def fetch(url: str, timeout_s: float, cache: dict[str, str | None]) -> str | Non
 
 
 def verify(row: dict, timeout_s: float, cache: dict | None = None) -> dict:
+    """Re-fetch every row and re-find every quote it claims.
+
+    The only thing that may mark a row verified, and it does so on evidence:
+    the page must still be reachable, still be the same site, and still
+    contain each `criteria[]` quote. A row that fails any of those keeps its
+    previous state and is reported.
+    """
     url = row.get("source_url", "")
     result = dict(row)
     cache = {} if cache is None else cache
@@ -218,6 +231,7 @@ def verify(row: dict, timeout_s: float, cache: dict | None = None) -> dict:
 
 
 def main() -> int:
+    """CLI entry. 0 when every checked row verified, non-zero when any did not."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--candidates", type=Path, default=CANDIDATES)
     parser.add_argument("--out", type=Path, default=SEED)

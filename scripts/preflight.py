@@ -42,6 +42,7 @@ class Check:
     API, zero prices — can be reported honestly without failing a check that
     is correct for localhost.
     """
+
     name: str
     status: str
     detail: str

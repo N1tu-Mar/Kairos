@@ -56,6 +56,13 @@ def _existing_tables() -> set[str]:
 
 
 def upgrade() -> None:
+    """Create the initial schema.
+
+    This is the adoption point for databases created by `create_all()` before
+    migrations existed: every statement is written to be safe against tables
+    that are already there, so stamping an existing database and upgrading it
+    does not drop anything.
+    """
     existing = _existing_tables()
 
     if "answers" not in existing:

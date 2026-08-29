@@ -40,6 +40,13 @@ def build_sources(
     profile: FounderProfile | None = None,
     live_campus_scrape: bool = False,
 ):
+    """Assemble the CLI's discovery sources, mirroring `api/jobs.build_sources`.
+
+    Two copies of this list exist on purpose — the flags differ between a
+    terminal and a scheduled job — but they must agree on what each flag
+    means. A source added to one and not the other makes the CLI and the
+    dashboard disagree about what a run searched.
+    """
     config = settings()
     catalog = "opportunities.demo.json" if demo else "opportunities.seed.json"
     sources = [
@@ -84,6 +91,7 @@ def _dry_run_settings():
 
 
 def load_forms() -> dict[str, ApplicationForm]:
+    """Load the transcribed application forms, keyed by opportunity id."""
     directory = REPO_ROOT / "data" / "forms"
     return {
         (form := ApplicationForm.model_validate(json.loads(p.read_text()))).opportunity_id: form
@@ -92,6 +100,7 @@ def load_forms() -> dict[str, ApplicationForm]:
 
 
 async def one_run(args) -> int:
+    """Execute a single pipeline run and print its report."""
     config = settings() if not args.dry_run else _dry_run_settings()
     repo = SqliteRepository(config.db_url)
 
@@ -157,6 +166,11 @@ async def one_run(args) -> int:
 
 
 def main() -> int:
+    """CLI entry for a local run. 0 on a completed run, non-zero when it could not start.
+
+    A run that halts on a budget cap is a completed run with a report, so it
+    exits 0 — the halt is in the output, not in the exit code.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--founder", default="founder_demo")
     parser.add_argument("--demo", action="store_true", help="use the synthetic catalog")

@@ -69,6 +69,7 @@ FORMS_DIR = REPO_ROOT / "data" / "forms"
 
 
 def host(url: str) -> str:
+    """Lowercased hostname without `www.`. Empty string for anything unparseable."""
     return urlsplit(url or "").netloc.lower().removeprefix("www.")
 
 
@@ -142,6 +143,19 @@ def _eligibility_checks(program: dict, row: dict) -> tuple[int, int, int]:
 
 
 def score(reference: dict, rows: list[dict], campus_rows: list[dict], forms: set[str], today: date) -> dict:
+    """Score the catalog against the hand-authored reference set.
+
+    One pass over the in-scope programs producing every metric at once —
+    retrieval recall, per-category coverage, deadline correctness,
+    eligibility coverage — plus the deliberate negatives, which are scored in
+    the opposite direction: a negative that was *not* retrieved is the
+    correct outcome.
+
+    Matching is by site and title heuristics (`matches`), so a program the
+    catalog holds under a very different title counts as missed. That biases
+    recall downward, which is the direction to err in a number you intend to
+    publish.
+    """
     programs = reference["programs"]
     in_scope = [p for p in programs if p["in_scope"]]
     negatives = [p for p in programs if not p["in_scope"]]
@@ -247,6 +261,7 @@ def score(reference: dict, rows: list[dict], campus_rows: list[dict], forms: set
         (negatives_marked if marked else negatives_unmarked).append(entry)
 
     def pct(numerator: int, denominator: int) -> float:
+        """Percentage to one decimal, and 0.0 rather than a division error when nothing was expected."""
         return round(100.0 * numerator / denominator, 1) if denominator else 0.0
 
     return {
@@ -291,6 +306,7 @@ def score(reference: dict, rows: list[dict], campus_rows: list[dict], forms: set
 
 
 def render(result: dict) -> str:
+    """Format the scored result as the fixed-width text block the README quotes."""
     lines = [
         f"Discovery benchmark — reference set {result['reference_version']}",
         "",
@@ -350,6 +366,10 @@ def render(result: dict) -> str:
 
 
 def main() -> int:
+    """CLI entry. Prints the benchmark; returns 0 whatever the score.
+
+    A measurement, not a gate — same reasoning as `run_eval.py`.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, default=REFERENCE)
     parser.add_argument("--seed", type=Path, default=SEED)

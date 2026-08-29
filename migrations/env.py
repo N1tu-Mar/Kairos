@@ -32,6 +32,11 @@ target_metadata = SQLModel.metadata
 
 
 def database_url() -> str:
+    """The URL Alembic should migrate, preferring the app's own configuration.
+
+    Reading it from the same place the app does is what stops migrations
+    running against a different database than the one being served.
+    """
     url = os.getenv("KAIROS_DB_URL", "").strip()
     if not url:
         # Same default as agent/config.py. Stated here rather than imported
@@ -58,6 +63,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """Run migrations against a live connection — the normal path for `alembic upgrade`."""
     section = config.get_section(config.config_ini_section, {})
     section["sqlalchemy.url"] = database_url()
     connectable = engine_from_config(
