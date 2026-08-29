@@ -56,6 +56,8 @@ def _row(criteria, source_url=URL):
 
 
 class TestNormalize:
+    """Text normalisation: markup, entities, case and punctuation must not decide whether a quote is found."""
+
     def test_markup_entities_and_case_are_flattened(self):
         assert verify_seed.normalize("<b>Awards</b>&nbsp;Range") == "awards range"
 
@@ -64,6 +66,8 @@ class TestNormalize:
 
 
 class TestMissingEvidence:
+    """A quote that is not on the page it cites is reported, including when it sits among good ones."""
+
     PAGES = {URL: PAGE, FAQ_URL: FAQ}
 
     def test_a_real_quote_is_found_across_markup_and_entities(self):
@@ -106,6 +110,8 @@ class TestMissingEvidence:
 
 
 class TestEvidencePages:
+    """Which pages a quote may be checked against — sub-pages of the same site, never another organisation's."""
+
     def test_sub_pages_of_the_same_site_are_fetched(self):
         wanted, refused = verify_seed.evidence_pages(
             _row([("q", FAQ_URL), ("q2", URL)])

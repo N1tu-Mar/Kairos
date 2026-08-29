@@ -28,15 +28,19 @@ REAL_FORMS = [p for p in sorted(FORMS_DIR.glob("*.json")) if "demo" not in p.nam
 
 
 def load(path: Path) -> ApplicationForm:
+    """Read one form JSON from the forms directory."""
     return ApplicationForm.model_validate(json.loads(path.read_text()))
 
 
 @pytest.fixture(params=REAL_FORMS, ids=lambda p: p.stem)
 def form(request) -> ApplicationForm:
+    """The first real form, used where any well-formed form will do."""
     return load(request.param)
 
 
 class TestFormsAreWellFormed:
+    """Every transcribed form parses, records where and when it was read, and says so when partial."""
+
     def test_at_least_one_real_form_exists(self):
         assert REAL_FORMS, "data/forms/ holds only the synthetic demo form"
 
@@ -114,6 +118,11 @@ class TestProtectedFieldsAreNeverGenerated:
         )
 
         async def answer_everything(agent, output_model, prompt, **kwargs):
+            """Propose an answer for every field, protected ones included.
+
+            The adversarial input: the assertion is that the gate refuses
+            those fields regardless of what the model proposed.
+            """
             return output_model(
                 fields=[
                     {

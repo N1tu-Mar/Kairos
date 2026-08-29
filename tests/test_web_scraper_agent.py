@@ -29,11 +29,19 @@ from agent.scraping.models import FetchRecord
 
 
 class FakeSearch:
+    """A search provider that returns a fixed list, with no network."""
+
     def __init__(self, results: list[SearchResult]) -> None:
+        """`results` are returned for every query, re-stamped with that query and a 1-based rank."""
         self.results = results
         self.queries: list[str] = []
 
     def search(self, query: str, *, count: int) -> list[SearchResult]:
+        """Return up to `count` canned hits, recording the query.
+
+        Re-stamping the query and rank mirrors what a real provider does, so a
+        test can assert the provenance note a candidate ends up carrying.
+        """
         self.queries.append(query)
         return [
             SearchResult(
@@ -49,11 +57,15 @@ class FakeSearch:
 
 
 class FakeFetcher:
+    """A fetcher that serves canned pages and records every URL it was asked for."""
+
     def __init__(self, pages: dict[str, str]) -> None:
+        """`pages` maps URL to page body. `fetched` records what was actually requested — the point of most of these tests."""
         self.pages = pages
         self.fetched: list[str] = []
 
     def fetch(self, url: str, *, allow_js: bool = False):
+        """Serve a canned page and record the URL. A URL not in `pages` is a fetch failure."""
         self.fetched.append(url)
         text = self.pages.get(url, "")
         return (

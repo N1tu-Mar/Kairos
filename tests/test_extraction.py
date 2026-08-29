@@ -42,16 +42,29 @@ cycle.
 
 
 def claim(field, value, evidence, source_ref="fund#eligibility"):
+    """One `EligibilityClaim`. `evidence` is the span the extractor says supports it.
+
+    The evidence string is what the verifier re-finds in the source text —
+    varying it is how the negative cases are built.
+    """
     return EligibilityClaim(
         field=field, value=value, evidence=evidence, source_ref=source_ref
     )
 
 
 def extraction(*claims):
+    """Wrap claims as an `EligibilityExtraction`, as the extractor would return them."""
     return EligibilityExtraction(claims=list(claims))
 
 
 class TestEvidenceIsRefound:
+    """A claim survives only if its cited span is actually found in the source.
+
+    Paraphrase counts as fabrication here: an approximate quote is not a
+    quote, and accepting one would make the evidence a summary rather than a
+    receipt.
+    """
+
     def test_a_supported_claim_survives(self):
         result = verify(
             extraction(
@@ -106,6 +119,8 @@ class TestEvidenceIsRefound:
 
 
 class TestVocabulary:
+    """Values must be the right shape and drawn from the field's controlled vocabulary."""
+
     def test_a_value_outside_the_controlled_vocabulary_is_dropped(self):
         result = verify(
             extraction(
@@ -147,6 +162,8 @@ class TestVocabulary:
 
 
 class TestAdversarialNegation:
+    """A negated span cannot grant permission, but may still support a negative fact."""
+
     def test_a_negated_span_cannot_grant_permission(self):
         """'Postdoctoral researchers are not eligible' is in the source, so
         the span check passes. It still must not license postdocs."""
@@ -180,6 +197,8 @@ class TestAdversarialNegation:
 
 
 class TestAdversarialExceptions:
+    """An exception clause does not settle who qualifies — it describes who does not."""
+
     def test_an_exception_clause_does_not_settle_who_qualifies(self):
         result = verify(
             extraction(
@@ -197,6 +216,8 @@ class TestAdversarialExceptions:
 
 
 class TestAdversarialNonExhaustiveLists:
+    """A list the page marks as illustrative cannot be read as the complete set."""
+
     def test_including_but_not_limited_to_cannot_close_a_set(self):
         result = verify(
             extraction(
@@ -226,6 +247,8 @@ class TestAdversarialNonExhaustiveLists:
 
 
 class TestMultipleApplicantCategories:
+    """One span naming several categories yields all of them, and order does not create a conflict."""
+
     def test_one_sentence_naming_two_categories_yields_both(self):
         result = verify(
             extraction(
@@ -260,6 +283,8 @@ class TestMultipleApplicantCategories:
 
 
 class TestConflictingSections:
+    """Two sections that disagree collapse that field to UNKNOWN — and only that field."""
+
     def test_two_sections_that_disagree_collapse_to_unknown(self):
         result = verify(
             extraction(
@@ -294,6 +319,12 @@ class TestConflictingSections:
 
 
 class TestProjection:
+    """Projection to the runtime model: unpopulated means None, never a default.
+
+    The last test is the load-bearing one — the extractor's own claim about
+    its coverage cannot populate a field.
+    """
+
     def test_unpopulated_fields_project_to_none_not_to_a_default(self):
         rules = to_eligibility_rules(verify(extraction(), SOURCE))
         assert rules == EligibilityRules()

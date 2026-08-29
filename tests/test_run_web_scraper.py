@@ -15,11 +15,15 @@ from scripts import run_web_scraper
 
 
 class FakeSearch:
+    """A search provider returning a fixed list. Shared across lanes so a test can assert both used the same client."""
+
     def __init__(self, results: list[SearchResult]) -> None:
+        """`queries` records every query issued, across all lanes."""
         self.results = results
         self.queries: list[str] = []
 
     def search(self, query: str, *, count: int) -> list[SearchResult]:
+        """Return the canned hits, recording the query."""
         self.queries.append(query)
         return [
             SearchResult(
@@ -35,10 +39,14 @@ class FakeSearch:
 
 
 class FakeFetcher:
+    """A fetcher over canned pages, so a lane can complete without a network."""
+
     def __init__(self, pages: dict[str, str]) -> None:
+        """`pages` maps URL to body."""
         self.pages = pages
 
     def fetch(self, url: str, *, allow_js: bool = False):
+        """Serve a canned page for this URL."""
         text = self.pages[url]
         return (
             text,

@@ -12,6 +12,12 @@ from tests.factories import TODAY, opportunity, profile
 
 
 def verdict(rules: EligibilityRules, **profile_overrides) -> str:
+    """Run the filter for these rules and return the verdict alone.
+
+    Profile overrides go in as keywords, so a case reads as "these rules,
+    this one profile difference" and the varied field is always visible in
+    the call.
+    """
     return check_opportunity(
         opportunity(eligibility=rules), profile(**profile_overrides), TODAY
     ).verdict

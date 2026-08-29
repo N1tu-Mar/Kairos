@@ -88,6 +88,12 @@ def run(rows, campus_rows=(), forms=(), reference=None):
 
 
 class TestRetrievalRecall:
+    """What counts as retrieving a program: site and title matching, split by source channel.
+
+    A campus row still awaiting review is scored as its own kind of miss —
+    found but not usable is different from not found.
+    """
+
     def test_an_empty_catalog_scores_zero(self):
         result = run([])
         assert result["retrieval_recall_pct"] == 0.0
@@ -123,6 +129,8 @@ class TestRetrievalRecall:
 
 
 class TestDuplicatesAndStaleness:
+    """Two catalog rows for one program is a defect, and a passed deadline is counted stale."""
+
     def test_two_rows_for_one_program_are_reported_as_a_duplicate(self):
         result = run([row(id="a1"), row(id="a2")])
         assert result["duplicates"][0]["rows"] == ["a1", "a2"]
@@ -136,6 +144,8 @@ class TestDuplicatesAndStaleness:
 
 
 class TestDeadlineAccuracy:
+    """An honest UNKNOWN deadline is counted separately from a wrong date. They are not the same error."""
+
     def test_an_exact_deadline_scores_exact(self):
         assert run([row()])["deadline_accuracy"]["exact"] == 1
 
@@ -151,6 +161,8 @@ class TestDeadlineAccuracy:
 
 
 class TestEligibilityScoring:
+    """Coverage and precision move independently: an UNKNOWN lowers coverage, a wrong value lowers precision."""
+
     def test_carried_and_correct_facts_score_full_marks(self):
         result = run([row()])["structured_eligibility"]
         assert result["coverage_pct"] == 100.0
@@ -170,6 +182,8 @@ class TestEligibilityScoring:
 
 
 class TestNegatives:
+    """The deliberate negatives. Carrying one is fine; carrying one without its disqualifier is the defect."""
+
     def test_a_negative_carried_with_its_disqualifier_is_not_a_defect(self):
         result = run(
             [
@@ -215,6 +229,8 @@ class TestNegatives:
 
 
 class TestVerificationAndForms:
+    """An unverified hit still counts as retrieved but is flagged, and form coverage counts only retrieved programs."""
+
     def test_an_unverified_hit_is_retrieved_but_flagged(self):
         result = run([row(verified=False, verification_note="HTTP 403")])
         assert result["retrieved"] == 1

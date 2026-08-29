@@ -53,6 +53,8 @@ def row(**overrides):
 
 
 class TestStaleness:
+    """Which rows get re-fetched. Missing and unparseable timestamps are stale, never assumed fresh."""
+
     def test_a_row_verified_yesterday_is_fresh(self):
         assert not reverify_mod.is_stale(
             row(verified_at="2026-08-26T00:00:00+00:00"), 30, TODAY
@@ -90,6 +92,8 @@ class TestStaleness:
 
 
 class TestDetection:
+    """Every way a verified row can go wrong: dead, redirected, rewritten, expired, or quietly retired behind a 200."""
+
     def test_an_unchanged_row_is_reported_unchanged(self, fetcher):
         assert reverify_mod.check(row(), fetcher, TODAY)["status"] == "UNCHANGED"
 
@@ -166,6 +170,8 @@ class TestDetection:
 
 
 class TestReport:
+    """The report's shape: what needs review separated from what does not, and JSON-serialisable."""
+
     def test_the_report_separates_what_needs_review_from_what_does_not(self, fetcher):
         report = reverify_mod.reverify(
             [

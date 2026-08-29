@@ -11,6 +11,11 @@ KB = kb("We are two undergrads building a scheduling tool for lab equipment.")
 
 
 def audit_for(*field_ids: str, verdict: str = "SUPPORTED") -> AuditReport:
+    """An `AuditReport` giving every named field the same verdict.
+
+    Defaults to SUPPORTED, so a test only says `verdict=` when the auditor's
+    opinion is the thing being varied.
+    """
     return AuditReport(
         draft_id="draft_1",
         fields=[

@@ -26,6 +26,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def _page(name: str) -> dict:
+    """The `data` object from a recorded API response fixture."""
     return json.loads((FIXTURES / name).read_text())["data"]
 
 
@@ -40,12 +41,19 @@ class FakeClient:
     """Replays canned pages keyed by (keyword, start_record)."""
 
     def __init__(self, pages: dict[tuple[str, int], tuple[list[dict], int]]):
+        """`pages` maps `(keyword, start_record)` to a `(hits, hit_count)` pair, or the sentinel `"ERROR"`. A key that is absent returns an empty page, which is how "the end of the results" is expressed."""
         self.pages = pages
         self.search_calls: list[tuple[str, int]] = []
         self.detail_calls: list[str] = []
         self.detail_errors: set[str] = set()
 
     def search(self, keyword, rows=25, statuses="posted", start_record=0):
+        """Replay one page, recording the call. `"ERROR"` raises `SourceError` instead.
+
+        Recording `search_calls` is what lets a test assert the pagination
+        arithmetic — which offsets were requested, and that the loop stopped
+        when it should have.
+        """
         self.search_calls.append((keyword, start_record))
         result = self.pages.get((keyword, start_record))
         if result is None:
@@ -55,6 +63,11 @@ class FakeClient:
         return result
 
     def fetch_opportunity(self, opportunity_id):
+        """Replay a detail call, recording it. Ids in `detail_errors` raise instead.
+
+        The recorded list is the evidence for the "filter before hydrating"
+        property: a row dropped for being closed must never appear here.
+        """
         self.detail_calls.append(opportunity_id)
         if opportunity_id in self.detail_errors:
             raise SourceError("fetchOpportunity failed: fake detail error")
@@ -62,6 +75,8 @@ class FakeClient:
 
 
 class TestPagination:
+    """Walking pages: until the hit count, until the cap, or until an empty page."""
+
     def test_walks_pages_until_hit_count(self):
         pages = {
             ("k", 0): ([_hit("1"), _hit("2")], 5),
@@ -108,6 +123,8 @@ class TestPagination:
 
 
 class TestDedup:
+    """The same opportunity found by two keywords or on two pages collapses on id."""
+
     def test_duplicates_across_pages_and_keywords_collapse_on_id(self):
         pages = {
             ("a", 0): ([_hit("1"), _hit("2")], 2),
@@ -122,6 +139,8 @@ class TestDedup:
 
 
 class TestSinceAndDates:
+    """Client-side date filtering. A missing open date is kept — absence is not evidence of age."""
+
     def test_since_filters_on_open_date_client_side(self):
         pages = {
             ("k", 0): ([_hit("old", open_date="01/01/2020"), _hit("new", open_date="08/01/2026")], 2)
@@ -147,6 +166,12 @@ class TestSinceAndDates:
 
 
 class TestFailureReporting:
+    """A dead page or detail call is reported and does not discard what already worked.
+
+    The last case pins that `partial_failures` is reset per fetch, so a
+    report never carries a previous run's failures.
+    """
+
     def test_a_dead_page_keeps_earlier_pages_and_is_reported(self):
         pages = {
             ("k", 0): ([_hit("1"), _hit("2")], 6),
@@ -183,7 +208,15 @@ class TestFailureReporting:
 
 
 class TestKeywordSelection:
+    """Keywords derived from structured profile fields, degrading to the base set for anything unrecognised."""
+
     class _Profile:
+        """The few profile fields keyword selection reads.
+
+        A stub rather than a real profile, so a test cannot pass because of
+        a field the selection logic does not actually consult.
+        """
+
         degree_level = "undergrad"
         entity_type = "none"
 

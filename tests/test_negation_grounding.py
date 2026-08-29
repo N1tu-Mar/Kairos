@@ -20,12 +20,22 @@ from tests.factories import draft, generated, kb, opportunity
 
 
 def gate(answer: str, *evidence: str, traction: dict | None = None):
+    """Run the ship gate over one generated answer against this evidence.
+
+    The answer is the claim under test and the evidence is the founder's
+    entire world, so anything the answer asserts beyond it must be caught.
+    """
     knowledge = kb(*evidence, traction=traction or {})
     d = draft(generated("field_under_test", answer))
     return ship_gate(d, knowledge, opportunity=opportunity())
 
 
 def assert_blocked(result, category: str):
+    """Assert the draft was blocked by FORBIDDEN_CLAIMS, mentioning `category`.
+
+    Checking the category as well as the block is what stops a test passing
+    because the gate refused for an unrelated reason.
+    """
     assert result.passed is False
     assert result.failed_check == "FORBIDDEN_CLAIMS"
     assert any(category in v.detail for v in result.violations)

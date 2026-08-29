@@ -80,6 +80,12 @@ def candidates(tmp_path):
 
 
 class TestTheFlag:
+    """`KAIROS_ENABLE_BROWSER` is the only difference between yielding rows and yielding nothing.
+
+    Disabled must not even read the file, so the default configuration cannot
+    fail on a file it was never going to use.
+    """
+
     def test_disabled_returns_nothing_and_does_not_read_the_file(self, tmp_path):
         source = CampusDiscoverySource(tmp_path / "does-not-exist.json", enabled=False)
         assert source.fetch() == []
@@ -99,6 +105,11 @@ class TestTheFlag:
 
 
 class TestTheReviewBoundary:
+    """Only human-ACCEPTED rows become opportunities.
+
+    Everything else is held back or reported.
+    """
+
     @pytest.mark.parametrize("status", ["NEEDS_HUMAN_REVIEW", "REJECTED"])
     def test_unreviewed_and_rejected_rows_never_become_opportunities(
         self, candidates, status
@@ -130,6 +141,8 @@ class TestTheReviewBoundary:
 
 
 class TestDegradation:
+    """How the source fails: a missing or malformed file raises, and a dead source does not end the run."""
+
     def test_a_missing_file_raises_rather_than_returning_empty(self, tmp_path):
         source = CampusDiscoverySource(tmp_path / "gone.json", enabled=True)
         with pytest.raises(SourceError):
@@ -149,6 +162,8 @@ class TestDegradation:
 
 
 class TestLiveSweep:
+    """The optional sweep: never implicit, and never able to add rows to the run that triggered it."""
+
     def test_no_sweep_happens_unless_explicitly_allowed(self, candidates):
         called = []
 
@@ -213,6 +228,12 @@ def _run(failures=()):
 
 
 class TestEligibilityMapping:
+    """Scraped fields become structured eligibility only where evidence backs them.
+
+    An unmappable term is dropped rather than guessed, and a yearless
+    deadline stays a string rather than becoming a date.
+    """
+
     def test_evidence_backed_fields_survive_and_are_translated(self):
         opportunity = to_opportunity(row(review_status="ACCEPTED"))
         assert opportunity.eligibility.degree_levels == ["undergrad", "masters", "phd"]

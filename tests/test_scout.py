@@ -76,6 +76,7 @@ class ListSource:
 
     Named `"seed"` so failures attribute to a real `SourceName`.
     """
+
     name = "seed"
 
     def __init__(self, opportunities):

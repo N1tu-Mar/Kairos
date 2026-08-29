@@ -25,6 +25,11 @@ from tests.factories import TODAY, opportunity
 
 
 def decide(assessment: Assessment, opp=None, **overrides):
+    """Run the escalation policy with defaults, overriding any argument by keyword.
+
+    The defaults are a founder for whom the opportunity is worth surfacing,
+    so each test states only the condition it is testing.
+    """
     base = dict(
         assessment=assessment,
         opportunity=opp or opportunity(),
@@ -39,6 +44,7 @@ def decide(assessment: Assessment, opp=None, **overrides):
 
 
 def assessment(verdict="APPLY", hours=4.0, **kw) -> Assessment:
+    """An `Assessment` with a `[DEMO]` reason. Override any field by keyword."""
     return Assessment(verdict=verdict, reason=f"[DEMO] {verdict}", effort_hours=hours, **kw)
 
 
