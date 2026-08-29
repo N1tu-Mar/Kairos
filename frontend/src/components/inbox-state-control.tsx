@@ -19,6 +19,12 @@ const ACTIONS: { state: InboxState; label: string; busy: string }[] = [
   { state: "dismissed", label: "Dismiss", busy: "Dismissing…" },
 ];
 
+/**
+ * The opened / dismissed / applied buttons on one inbox item.
+ *
+ * The only field on an inbox item a person may change. Everything else is
+ * what the run decided.
+ */
 export function InboxStateControl({
   itemId,
   state,
@@ -31,6 +37,14 @@ export function InboxStateControl({
   const [error, setError] = useState<string | null>(null);
   const inFlight = useRef(false);
 
+  /**
+   * PATCH the new state, then refresh so the server's value is what renders.
+   *
+   * No optimistic update: the state shown is always the state the backend
+   * confirmed, so a failed write cannot leave the UI claiming a change that
+   * did not happen. Re-clicking the current state is a no-op rather than a
+   * redundant request.
+   */
   async function setState(next: InboxState) {
     if (inFlight.current || next === state) return;
     inFlight.current = true;

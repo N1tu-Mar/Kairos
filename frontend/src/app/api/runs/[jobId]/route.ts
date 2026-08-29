@@ -13,6 +13,9 @@ import { ApiError, getJobStatus, httpStatusFor } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * One job's status plus its report once it has one. The poll target for a running job.
+ */
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ jobId: string }> },

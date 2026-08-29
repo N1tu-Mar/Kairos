@@ -36,6 +36,13 @@ type Status =
   | { phase: "conflict"; message: string }
   | { phase: "error"; message: string; detail?: string };
 
+/**
+ * A fresh key per click, so a double-submit resolves to one run.
+ *
+ * The non-crypto fallback is weaker but only has to be unique among one
+ * user's clicks, and it exists so the component still works in a test
+ * environment without `crypto.randomUUID`.
+ */
 function newIdempotencyKey(): string {
   // crypto.randomUUID is available in every browser this app supports; the
   // fallback keeps the component usable in a test environment without it.
@@ -45,6 +52,12 @@ function newIdempotencyKey(): string {
   return `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * The manual run button, its options, and the live status of the run it started.
+ *
+ * State lives in one `Status` union rather than several booleans, so
+ * impossible combinations (running *and* errored) cannot be represented.
+ */
 export function ManualRunControl({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>({ phase: "idle" });
@@ -89,6 +102,18 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
     let cancelled = false;
     let failures = 0;
 
+    /**
+     * Ask the backend once whether the job is terminal, and finish if it is.
+     *
+     * Transient failures are counted, not surfaced: the run lives on the
+     * backend, so a dropped request says nothing about it. Only after
+     * `MAX_POLL_FAILURES` consecutive failures does the UI admit it has lost
+     * track — and it says the run may still be going rather than claiming it
+     * failed.
+     *
+     * `cancelled` is checked after every await so a poll that resolves after
+     * the effect was torn down cannot write state.
+     */
     async function poll() {
       try {
         const response = await fetch(`/api/runs/${encodeURIComponent(jobId!)}`);
@@ -126,6 +151,16 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
     };
   }, [jobId, finish]);
 
+  /**
+   * POST the run and move into the running phase, or into conflict/error.
+   *
+   * Guarded twice against a double-click: the `inFlight` ref closes the
+   * window between the click and the re-render, and the disabled attribute
+   * covers everything after it.
+   *
+   * 409 is handled as its own phase rather than as an error — a run already
+   * being in progress is a correct answer about a real run.
+   */
   async function start() {
     // Guarded twice: the ref closes the gap between click and re-render, the
     // disabled attribute covers everything after it.

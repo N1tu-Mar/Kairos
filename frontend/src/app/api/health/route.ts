@@ -5,6 +5,11 @@ import { ApiError, getHealth } from "@/lib/api";
 /** Backend liveness, proxied. Used by the manual run control before it posts. */
 export const dynamic = "force-dynamic";
 
+/**
+ * 502 with a readable message when the backend cannot be reached, rather than
+ * throwing — the caller uses this to decide whether posting a run is worth
+ * trying, so "down" has to be an answer it can render.
+ */
 export async function GET() {
   try {
     return NextResponse.json(await getHealth());

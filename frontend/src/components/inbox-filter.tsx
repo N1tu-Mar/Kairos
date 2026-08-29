@@ -2,6 +2,12 @@ import Link from "next/link";
 
 export type InboxView = "active" | "passive" | "all";
 
+/**
+ * Read the inbox view out of a query-string value, defaulting on anything unrecognised.
+ *
+ * A URL is user-editable, so an unknown value falls back rather than
+ * rendering an empty list that looks like "nothing was found".
+ */
 export function parseInboxView(raw: string | string[] | undefined): InboxView {
   const value = Array.isArray(raw) ? raw[0] : raw;
   return value === "passive" || value === "all" ? value : "active";

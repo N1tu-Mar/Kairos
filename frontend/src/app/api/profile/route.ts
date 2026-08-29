@@ -17,6 +17,13 @@ import type { FounderProfile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Replace the profile. 400 for a non-JSON body or a mismatched `founder_id`.
+ *
+ * Returns what the backend *stored*, not what was sent — the two differ
+ * wherever redaction applied, and the stored version is what every other
+ * view will show.
+ */
 export async function PUT(request: Request) {
   let profile: FounderProfile;
   try {

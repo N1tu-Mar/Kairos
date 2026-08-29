@@ -20,6 +20,13 @@ import type { RunTrigger } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Start a run and return the created job with 202. Does not wait for the run.
+ *
+ * The trigger is rebuilt field by field rather than forwarded, so an
+ * unexpected key in the body cannot reach the backend, and `source` is
+ * always `"manual"` — a client cannot claim to be the scheduler.
+ */
 export async function POST(request: Request) {
   let trigger: RunTrigger;
   try {

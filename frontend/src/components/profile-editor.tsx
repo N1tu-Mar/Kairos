@@ -37,6 +37,16 @@ interface EditableFields {
   geographies: string;
 }
 
+/**
+ * Project a profile into the form's editable shape.
+ *
+ * Numbers become strings because an in-progress input can legitimately be
+ * empty or half-typed, which a `number` state cannot hold. They are parsed
+ * back in `save`, after `validate`.
+ *
+ * Only the eligibility fields are copied — traction and the knowledge base
+ * are not editable here and must survive a save untouched.
+ */
 function fromProfile(profile: FounderProfile): EditableFields {
   return {
     institution: profile.institution,
@@ -79,6 +89,9 @@ const INPUT_CLASS =
   "w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink " +
   "focus:border-accent focus:outline-none disabled:opacity-50";
 
+/**
+ * A labelled form row. Layout only; no validation and no state.
+ */
 function Field({
   label,
   children,
@@ -105,6 +118,13 @@ type Status =
   | { phase: "saved" }
   | { phase: "error"; message: string };
 
+/**
+ * Read-only profile view with an inline editor for the eligibility fields.
+ *
+ * These are the fields the deterministic filter compares against, which is
+ * why the save is a whole-object replace and why it is validated before it
+ * is sent.
+ */
 export function ProfileEditor({ profile }: { profile: FounderProfile }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -114,16 +134,36 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
 
   const saving = status.phase === "saving";
 
+  /**
+   * Update one field. Uses the functional form, so two edits in the same tick cannot clobber each other.
+   */
   function set<K extends keyof EditableFields>(key: K, value: EditableFields[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
   }
 
+  /**
+   * Enter edit mode, re-seeding the form from the current profile.
+   *
+   * Re-seeding on open is what discards an abandoned edit: closing without
+   * saving leaves stale values in state, and this is where they are dropped.
+   */
   function open() {
     setFields(fromProfile(profile));
     setStatus({ phase: "idle" });
     setEditing(true);
   }
 
+  /**
+   * Validate, PUT the whole profile, then refresh so the stored version renders.
+   *
+   * A whole-object replace, never a patch — a half-applied update to these
+   * fields is how a founder gets told they are eligible for something they
+   * are not. Edited fields are merged *over* the existing profile, so
+   * traction and the knowledge base survive.
+   *
+   * The editor closes only on success; on failure it stays open with the
+   * typed values intact so the edit is not lost.
+   */
   async function save() {
     if (inFlight.current) return;
     const problem = validate(fields);
