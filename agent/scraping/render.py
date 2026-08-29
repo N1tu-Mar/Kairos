@@ -25,6 +25,11 @@ UNKNOWN = "**UNKNOWN** — the page does not state this. Not inferred."
 
 
 def _fmt_award(record: ScrapedOpportunity) -> str:
+    """Award range for the review document, or the UNKNOWN marker.
+
+    A half-known range renders the missing end as UNKNOWN rather than as an
+    open interval, so a reviewer sees which end the page actually stated.
+    """
     if record.award_min is None and record.award_max is None:
         return UNKNOWN
     if record.award_min == record.award_max:
@@ -35,16 +40,24 @@ def _fmt_award(record: ScrapedOpportunity) -> str:
 
 
 def _fmt_list(values: list[str] | None) -> str:
+    """Comma-joined values, or UNKNOWN. An empty list and None render the same — both mean the page gave nothing."""
     return ", ".join(values) if values else UNKNOWN
 
 
 def _fmt_bool(value: bool | None, yes: str, no: str) -> str:
+    """Three-valued rendering: `yes`, `no`, or UNKNOWN for None.
+
+    The None branch is the point. A bool that renders False for "unstated"
+    is how a review document tells a reviewer the page said something it
+    never said.
+    """
     if value is None:
         return UNKNOWN
     return yes if value else no
 
 
 def _fmt_team(record: ScrapedOpportunity) -> str:
+    """Team size range, with each missing end shown as UNKNOWN rather than filled in."""
     if record.team_size_min is None and record.team_size_max is None:
         return UNKNOWN
     low = record.team_size_min if record.team_size_min is not None else "UNKNOWN"
@@ -71,6 +84,14 @@ def _fmt_deadline_iso(record: ScrapedOpportunity) -> str:
 
 
 def _evidence_rows(record: ScrapedOpportunity) -> str:
+    """The evidence table: every extracted field beside the text it was read from.
+
+    This is the part of the review document a person actually checks — the
+    claim is only as good as the quote under it. Pipes are escaped and
+    newlines flattened so a quote cannot break the Markdown table, and quotes
+    over 400 characters are truncated with an ellipsis, so a very long block
+    is abbreviated here while the full span stays in the record.
+    """
     if not record.evidence:
         return "_No evidence spans were captured for this row._\n"
     lines = ["| Field | Quoted from the page | Found by |", "|---|---|---|"]
@@ -83,6 +104,13 @@ def _evidence_rows(record: ScrapedOpportunity) -> str:
 
 
 def render_opportunity(record: ScrapedOpportunity, index: int) -> str:
+    """Render one candidate row as a Markdown review section.
+
+    Written for a person deciding ACCEPT or REJECT, so it leads with what is
+    *not* known: unknown fields and caveats are rendered explicitly rather
+    than omitted, because a field silently missing from a document reads as a
+    field that did not matter.
+    """
     source = record.source_url or "_no source URL — see caveats_"
     unknown_list = (
         ", ".join(f"`{f}`" for f in record.unknown_fields)
@@ -243,6 +271,12 @@ Three things are worth knowing before you trust a single number here.
 def write_review_doc(
     records: list[ScrapedOpportunity], run: ScrapeRun, path: Path
 ) -> Path:
+    """Render every record to Markdown and write it to `path`, creating parent directories.
+
+    Overwrites unconditionally — the review document is a regenerated view of
+    the candidate file, not a place to keep notes. A reviewer's decisions
+    belong in `review_status` on the row.
+    """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render(records, run))

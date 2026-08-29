@@ -204,6 +204,12 @@ TARGETS: tuple[Target, ...] = (
 
 
 def by_key(key: str) -> Target | None:
+    """The registered target with this key, or None.
+
+    Linear scan over `TARGETS` — the registry is a hand-maintained list of a
+    few dozen rows, so an index would be more machinery than the problem
+    needs.
+    """
     return next((t for t in TARGETS if t.key == key), None)
 
 

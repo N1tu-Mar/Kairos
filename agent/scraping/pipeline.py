@@ -366,6 +366,13 @@ def scrape(
 
 
 def _page_title(text: str, url: str) -> str:
+    """Best-effort title for a page: its first plausible line, else the URL's last path segment.
+
+    "Plausible" is 4–119 characters, and anything after a `|` is dropped
+    (site names are commonly appended that way). This is a display label for
+    a reviewer, not an extracted fact — it carries no evidence span, and
+    nothing downstream treats it as a claim about the page.
+    """
     for line in text.split("\n"):
         line = line.strip()
         if 3 < len(line) < 120:

@@ -53,6 +53,12 @@ def to_blocks(text: str) -> list[str]:
     buffer: list[str] = []
 
     def flush() -> None:
+        """Emit the buffered short lines as one block and clear the buffer.
+
+        The caps it enforces are what keep evidence honest: without them a long
+        run of short lines — a nav menu, a footer — glues into one block that
+        then "supports" any figure appearing anywhere inside it.
+        """
         if buffer:
             joined = " ".join(buffer).strip()
             if joined:
@@ -75,10 +81,22 @@ def to_blocks(text: str) -> list[str]:
 
 
 def _evidence(block: str, url: str, method: str) -> Evidence:
+    """Wrap a block as an `Evidence` span, recording which method found it.
+
+    `method` is the extractor's own id (`regex:award_type:grant` and the
+    like), so a reviewer can tell which rule produced a claim rather than
+    only what it claims.
+    """
     return Evidence(text=block.strip(), source_url=url, method=method)
 
 
 def _first(blocks: list[str], pattern: re.Pattern[str]) -> str | None:
+    """First block matching `pattern`, or None.
+
+    First-match-wins throughout the extractors: a page stating a value twice
+    is quoted from its earliest mention. That is arbitrary but deterministic,
+    which matters more here than being right about which mention is canonical.
+    """
     for block in blocks:
         if pattern.search(block):
             return block
@@ -115,6 +133,12 @@ _NOT_AN_AWARD = re.compile(
 
 
 def _money_values(block: str) -> list[int]:
+    """Every dollar figure in a block, as integers, expanding K and M suffixes.
+
+    Cents are matched and discarded — `$1,500.00` is 1500. Returns values in
+    the order they appear, which is what lets the caller treat the smallest
+    and largest as a range.
+    """
     values: list[int] = []
     for raw, suffix in _MONEY.findall(block):
         value = int(raw.replace(",", ""))
@@ -189,6 +213,13 @@ _AWARD_TYPE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 
 def _find_award_type(blocks: list[str], url: str) -> tuple[str, Evidence] | None:
+    """Label the award (fellowship, grant, scholarship, prize) from the page's words.
+
+    Pattern order is priority order: the first label whose pattern matches
+    anywhere on the page wins, so a page using several terms is labelled by
+    whichever appears earliest in `_AWARD_TYPE_PATTERNS`, not by which is
+    most frequent.
+    """
     for label, pattern in _AWARD_TYPE_PATTERNS:
         block = _first(blocks, pattern)
         if block:
@@ -258,6 +289,12 @@ def _classify(block: str, match: "re.Match[str]") -> str:
 
 
 def _parse(match: "re.Match[str]", numeric: bool) -> date | None:
+    """Build a `date` from a matched pattern, or None if it is not a real date.
+
+    Returns None rather than raising on an impossible date (February 30th, a
+    month name that did not resolve), so the caller keeps the verbatim text
+    and simply has no ISO date to go with it.
+    """
     try:
         if numeric:
             return date(int(match.group(3)), int(match.group(1)), int(match.group(2)))
@@ -469,6 +506,11 @@ _APPLICANT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 
 def find_applicant_types(blocks: list[str], url: str) -> tuple[list[str], Evidence] | None:
+    """Who the page says may apply, with the block that said so.
+
+    Returns None when the page states nothing — the field then stays UNKNOWN
+    rather than defaulting to "anyone".
+    """
     return _scan_eligibility(blocks, _APPLICANT_PATTERNS, url, "regex:eligibility_block")
 
 
@@ -616,6 +658,12 @@ _NOT_A_NAME = re.compile(
 
 
 def _clean_org(name: str) -> str | None:
+    """Tidy a captured organisation name, or reject it.
+
+    Rejects captures containing page furniture ("contact", "deadline",
+    "learn more") and anything under four characters. Returning None is the
+    signal to fall back to the registry's human-written value.
+    """
     cleaned = name.strip().strip(",;:-–— ").strip()
     if _NOT_A_NAME.search(cleaned) or len(cleaned) < 4:
         return None
