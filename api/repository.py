@@ -57,6 +57,7 @@ class ProfileRow(SQLModel, table=True):
     when this run happened", it is not recoverable from here — the run report
     is where that has to be captured.
     """
+
     __tablename__ = "profiles"
     founder_id: str = Field(primary_key=True)
     updated_at: datetime = Field(default_factory=_now)
@@ -70,6 +71,7 @@ class RunRow(SQLModel, table=True):
     first, capped" — see `list_runs`. `founder_id` is indexed for the same
     reason: no query here is ever cross-founder.
     """
+
     __tablename__ = "runs"
     run_id: str = Field(primary_key=True)
     founder_id: str = Field(index=True)
@@ -83,6 +85,7 @@ class InboxRow(SQLModel, table=True):
     The write path only ever creates these with `state == "new"`; every other
     state transition comes from a person via `set_inbox_state`.
     """
+
     __tablename__ = "inbox"
     item_id: str = Field(primary_key=True)
     #: `founder_id::opportunity_id`. Unique, so a double-notify is a
@@ -138,6 +141,7 @@ class DraftRow(SQLModel, table=True):
     about a field's status or provenance is queryable from SQL — that is the
     deliberate document-store tradeoff described in the module docstring.
     """
+
     __tablename__ = "drafts"
     draft_id: str = Field(primary_key=True)
     founder_id: str = Field(index=True)

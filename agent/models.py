@@ -69,6 +69,7 @@ class Mutable(BaseModel):
     Still `extra="forbid"`: a field name a model invented, or a caller's typo,
     is a validation error rather than a silently-ignored key.
     """
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -324,6 +325,7 @@ class ApplicationForm(Frozen):
     field that stops looking like one. `complete` and `completeness_note`
     exist so a partial transcription cannot be mistaken for a whole form.
     """
+
     opportunity_id: str
     name: str
     source_url: str
@@ -380,6 +382,7 @@ class Draft(Mutable):
     gate. `gate_result` is None until `ship_gate` has run — which is not the
     same as passing, and callers must not read None as "no violations".
     """
+
     draft_id: str
     founder_id: str
     opportunity_id: str
@@ -435,6 +438,7 @@ class AuditReport(Mutable):
     treats differently from one audited and found unsupported. Absence is not
     approval.
     """
+
     draft_id: str
     fields: list[FieldAudit] = Field(default_factory=list)
     model_id: str = ""
@@ -458,6 +462,7 @@ class GateViolation(Frozen):
     `field_id` is None for a whole-draft violation, e.g. a check about the
     draft's status rather than about any single answer.
     """
+
     check: str
     field_id: str | None
     detail: str
@@ -563,6 +568,7 @@ class TokenUsage(Mutable):
     mean it was cheap or may mean prices were never configured; `/ready`
     reports which in production.
     """
+
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0

@@ -95,6 +95,7 @@ class Authenticator(Protocol):
     exception. Returning a permissive principal on an unreadable credential
     store would be silently authorizing.
     """
+
     def authenticate(self, authorization: str | None) -> Principal:
         """Resolve a credential to a principal, or raise `AuthError`."""
         ...

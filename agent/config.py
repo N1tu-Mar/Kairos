@@ -167,6 +167,7 @@ class Settings:
     be mutated at runtime is a setting that a log line and the code that acted
     on it can disagree about.
     """
+
     region: str
     reasoning: ModelTier
     classify: ModelTier

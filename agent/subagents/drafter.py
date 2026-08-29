@@ -78,6 +78,7 @@ class DraftProposal(BaseModel):
     unmentioned field as NEEDS_FOUNDER, so silence is the safe default and an
     empty proposal is a valid answer.
     """
+
     fields: list[ProposedField]
 
 

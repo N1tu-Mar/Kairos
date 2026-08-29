@@ -111,6 +111,7 @@ class SearchResult:
     a title and snippet are whatever the indexed page chose to say — so it is
     used for filtering and provenance notes, never trusted as fact.
     """
+
     title: str
     url: str
     snippet: str = ""
@@ -126,6 +127,9 @@ class SearchClient(Protocol):
     `discover_targets` catches *any* exception per query and records a note,
     so a broken provider degrades the sweep rather than ending it.
     """
+
+    #: Up to `count` hits for one query. Raises `SearchApiError` on a
+    #: provider failure.
     def search(self, query: str, *, count: int) -> list[SearchResult]: ...
 
 
@@ -273,6 +277,7 @@ class WebScraperConfig:
     search result's own text, so a page is rejected before it is ever
     fetched.
     """
+
     lane: ScraperLane = GENERAL_LANE
     queries: tuple[str, ...] = GENERAL_QUERIES
     domains: tuple[str, ...] = ()

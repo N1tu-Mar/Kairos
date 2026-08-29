@@ -182,6 +182,7 @@ class DroppedClaim(BaseModel):
     span the extractor cited, and `reason` is the closed vocabulary a reader
     can count by. Frozen — a drop is a finding, not a working value.
     """
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     field: str

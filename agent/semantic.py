@@ -193,6 +193,7 @@ class _BaseMatcher:
     `reuse_match` — so a reuse can name which backend produced it rather than
     asserting a bare score.
     """
+
     name = "base"
 
     def similarity(self, left: str, right: str) -> float:  # pragma: no cover

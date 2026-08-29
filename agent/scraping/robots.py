@@ -47,6 +47,7 @@ class RobotsDecision:
     not fetch this" is only useful alongside which rule said so. Frozen; a
     decision is evidence, not a working value.
     """
+
     allowed: bool
     robots_url: str
     crawl_delay_s: float

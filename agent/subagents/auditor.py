@@ -37,6 +37,7 @@ class ProposedAudit(BaseModel):
     An absent field is not an approved field: the ship gate distinguishes
     unaudited from audited-and-supported, and an empty audit passes nothing.
     """
+
     fields: list[FieldAudit] = Field(default_factory=list)
 
 

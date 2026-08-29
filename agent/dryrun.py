@@ -187,6 +187,7 @@ class StubAuditor(StubAgent):
     Combined with `StubDrafter`, a dry run produces a draft with no GENERATED
     fields, so there is nothing for the auditor to have an opinion about.
     """
+
     def respond(self, output_model, prompt):
         """Return an empty audit. Nothing was generated, so nothing is audited."""
         return output_model(fields=[])

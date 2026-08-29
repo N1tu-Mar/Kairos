@@ -44,6 +44,7 @@ class Prompt:
     changes the version of everything produced afterwards, which is the
     intent: outputs from two different prompts must not be indistinguishable.
     """
+
     name: str
     text: str
     version: str
