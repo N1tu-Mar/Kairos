@@ -143,8 +143,18 @@ class FounderProfile(Frozen):
     MAX_KNOWLEDGE_CHUNKS: ClassVar[int] = 2_000
 
     founder_id: str = Field(max_length=200)
+    #: What to call this person on their own dashboard. Optional because a
+    #: profile is usable without it and the eligibility filter never reads it.
+    #: There is deliberately no `email` beside it: `save_profile` redacts the
+    #: serialised profile on the way into storage, and an address written here
+    #: comes back as `[REDACTED_EMAIL]`. Contact details belong to the
+    #: identity provider, not to the eligibility surface.
+    full_name: str | None = Field(default=None, max_length=200)
     degree_level: DegreeLevel
     institution: str = Field(max_length=300)
+    #: Field of study, as the founder writes it. Not a filter input; it is
+    #: context for drafting and for the founder recognising their own profile.
+    major: str | None = Field(default=None, max_length=200)
     citizenship: str = Field(
         max_length=100, description='ISO-ish token, e.g. "us_citizen", "f1_visa"'
     )
