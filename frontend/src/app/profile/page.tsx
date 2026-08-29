@@ -80,10 +80,16 @@ export default async function ProfilePage() {
             <DefinitionRow term="Founder">
               <span className="font-mono text-sm">{profile.founder_id}</span>
             </DefinitionRow>
+            {profile.full_name ? (
+              <DefinitionRow term="Name">{profile.full_name}</DefinitionRow>
+            ) : null}
             <DefinitionRow term="Institution">{profile.institution}</DefinitionRow>
             <DefinitionRow term="Degree level">
               {titleCase(profile.degree_level)}
             </DefinitionRow>
+            {profile.major ? (
+              <DefinitionRow term="Major">{profile.major}</DefinitionRow>
+            ) : null}
             <DefinitionRow term="Citizenship">
               <span className="font-mono text-sm">{profile.citizenship}</span>
             </DefinitionRow>

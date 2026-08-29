@@ -242,8 +242,10 @@ export function founderProfile(
 ): FounderProfile {
   return {
     founder_id: "founder_demo",
+    full_name: "Ada Lovelace",
     degree_level: "masters",
     institution: "Rutgers University",
+    major: "Computer Science",
     citizenship: "us_citizen",
     entity_type: "none",
     team_size: 2,

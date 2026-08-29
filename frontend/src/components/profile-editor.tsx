@@ -23,6 +23,8 @@ import type {
  */
 
 interface EditableFields {
+  full_name: string;
+  major: string;
   institution: string;
   degree_level: DegreeLevel;
   citizenship: string;
@@ -44,11 +46,15 @@ interface EditableFields {
  * empty or half-typed, which a `number` state cannot hold. They are parsed
  * back in `save`, after `validate`.
  *
- * Only the eligibility fields are copied — traction and the knowledge base
- * are not editable here and must survive a save untouched.
+ * Name and field of study travel with the eligibility fields even though the
+ * filter never reads them: they are the two things a founder most expects to
+ * be able to correct about themselves. Traction and the knowledge base are
+ * still not editable here and must survive a save untouched.
  */
 function fromProfile(profile: FounderProfile): EditableFields {
   return {
+    full_name: profile.full_name ?? "",
+    major: profile.major ?? "",
     institution: profile.institution,
     degree_level: profile.degree_level,
     citizenship: profile.citizenship,
@@ -178,6 +184,9 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
     // profile already holds, traction and knowledge base untouched.
     const next: FounderProfile = {
       ...profile,
+      // Empty means "not said", which is null on the wire, not "".
+      full_name: fields.full_name.trim() || null,
+      major: fields.major.trim() || null,
       institution: fields.institution.trim(),
       degree_level: fields.degree_level,
       citizenship: fields.citizenship.trim(),
@@ -262,6 +271,16 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
       </p>
 
       <fieldset disabled={saving} className="grid gap-4 sm:grid-cols-2">
+        <Field label="Your name" hint="Optional. Used to address a draft.">
+          <input
+            type="text"
+            value={fields.full_name}
+            onChange={(event) => set("full_name", event.target.value)}
+            className={INPUT_CLASS}
+            disabled={saving}
+          />
+        </Field>
+
         <Field label="Institution">
           <input
             className={INPUT_CLASS}
@@ -282,6 +301,16 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
             ))}
           </select>
         </Field>
+        <Field label="Major" hint="Optional. Context for drafting, never a filter.">
+          <input
+            type="text"
+            value={fields.major}
+            onChange={(event) => set("major", event.target.value)}
+            className={INPUT_CLASS}
+            disabled={saving}
+          />
+        </Field>
+
         <Field label="Citizenship" hint="As the funders' rules state it, e.g. us_citizen.">
           <input
             className={INPUT_CLASS}

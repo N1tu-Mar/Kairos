@@ -182,8 +182,12 @@ export interface KnowledgeChunk {
 
 export interface FounderProfile {
   founder_id: string;
+  /** What to call this founder. Never read by the eligibility filter. */
+  full_name: string | null;
   degree_level: DegreeLevel;
   institution: string;
+  /** Field of study, as the founder writes it. Context, not a criterion. */
+  major: string | null;
   citizenship: string;
   entity_type: EntityType;
   team_size: number;
