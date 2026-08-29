@@ -299,6 +299,13 @@ _NEGATION_MARKER = re.compile(
 
 
 def _clauses(text: str) -> list[str]:
+    """Split text into clauses for per-clause negation scoring.
+
+    Splitting matters: negation is scoped to the clause it appears in, so
+    "no revenue, but 40 users" reads as two claims with opposite polarity
+    rather than one negated sentence. Empty and whitespace-only fragments are
+    dropped so a trailing separator does not produce a phantom clause.
+    """
     return [c for c in _CLAUSE_BOUNDARY.split(text or "") if c and c.strip()]
 
 
@@ -427,6 +434,12 @@ def extract_numbers(text: str) -> set[float]:
         consumed.append(match.span())
 
     def overlaps(span: tuple[int, int]) -> bool:
+        """Whether `span` was already consumed by a word-scale match.
+
+        Without this, "40 thousand" yields both 40000 (from the scale pass) and
+        40 (from the bare-number pass), and the grounding check then looks for a
+        40 that the founder never claimed.
+        """
         return any(start < span[1] and span[0] < end for start, end in consumed)
 
     for match in _NUMBER.finditer(text):
@@ -516,10 +529,23 @@ _LEADING_NOISE = frozenset(
 
 
 def _normalise(name: str) -> str:
+    """Lowercase and collapse to spaced alphanumerics, for name comparison.
+
+    This is why "Acme, Inc." and "acme inc" compare equal. It also means
+    punctuation-only differences can never be the reason two names fail to
+    match — the checks that use it are about the words.
+    """
     return re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
 
 
 def _strip_leading_noise(name: str) -> str:
+    """Drop leading articles and pronouns from a normalised name.
+
+    "our Fellowship Program" and "the Fellowship Program" both reduce to
+    "fellowship program", so a claim cannot dodge a name check by adding a
+    determinant in front of it. Only *leading* tokens are stripped: an
+    interior "the" is part of the name.
+    """
     tokens = _normalise(name).split()
     while tokens and tokens[0] in _LEADING_NOISE:
         tokens.pop(0)
@@ -639,12 +665,33 @@ def _run_gate(
     audit: AuditReport | None,
     required_field_ids: set[str],
 ) -> None:
+    """Run every ship-gate check in order, appending to `result`.
+
+    Separated from `ship_gate` so the caller can wrap it in one try/except:
+    any exception escaping this function becomes a `GATE_EXCEPTION` BLOCK
+    rather than a passing gate (Section 11.9).
+
+    Order is load-bearing. The blocklist runs first because it *rewrites*
+    fields, and every later check must see the corrected draft. After that the
+    checks are ordered cheapest-first and each ends with `failed(...)`, which
+    returns early — so `checks_run` records how far the gate got, and a draft
+    blocked on provenance is never also reported as blocked on grounding.
+    A reader adding a check should append it at the end unless it also
+    rewrites fields.
+    """
     def block(check: str, field_id: str | None, detail: str) -> None:
+        """Record a BLOCK violation. Does not stop the gate on its own — `failed` does."""
         result.violations.append(
             GateViolation(check=check, field_id=field_id, detail=detail, severity="BLOCK")
         )
 
     def failed(check: str) -> bool:
+        """Whether `check` blocked, and if so mark the whole result failed.
+
+        Called immediately after each check group; the caller returns on True.
+        Sets `failed_check` to the first blocking check, which is what the UI
+        shows as the reason.
+        """
         if any(v.check == check and v.severity == "BLOCK" for v in result.violations):
             result.failed_check = check
             result.passed = False
