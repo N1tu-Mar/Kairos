@@ -120,9 +120,19 @@ class SharedTokenAuthenticator:
     """The documented local single-founder mode.
 
     One token, one founder. Every holder of the token is the same principal,
-    which is honest about what a shared secret can prove. When the token is
-    empty the API runs open and every request is `ANONYMOUS_LOCAL` — but
-    only outside production mode, where an empty token is refused instead.
+    which is honest about what a shared secret can prove.
+
+    An empty token means the API would serve every request as
+    `ANONYMOUS_LOCAL` — a principal with write access and no credential
+    behind it. That is a real mode, useful on a laptop, and it is reachable
+    only when someone asked for it: `allow_open` must be True, and it comes
+    from a variable that exists for nothing else.
+
+    It used to be the *fallback* instead, refused only when `KAIROS_ENV` also
+    read `production`. Two variables had to be right for the API to be shut,
+    and the one that mattered was set by the Terraform rather than by the
+    code — so ECS was covered and every other way of running this was not.
+    A missing variable now fails closed on any host.
     """
 
     def __init__(
@@ -130,12 +140,20 @@ class SharedTokenAuthenticator:
         token: str,
         founder_id: str = DEMO_FOUNDER_ID,
         *,
-        production: bool = False,
+        allow_open: bool = False,
+        environment: str = "",
     ) -> None:
-        """`token=""` means run open, which is only reachable when `production` is False; in production an empty token becomes an `AuthError` on every request instead of a mode."""
+        """`token=""` serves open only when `allow_open` is True and the
+        environment is not production; otherwise every request is an
+        `AuthError`. `environment` is carried for that one check and is
+        deliberately not what decides the ordinary case — an authentication
+        posture that depends on a deployment-naming string is one a typo can
+        widen.
+        """
         self.token = token
         self.founder_id = founder_id
-        self.production = production
+        self.allow_open = allow_open
+        self.environment = environment
 
     def authenticate(self, authorization: str | None) -> Principal:
         """Compare the bearer token against the one configured token.
@@ -145,8 +163,9 @@ class SharedTokenAuthenticator:
         same `Principal`, because a shared secret cannot prove more than that.
         """
         if not self.token:
-            if self.production:
-                # An open API in production is a misconfiguration, not a mode.
+            if not self.allow_open or self.environment == "production":
+                # Unconfigured is not a mode. Say nothing about which half is
+                # missing — the operator's log has that, the caller does not.
                 raise AuthError("no credential is configured")
             return ANONYMOUS_LOCAL
         supplied = _bearer(authorization)
@@ -344,7 +363,9 @@ def build_authenticator(config) -> Authenticator:
     if config.credentials_file:
         return StaticTokenFileAuthenticator(config.credentials_file)
     return SharedTokenAuthenticator(
-        config.api_token, production=config.production
+        config.api_token,
+        allow_open=config.allow_open_api,
+        environment=config.environment,
     )
 
 

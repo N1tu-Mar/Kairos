@@ -155,11 +155,20 @@ async def lifespan(app: FastAPI):
     """
     config = settings()
     if not config.api_token and not config.credentials_file:
-        log.warning(
-            "No credential is configured — the API is running open. "
-            "Acceptable on localhost only; never deploy it this way. "
-            "Set KAIROS_ENV=production to make this a startup failure."
-        )
+        if config.allow_open_api:
+            log.warning(
+                "KAIROS_ALLOW_OPEN_API is on and no credential is configured — "
+                "the API is running open and every request has write access. "
+                "Acceptable on localhost only; never deploy it this way."
+            )
+        else:
+            # Fails closed, so this is not a hole — but every request will 401
+            # and the operator should hear why at startup rather than deduce
+            # it from a wall of 401s.
+            log.error(
+                "No credential is configured — every request will be refused. "
+                "Set KAIROS_API_TOKEN, or KAIROS_ALLOW_OPEN_API=1 for a local demo."
+            )
     app.state.authenticator = build_authenticator(config)
     # In production the schema belongs to `alembic upgrade head`, run at
     # deploy time. create_all() cannot evolve one — it fills in missing

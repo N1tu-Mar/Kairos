@@ -20,7 +20,7 @@ from agent import config
 def fake_env(monkeypatch, tmp_path):
     """Autouse: give every test a resolvable config and a private state directory.
 
-    Four things, and each is load-bearing:
+    Each line is load-bearing:
 
     - The two model IDs are stamped with `[DEMO]` so anything that leaks into
       an assertion or a fixture file is visibly not a real model.
@@ -28,23 +28,40 @@ def fake_env(monkeypatch, tmp_path):
       lease database are per-test files and never the developer's own.
     - The daily USD cap is zeroed, so a test cannot be halted by yesterday's
       spend.
-    - `KAIROS_API_TOKEN` is deleted, because a developer's `.env` may set one
-      and these suites assume the open local mode.
+    - `KAIROS_ENV` is pinned to `local`, because these suites assume the local
+      posture throughout. A `.env` set to `production` otherwise makes the app
+      refuse to start under the `api_client` fixture, and the failure reads as
+      a broken endpoint rather than a misread environment.
+    - The run ceilings are pinned to their documented defaults, so a developer
+      who lowered either one in a `.env` does not exhaust the budget mid-test.
+    - `KAIROS_API_TOKEN` and `KAIROS_CREDENTIALS_FILE` are deleted, because a
+      developer's `.env` may set either and these suites assume the open local
+      mode. A credential file in particular turns every unauthenticated
+      request into a 401.
 
     `settings.cache_clear()` runs on both sides: before, so this fixture's
     values are what get read; after, so a test that set its own variables
     cannot leak them into the next one.
 
-    Note what it does *not* clear — every other `KAIROS_*` variable a `.env`
-    may set (prices in particular) is still visible to tests. A test that
-    depends on a variable being unset has to `monkeypatch.delenv` it itself.
+    Note what it does *not* pin — every other `KAIROS_*` variable a `.env` may
+    set (the four `KAIROS_PRICE_*` in particular) is still visible to tests. A
+    test that depends on one being unset has to `monkeypatch.delenv` it
+    itself; assuming an empty environment is what makes a suite pass in CI and
+    fail on a developer's laptop.
     """
     monkeypatch.setenv("BEDROCK_MODEL_REASONING", "[DEMO]reasoning-model")
     monkeypatch.setenv("BEDROCK_MODEL_CLASSIFY", "[DEMO]classify-model")
     monkeypatch.setenv("KAIROS_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("KAIROS_DAILY_USD_CAP", "0")
-    # A developer .env may set a token; these suites assume the open local mode.
+    monkeypatch.setenv("KAIROS_ENV", "local")
+    monkeypatch.setenv("KAIROS_MAX_RUN_TOKENS", "250000")
+    monkeypatch.setenv("KAIROS_MAX_ASSESSMENTS", "25")
+    # A developer .env may set a token or a credential file; these suites
+    # assume the open local mode. Deleting them is no longer enough to get it:
+    # an absent token fails closed, so open mode has to be asked for by name.
     monkeypatch.delenv("KAIROS_API_TOKEN", raising=False)
+    monkeypatch.delenv("KAIROS_CREDENTIALS_FILE", raising=False)
+    monkeypatch.setenv("KAIROS_ALLOW_OPEN_API", "1")
     config.settings.cache_clear()
     yield
     config.settings.cache_clear()

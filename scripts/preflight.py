@@ -125,12 +125,24 @@ def check_config(production: bool) -> list[Check]:
                     )
     elif settings.api_token:
         results.append(check("auth", PASS, "shared token, single founder"))
-    else:
+    elif settings.allow_open_api:
         results.append(
             check(
                 "auth",
                 FAIL if production else WARN,
-                "no credential configured — the API runs open",
+                "no credential configured and KAIROS_ALLOW_OPEN_API is on — "
+                "the API runs open",
+            )
+        )
+    else:
+        # Fails closed rather than open, so this is a refusal to serve, not a
+        # hole. Still worth naming: the operator meant to configure something.
+        results.append(
+            check(
+                "auth",
+                FAIL,
+                "no credential configured — every request will 401; set "
+                "KAIROS_API_TOKEN, or KAIROS_ALLOW_OPEN_API=1 for a local demo",
             )
         )
 
