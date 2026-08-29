@@ -50,6 +50,7 @@ SourceName = Literal["seed", "grants_gov", "browser"]
 
 
 def _now() -> datetime:
+    """Timezone-aware UTC now. Every `created_at`/`started_at` default goes through this so two records are always comparable."""
     return datetime.now(timezone.utc)
 
 
@@ -63,6 +64,11 @@ class Frozen(BaseModel):
 
 
 class Mutable(BaseModel):
+    """Base for records that change while a run is in flight.
+
+    Still `extra="forbid"`: a field name a model invented, or a caller's typo,
+    is a validation error rather than a silently-ignored key.
+    """
     model_config = ConfigDict(extra="forbid")
 
 
@@ -141,10 +147,12 @@ class FounderProfile(Frozen):
 
     @property
     def min_award(self) -> int:
+        """Bottom of the funding range the founder said they want."""
         return self.funding_range[0]
 
     @property
     def max_award(self) -> int:
+        """Top of the funding range the founder said they want."""
         return self.funding_range[1]
 
 
@@ -309,6 +317,13 @@ class ApplicationField(Frozen):
 
 
 class ApplicationForm(Frozen):
+    """One real application form, transcribed field by field.
+
+    Labels are verbatim from the source page because the Section 10.1
+    blocklist matches on label text — a tidied-up label is a certification
+    field that stops looking like one. `complete` and `completeness_note`
+    exist so a partial transcription cannot be mistaken for a whole form.
+    """
     opportunity_id: str
     name: str
     source_url: str
@@ -358,6 +373,13 @@ class DraftField(Mutable):
 
 
 class Draft(Mutable):
+    """One application in progress, field by field.
+
+    The only `Mutable` record that is genuinely rewritten during a run: fields
+    are filled, audited, and possibly forced back to NEEDS_FOUNDER by the
+    gate. `gate_result` is None until `ship_gate` has run — which is not the
+    same as passing, and callers must not read None as "no violations".
+    """
     draft_id: str
     founder_id: str
     opportunity_id: str
@@ -369,6 +391,11 @@ class Draft(Mutable):
 
     @property
     def needs_founder(self) -> list[DraftField]:
+        """Fields the founder still has to answer themselves.
+
+        Includes fields the gate forced back to NEEDS_FOUNDER, so this is the
+        post-gate truth rather than the Drafter's opinion.
+        """
         return [f for f in self.fields if f.status == "NEEDS_FOUNDER"]
 
     def counts(self) -> dict[str, int]:
@@ -402,6 +429,12 @@ class FieldAudit(Mutable):
 
 
 class AuditReport(Mutable):
+    """Every field's audit verdict for one draft.
+
+    A field with no entry here has not been audited, which the ship gate
+    treats differently from one audited and found unsupported. Absence is not
+    approval.
+    """
     draft_id: str
     fields: list[FieldAudit] = Field(default_factory=list)
     model_id: str = ""
@@ -410,10 +443,21 @@ class AuditReport(Mutable):
 
     @property
     def unsupported(self) -> list[FieldAudit]:
+        """Fields the Auditor could not tie back to the knowledge base.
+
+        Note this excludes UNVERIFIABLE — a field the Auditor could not judge is
+        not the same as one it judged and rejected, and the gate handles the two
+        separately.
+        """
         return [f for f in self.fields if f.verdict == "UNSUPPORTED"]
 
 
 class GateViolation(Frozen):
+    """One thing the ship gate objected to.
+
+    `field_id` is None for a whole-draft violation, e.g. a check about the
+    draft's status rather than about any single answer.
+    """
     check: str
     field_id: str | None
     detail: str
@@ -438,6 +482,11 @@ class GateResult(Mutable):
 
     @property
     def blocking(self) -> list[GateViolation]:
+        """Only the violations that stop the draft.
+
+        FORCED_NEEDS_FOUNDER violations are excluded on purpose: the blocklist
+        rewriting a field is a correction the gate made, not a reason to refuse.
+        """
         return [v for v in self.violations if v.severity == "BLOCK"]
 
 
@@ -497,16 +546,35 @@ class InboxItem(Mutable):
 
     @property
     def idempotency_key(self) -> str:
+        """`founder_id::opportunity_id` — the value the unique index is built on.
+
+        Derived rather than stored, so it cannot drift from the two fields it is
+        made of. Note it does not include the run: seeing the same opportunity in
+        a later run is deliberately *not* a new item.
+        """
         return f"{self.founder_id}::{self.opportunity_id}"
 
 
 class TokenUsage(Mutable):
+    """Token and dollar totals for one run.
+
+    `usd_estimate` is an estimate in the literal sense — it is computed from
+    the configured prices, and those default to zero. A run showing $0.00 may
+    mean it was cheap or may mean prices were never configured; `/ready`
+    reports which in production.
+    """
     input_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
     usd_estimate: float = 0.0
 
     def add(self, other: TokenUsage) -> None:
+        """Accumulate another usage into this one, in place.
+
+        Mutates rather than returning a new value because it is called in a hot
+        loop per model call. Nothing here checks a cap — that is `agent/budget.py`,
+        and adding usage is not the same as being allowed to spend it.
+        """
         self.input_tokens += other.input_tokens
         self.output_tokens += other.output_tokens
         self.total_tokens += other.total_tokens
@@ -590,6 +658,11 @@ class RunJob(Mutable):
     error: str | None = None
 
     def terminal(self) -> bool:
+        """Whether this job has reached a state it will never leave.
+
+        `halted` counts: a run stopped by a budget cap is finished, and it has a
+        report. Only `queued` and `running` are non-terminal.
+        """
         return self.status in ("succeeded", "halted", "failed", "cancelled")
 
 
@@ -610,6 +683,11 @@ class KnowledgeBase(Mutable):
 
     @classmethod
     def from_profile(cls, profile: FounderProfile) -> KnowledgeBase:
+        """Build the closed world from a profile.
+
+        Copies both collections rather than aliasing them, so mutating the
+        knowledge base during a run cannot write back into the stored profile.
+        """
         return cls(
             founder_id=profile.founder_id,
             chunks=list(profile.knowledge_base),
