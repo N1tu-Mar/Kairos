@@ -626,6 +626,7 @@ def authorize(principal: Principal, founder_id: str, *, write: bool = False) -> 
 AUDITED_ACTIONS = frozenset(
     {
         "profile.write",
+        "eligibility.answer",
         "run.trigger",
         "run.cancel",
         "inbox.state_change",

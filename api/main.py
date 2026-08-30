@@ -32,6 +32,8 @@ from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings
 from agent.models import (
+    EligibilityAnswerValue,
+    EligibilityQuestion,
     FounderProfile,
     InboxState,
     Opportunity,
@@ -151,6 +153,14 @@ class InboxStateUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     state: InboxState
+
+
+class EligibilityAnswerUpdate(BaseModel):
+    """The founder's editable answer to one eligibility requirement."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answer: EligibilityAnswerValue
 
 
 @asynccontextmanager
@@ -606,6 +616,43 @@ def get_inbox(
     owned(founder_id, actor)
     items = app.state.repo.list_inbox(founder_id, limit)
     return items if include_passive else [i for i in items if not i.passive]
+
+
+@app.get("/founders/{founder_id}/eligibility-questions")
+def list_eligibility_questions(
+    founder_id: ResourceId,
+    status: Literal["pending", "answered", "all"] = "pending",
+    actor: Principal = Depends(principal),
+) -> list[EligibilityQuestion]:
+    """Founder-answerable uncertainty only; missing source facts do not belong here."""
+    owned(founder_id, actor)
+    return app.state.repo.list_eligibility_questions(founder_id, status)
+
+
+@app.put("/founders/{founder_id}/eligibility-questions/{question_id}/answer")
+def answer_eligibility_question(
+    founder_id: ResourceId,
+    question_id: ResourceId,
+    update: EligibilityAnswerUpdate,
+    actor: Principal = Depends(principal),
+) -> EligibilityQuestion:
+    """Create or edit one definite or unsure answer without rewriting run history."""
+    not_found = f"no eligibility question {question_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    question = app.state.repo.get_eligibility_question(question_id)
+    if question is None or question.founder_id != founder_id:
+        raise HTTPException(404, not_found)
+    updated = app.state.repo.answer_eligibility_question(question_id, update.answer)
+    if updated is None:  # pragma: no cover - only if the row vanished mid-request
+        raise HTTPException(404, not_found)
+    audit_event(
+        actor=actor.subject,
+        action="eligibility.answer",
+        resource=question_id,
+        method=actor.method,
+        answer=update.answer,
+    )
+    return updated
 
 
 @app.get("/founders/{founder_id}/runs")

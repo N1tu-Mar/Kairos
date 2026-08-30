@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 
 from sqlalchemy import Column, Text
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -23,6 +23,9 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from agent.models import (
     Draft,
     DraftField,
+    EligibilityAnswerValue,
+    EligibilityQuestion,
+    EligibilityQuestionStatus,
     FounderProfile,
     InboxItem,
     InboxState,
@@ -190,6 +193,18 @@ class AnswerRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class EligibilityQuestionRow(SQLModel, table=True):
+    """Founder-answerable eligibility uncertainty, upserted by stable id."""
+
+    __tablename__ = "eligibility_questions"
+    question_id: str = Field(primary_key=True)
+    founder_id: str = Field(index=True)
+    opportunity_id: str = Field(index=True)
+    status: str = Field(index=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
 # ── Interface ────────────────────────────────────────────────────────────────
 
 
@@ -222,6 +237,18 @@ class Repository(Protocol):
     # Opportunities: upserted by id, shared across founders.
     def save_opportunity(self, opportunity: Opportunity) -> None: ...
     def get_opportunity(self, opportunity_id: str) -> Opportunity | None: ...
+
+    # Eligibility clarifications: founder-owned, editable current state.
+    def save_eligibility_question(self, question: EligibilityQuestion) -> None: ...
+    def get_eligibility_question(self, question_id: str) -> EligibilityQuestion | None: ...
+    def list_eligibility_questions(
+        self,
+        founder_id: str,
+        status: EligibilityQuestionStatus | Literal["all"] = "pending",
+    ) -> list[EligibilityQuestion]: ...
+    def answer_eligibility_question(
+        self, question_id: str, answer: EligibilityAnswerValue
+    ) -> EligibilityQuestion | None: ...
 
     # Inbox: `has_surfaced` + the unique index on `save_inbox_item` are
     # the two halves of never notifying the same founder twice.
@@ -503,6 +530,70 @@ class SqliteRepository:
         with Session(self.engine) as session:
             row = session.get(OpportunityRow, opportunity_id)
             return Opportunity.model_validate_json(row.payload) if row else None
+
+    # -- eligibility clarifications --
+
+    def save_eligibility_question(self, question: EligibilityQuestion) -> None:
+        """Upsert a stable question while preserving its original creation time."""
+        with Session(self.engine) as session:
+            row = session.get(EligibilityQuestionRow, question.question_id)
+            if row is None:
+                row = EligibilityQuestionRow(
+                    question_id=question.question_id,
+                    founder_id=question.founder_id,
+                    opportunity_id=question.opportunity_id,
+                    status=question.status,
+                    created_at=question.created_at,
+                    payload="",
+                )
+            row.founder_id = question.founder_id
+            row.opportunity_id = question.opportunity_id
+            row.status = question.status
+            row.payload = redact_json(question.model_dump_json())
+            session.add(row)
+            session.commit()
+
+    def get_eligibility_question(self, question_id: str) -> EligibilityQuestion | None:
+        """Load one clarification by id, or None."""
+        with Session(self.engine) as session:
+            row = session.get(EligibilityQuestionRow, question_id)
+            return EligibilityQuestion.model_validate_json(row.payload) if row else None
+
+    def list_eligibility_questions(
+        self,
+        founder_id: str,
+        status: EligibilityQuestionStatus | Literal["all"] = "pending",
+    ) -> list[EligibilityQuestion]:
+        """Newest clarifications for one founder, optionally filtered by state."""
+        with Session(self.engine) as session:
+            statement = select(EligibilityQuestionRow).where(
+                EligibilityQuestionRow.founder_id == founder_id
+            )
+            if status != "all":
+                statement = statement.where(EligibilityQuestionRow.status == status)
+            rows = session.exec(
+                statement.order_by(EligibilityQuestionRow.created_at.desc())
+            ).all()
+            return [EligibilityQuestion.model_validate_json(row.payload) for row in rows]
+
+    def answer_eligibility_question(
+        self, question_id: str, answer: EligibilityAnswerValue
+    ) -> EligibilityQuestion | None:
+        """Edit an answer; `not_sure` deliberately leaves the question pending."""
+        with Session(self.engine) as session:
+            row = session.get(EligibilityQuestionRow, question_id)
+            if row is None:
+                return None
+            question = EligibilityQuestion.model_validate_json(row.payload)
+            question.answer = answer
+            question.answer_updated_at = _now()
+            question.updated_at = question.answer_updated_at
+            question.align_status_with_answer()
+            row.status = question.status
+            row.payload = redact_json(question.model_dump_json())
+            session.add(row)
+            session.commit()
+            return question
 
     # -- inbox --
 

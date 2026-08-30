@@ -29,6 +29,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_TABLES = {
     "answers",
     "drafts",
+    "eligibility_questions",
     "inbox",
     "jobs",
     "opportunities",
@@ -38,7 +39,7 @@ EXPECTED_TABLES = {
 
 #: The six tables that existed before the async job boundary added `jobs`.
 #: A database in production right now looks exactly like this.
-PRE_JOBS_TABLES = EXPECTED_TABLES - {"jobs"}
+PRE_JOBS_TABLES = EXPECTED_TABLES - {"jobs", "eligibility_questions"}
 
 
 def alembic(*args: str, db_url: str) -> subprocess.CompletedProcess:
