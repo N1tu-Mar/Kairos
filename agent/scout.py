@@ -35,6 +35,7 @@ from agent.models import (
     FounderProfile,
     InboxItem,
     KnowledgeBase,
+    Opportunity,
     RunReport,
     SkipRecord,
 )
@@ -45,6 +46,31 @@ from agent.toolset import build_toolset
 from agent.tools.discovery import Source
 
 log = logging.getLogger("kairos.scout")
+
+_SOURCE_PRIORITY = {"seed": 3, "browser": 2, "grants_gov": 2}
+
+
+def assessment_priority(opportunity: Opportunity, today: date) -> tuple:
+    """Rank decision quality and urgency before possible award size."""
+    known_eligibility = sum(
+        value is not None for value in opportunity.eligibility.model_dump().values()
+    )
+    has_current_deadline = (
+        opportunity.deadline is not None and opportunity.deadline >= today
+    )
+    days_until_deadline = (
+        (opportunity.deadline - today).days if has_current_deadline else 10_000
+    )
+    return (
+        known_eligibility > 0,
+        known_eligibility,
+        _SOURCE_PRIORITY.get(opportunity.source, 0),
+        bool(opportunity.criteria),
+        min(len(opportunity.criteria), 5),
+        has_current_deadline or opportunity.rolling,
+        -days_until_deadline,
+        opportunity.best_award or 0,
+    )
 
 
 def new_run_context(
@@ -122,7 +148,7 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
         # 3. Judge the survivors, most valuable first, until the cap.
         survivors = sorted(
             (ctx.retrieved[oid] for oid in ctx.eligibility if ctx.eligibility[oid].verdict != "INELIGIBLE"),
-            key=lambda o: (o.best_award or 0),
+            key=lambda o: assessment_priority(o, ctx.today),
             reverse=True,
         )
         assessed = 0

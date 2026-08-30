@@ -15,7 +15,7 @@ import pytest
 
 from agent import guardrails
 from agent.budget import DailyLedger, RunBudget
-from agent.models import Assessment, EligibilityRules
+from agent.models import Assessment, EligibilityRules, ExtractedCriterion
 from agent.runtime import SubAgents
 from agent.scout import new_run_context, run_once
 from agent.tools.discovery import SeedCatalog, SourceError
@@ -213,6 +213,70 @@ async def test_assessment_cap_halts_judging_and_says_so(tmp_path):
     assert report.judged == 2
     assert any("assessment cap" in n for n in report.notes)
     assert sum(1 for s in report.skips if "cap" in s.reason) == 3
+
+
+async def test_assessment_priority_prefers_evidence_over_a_large_award(tmp_path):
+    vague_federal = opportunity(
+        id="vague_federal",
+        source="grants_gov",
+        award_max=10_000_000,
+        eligibility=EligibilityRules(),
+        criteria=[],
+    )
+    relevant_web = opportunity(
+        id="relevant_web",
+        source="browser",
+        award_max=10_000,
+        eligibility=EligibilityRules(entity_types=["none"]),
+        criteria=[ExtractedCriterion(text="Open to individuals.", source_doc="reviewed")],
+    )
+    ctx = new_run_context(
+        profile=profile(),
+        repo=repo(),
+        budget=budget(tmp_path, max_assessments=1),
+        agents=agents(assessment("SKIP")),
+        today=TODAY,
+    )
+
+    await run_once(ctx, [ListSource([vague_federal, relevant_web])])
+
+    assert list(ctx.assessments) == ["relevant_web"]
+
+
+async def test_each_opportunity_gets_a_fresh_assessor_context(tmp_path):
+    created: list[FakeAgent] = []
+
+    class Prompt:
+        version = "fresh-v1"
+
+    def assessor_factory():
+        assessor = FakeAgent(assessment("SKIP"))
+        created.append(assessor)
+        return assessor, Prompt()
+
+    ctx = new_run_context(
+        profile=profile(),
+        repo=repo(),
+        budget=budget(tmp_path),
+        agents=SubAgents(
+            assessor=FakeAgent(),
+            assessor_version="unused",
+            drafter=FakeAgent(),
+            drafter_version="v1",
+            auditor=FakeAgent(),
+            auditor_version="v1",
+            assessor_factory=assessor_factory,
+        ),
+        today=TODAY,
+    )
+
+    await run_once(
+        ctx,
+        [ListSource([opportunity(id="first"), opportunity(id="second")])],
+    )
+
+    assert len(created) == 2
+    assert all(len(assessor.prompts) == 1 for assessor in created)
 
 
 async def test_a_throttled_run_halts_and_surfaces_nothing(tmp_path, monkeypatch):

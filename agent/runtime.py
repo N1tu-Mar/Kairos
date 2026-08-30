@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from typing import Callable
 
 from agent.budget import RunBudget
 from agent.models import (
@@ -37,6 +38,16 @@ class SubAgents:
     drafter_version: str
     auditor: object
     auditor_version: str
+    assessor_factory: Callable[[], tuple[object, object]] | None = field(
+        default=None, repr=False
+    )
+
+    def assessor_for_call(self) -> tuple[object, str]:
+        """Return an assessor with no conversation from another opportunity."""
+        if self.assessor_factory is None:
+            return self.assessor, self.assessor_version
+        agent, prompt = self.assessor_factory()
+        return agent, getattr(prompt, "version", str(prompt))
 
     @classmethod
     def build(cls) -> SubAgents:
@@ -53,6 +64,7 @@ class SubAgents:
             drafter_version=drafter_prompt.version,
             auditor=auditor_agent,
             auditor_version=auditor_prompt.version,
+            assessor_factory=assessor.build,
         )
 
 

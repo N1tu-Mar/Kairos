@@ -97,6 +97,18 @@ class TestPagination:
         )
         assert len(source.fetch()) == 3
 
+    def test_caps_low_information_rows_after_search(self):
+        hits = [_hit(str(index)) for index in range(8)]
+        source = GrantsGovSource(
+            FakeClient({("k", 0): (hits, len(hits))}),
+            keywords=("k",),
+            rows_per_page=10,
+            hydrate=False,
+            max_low_information=3,
+        )
+
+        assert len(source.fetch()) == 3
+
     def test_real_fixture_pages_are_distinct_and_both_consumed(self):
         p1, p2 = _page("grants_gov_search2_page1.json"), _page("grants_gov_search2_page2.json")
         # hitCount in the fixture is 228; cap so exactly two pages are read.

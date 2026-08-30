@@ -109,9 +109,10 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         from agent.subagents.assessor import assess
 
         try:
+            assessor, assessor_version = ctx.agents.assessor_for_call()
             assessment = await assess(
-                ctx.agents.assessor,
-                ctx.agents.assessor_version,
+                assessor,
+                assessor_version,
                 opportunity,
                 ctx.profile,
                 eligibility,
