@@ -55,6 +55,65 @@ CITIZENSHIP_TOKENS = frozenset(
     }
 )
 
+_CITIZENSHIP_ALIASES = {
+    "us citizen": "us_citizen",
+    "u s citizen": "us_citizen",
+    "united states citizen": "us_citizen",
+    "american citizen": "us_citizen",
+    "us permanent resident": "us_permanent_resident",
+    "u s permanent resident": "us_permanent_resident",
+    "lawful permanent resident": "us_permanent_resident",
+    "permanent resident": "us_permanent_resident",
+    "green card holder": "us_permanent_resident",
+    "us national": "us_national",
+    "u s national": "us_national",
+    "daca recipient": "daca",
+    "f1 visa": "f1_visa",
+    "f 1 visa": "f1_visa",
+    "j1 visa": "j1_visa",
+    "j 1 visa": "j1_visa",
+    "international": "other_international",
+    "other international": "other_international",
+}
+
+# These phrases make a citizenship rule depend on people or ownership data the
+# founder profile does not carry. Treating them as one founder's citizenship
+# caused false rejections for team- and company-level requirements.
+_COMPOUND_CITIZENSHIP = re.compile(
+    r"\b(?:owned|ownership|controlled|control|cofounder|co founder|team|"
+    r"member|employee|principal|officer|board|percentage|percent|at least)\b|%"
+)
+
+_US_STATE_CODES = frozenset(
+    {
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+        "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+        "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+        "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+        "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+        "DC",
+    }
+)
+
+_US_STATE_NAMES = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+    "california": "CA", "colorado": "CO", "connecticut": "CT",
+    "delaware": "DE", "florida": "FL", "georgia": "GA", "hawaii": "HI",
+    "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA",
+    "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME",
+    "maryland": "MD", "massachusetts": "MA", "michigan": "MI",
+    "minnesota": "MN", "mississippi": "MS", "missouri": "MO",
+    "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM",
+    "new york": "NY", "north carolina": "NC", "north dakota": "ND",
+    "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+    "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+    "vermont": "VT", "virginia": "VA", "washington": "WA",
+    "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+    "district of columbia": "DC",
+}
+
 #: Entity types a founder can realistically create inside an application
 #: window. Used to decide whether an entity mismatch is a blocker or a wall.
 FORMABLE_ENTITIES = frozenset({"llc", "c_corp", "s_corp", "nonprofit"})
@@ -67,6 +126,92 @@ def _norm(value: str) -> str:
     "us citizen" normalise to the same thing.
     """
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _citizenship_token(value: str) -> str | None:
+    normalized = _norm(value)
+    token = normalized.replace(" ", "_")
+    if token in CITIZENSHIP_TOKENS:
+        return token
+    return _CITIZENSHIP_ALIASES.get(normalized)
+
+
+def _required_citizenships(values: list[str]) -> set[str] | None:
+    """Return accepted individual statuses, or None for a compound rule."""
+    accepted: set[str] = set()
+    for value in values:
+        normalized = _norm(value)
+        if _COMPOUND_CITIZENSHIP.search(normalized):
+            return None
+
+        direct = _citizenship_token(value)
+        if direct:
+            accepted.add(direct)
+            continue
+
+        # Extract explicit alternatives such as "US citizen or permanent
+        # resident" without guessing at prose we do not understand.
+        found = {
+            token
+            for alias, token in _CITIZENSHIP_ALIASES.items()
+            if re.search(rf"\b{re.escape(alias)}\b", normalized)
+        }
+        if not found:
+            return None
+        accepted.update(found)
+    return accepted or None
+
+
+def _geography_token(value: str) -> str | None:
+    normalized = _norm(value)
+    if normalized in {"worldwide", "global", "anywhere", "international"}:
+        return "WORLDWIDE"
+    if normalized in {"north america", "north american"}:
+        return "NORTH_AMERICA"
+    if normalized in {
+        "us", "u s", "usa", "u s a", "united states", "united states of america",
+        "nationwide", "countrywide",
+    } or normalized.startswith("united states "):
+        return "US"
+    if normalized in {"canada", "ca country"}:
+        return "CA"
+    if normalized == "mexico":
+        return "MX"
+
+    upper = value.strip().upper().replace("_", "-")
+    if upper.startswith("US-") and upper[3:] in _US_STATE_CODES:
+        return upper
+    if upper in _US_STATE_CODES:
+        return f"US-{upper}"
+    state = _US_STATE_NAMES.get(normalized)
+    if state:
+        return f"US-{state}"
+    return None
+
+
+def _geography_matches(founder_values: list[str], required_values: list[str]) -> bool | None:
+    founder_tokens = {_geography_token(value) for value in founder_values}
+    required_tokens = {_geography_token(value) for value in required_values}
+    if None in founder_tokens or None in required_tokens:
+        return None
+
+    founders = {token for token in founder_tokens if token is not None}
+    required = {token for token in required_tokens if token is not None}
+    for requirement in required:
+        if requirement == "WORLDWIDE":
+            return True
+        if requirement == "NORTH_AMERICA" and any(
+            token in {"US", "CA", "MX"} or token.startswith("US-")
+            for token in founders
+        ):
+            return True
+        if requirement == "US" and any(
+            token == "US" or token.startswith("US-") for token in founders
+        ):
+            return True
+        if requirement in founders:
+            return True
+    return False
 
 
 #: Dropped before comparing institution names — they carry no signal.
@@ -193,26 +338,35 @@ def check_opportunity(
     # ── CITIZENSHIP ──────────────────────────────────────────────────────
     if rules.citizenships is None:
         unknown.append("CITIZENSHIP")
-    elif profile.citizenship not in rules.citizenships:
-        return reject(
-            "CITIZENSHIP",
-            f"restricted to {', '.join(rules.citizenships)}",
-            profile.citizenship,
-            "/".join(rules.citizenships),
-        )
+    else:
+        founder_citizenship = _citizenship_token(profile.citizenship)
+        required_citizenships = _required_citizenships(rules.citizenships)
+        if founder_citizenship is None or required_citizenships is None:
+            unknown.append("CITIZENSHIP")
+        elif founder_citizenship not in required_citizenships:
+            return reject(
+                "CITIZENSHIP",
+                f"restricted to {', '.join(rules.citizenships)}",
+                profile.citizenship,
+                "/".join(rules.citizenships),
+            )
 
     # ── GEOGRAPHY ────────────────────────────────────────────────────────
     if rules.geographies is None:
         pass  # no restriction stated is the common case; not worth a question
     elif not profile.geographies:
         unknown.append("GEOGRAPHY")
-    elif not ({_norm(g) for g in profile.geographies} & {_norm(g) for g in rules.geographies}):
-        return reject(
-            "GEOGRAPHY",
-            f"restricted to {', '.join(rules.geographies)}",
-            ", ".join(profile.geographies),
-            "/".join(rules.geographies),
-        )
+    else:
+        geography_match = _geography_matches(profile.geographies, rules.geographies)
+        if geography_match is None:
+            unknown.append("GEOGRAPHY")
+        elif not geography_match:
+            return reject(
+                "GEOGRAPHY",
+                f"restricted to {', '.join(rules.geographies)}",
+                ", ".join(profile.geographies),
+                "/".join(rules.geographies),
+            )
 
     # ── INSTITUTION ──────────────────────────────────────────────────────
     if rules.institutions:

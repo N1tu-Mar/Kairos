@@ -19,7 +19,9 @@ export const dynamic = "force-dynamic";
  * One run in the list: when it ran, its counters, and how many decisions it recorded.
  */
 function RunRow({ report }: { report: RunReport }) {
-  const decisions = report.rejections.length + report.skips.length;
+  const decisions =
+    report.rejections.length +
+    report.skips.filter((skip) => skip.stage !== "hard_filter").length;
   return (
     <li>
       <Link

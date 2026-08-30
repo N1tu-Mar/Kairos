@@ -117,7 +117,11 @@ export function RejectionTable({ rejections }: { rejections: Rejection[] }) {
  * rather than a rule.
  */
 export function SkipList({ skips }: { skips: SkipRecord[] }) {
-  if (skips.length === 0) {
+  // Older reports duplicated deterministic rejections into `skips`. Keep
+  // those reports readable without claiming the Assessor saw those rows.
+  const judgedSkips = skips.filter((skip) => skip.stage !== "hard_filter");
+
+  if (judgedSkips.length === 0) {
     return (
       <EmptyState title="Nothing was skipped after judgment">
         Everything that survived the deterministic filter also cleared the
@@ -126,7 +130,7 @@ export function SkipList({ skips }: { skips: SkipRecord[] }) {
     );
   }
 
-  const groups = [...groupBy(skips, (s) => s.stage).entries()];
+  const groups = [...groupBy(judgedSkips, (s) => s.stage).entries()];
 
   return (
     <div className="space-y-6">

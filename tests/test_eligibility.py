@@ -70,6 +70,39 @@ def test_citizenship_mismatch_rejects():
     assert result.rejection.check == "CITIZENSHIP"
 
 
+@pytest.mark.parametrize(
+    "required",
+    [
+        ["US citizen"],
+        ["U.S. citizen"],
+        ["US citizen", "US permanent resident"],
+        ["US citizen or permanent resident"],
+    ],
+)
+def test_citizenship_aliases_match_profile_token(required):
+    result = check_opportunity(
+        opportunity(eligibility=EligibilityRules(citizenships=required)),
+        profile(citizenship="us_citizen"),
+        TODAY,
+    )
+    assert result.rejection is None
+    assert "CITIZENSHIP" not in result.unknown_checks
+
+
+def test_compound_company_ownership_rule_is_unknown_not_rejected():
+    rules = EligibilityRules(
+        citizenships=[
+            "company must be at least 51% owned and controlled by U.S. citizens or permanent residents"
+        ]
+    )
+    result = check_opportunity(
+        opportunity(eligibility=rules), profile(citizenship="us_citizen"), TODAY
+    )
+    assert result.verdict == "UNKNOWN"
+    assert result.rejection is None
+    assert "CITIZENSHIP" in result.unknown_checks
+
+
 def test_closed_deadline_rejects():
     result = check_opportunity(
         opportunity(deadline=TODAY - timedelta(days=1)), profile(), TODAY
@@ -109,6 +142,44 @@ def test_geography_mismatch_rejects():
     result = check_opportunity(opportunity(eligibility=rules), profile(), TODAY)
     assert result.verdict == "INELIGIBLE"
     assert result.rejection.check == "GEOGRAPHY"
+
+
+@pytest.mark.parametrize(
+    "required",
+    [["worldwide"], ["North America"], ["United States"], ["United States (legal residents)"]],
+)
+def test_broad_geographies_include_us_state_founder(required):
+    rules = EligibilityRules(geographies=required)
+    result = check_opportunity(
+        opportunity(eligibility=rules), profile(geographies=["US-NJ", "US"]), TODAY
+    )
+    assert result.rejection is None
+    assert "GEOGRAPHY" not in result.unknown_checks
+
+
+def test_state_name_matches_state_code():
+    rules = EligibilityRules(geographies=["New Jersey"])
+    result = check_opportunity(
+        opportunity(eligibility=rules), profile(geographies=["US-NJ"]), TODAY
+    )
+    assert result.rejection is None
+
+
+def test_state_restriction_still_rejects_other_state():
+    rules = EligibilityRules(geographies=["California"])
+    result = check_opportunity(
+        opportunity(eligibility=rules), profile(geographies=["US-NJ", "US"]), TODAY
+    )
+    assert result.verdict == "INELIGIBLE"
+    assert result.rejection.check == "GEOGRAPHY"
+
+
+def test_unrecognized_geography_is_unknown_not_rejected():
+    rules = EligibilityRules(geographies=["within 50 miles of the program office"])
+    result = check_opportunity(opportunity(eligibility=rules), profile(), TODAY)
+    assert result.verdict == "UNKNOWN"
+    assert result.rejection is None
+    assert "GEOGRAPHY" in result.unknown_checks
 
 
 def test_equity_funder_rejected_for_non_dilutive_founder():

@@ -110,6 +110,7 @@ async def test_counters_tell_the_whole_story(tmp_path):
     assert report.surfaced == 1
     assert report.halted_reason is None
     assert report.headline() == "Scanned 3. Discarded 2. Judged 1. Surfaced 1."
+    assert all(skip.stage != "hard_filter" for skip in report.skips)
 
 
 async def test_a_skip_is_logged_and_never_shown(tmp_path):

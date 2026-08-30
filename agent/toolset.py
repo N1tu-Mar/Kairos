@@ -81,15 +81,6 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         ctx.eligibility = results
         ctx.report.filtered_out = len(rejections)
         ctx.report.rejections.extend(rejections)
-        ctx.report.skips.extend(
-            SkipRecord(
-                opportunity_id=r.opportunity_id,
-                opportunity_title=r.opportunity_title,
-                stage="hard_filter",
-                reason=f"{r.check}: {r.detail}",
-            )
-            for r in rejections
-        )
         return (
             f"Dropped {len(rejections)} deterministically. {len(survivors)} remain "
             f"({sum(1 for r in results.values() if r.verdict == 'UNKNOWN')} with at "
