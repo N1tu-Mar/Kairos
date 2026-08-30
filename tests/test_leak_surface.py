@@ -19,7 +19,7 @@ import json
 
 import pytest
 
-from agent.sanitize import redact, safe_detail, scrub_secrets
+from agent.sanitize import redact, redact_json, safe_detail, scrub_secrets
 
 
 # ── The scrubber itself ──────────────────────────────────────────────────────
@@ -70,6 +70,17 @@ def test_redaction_does_not_corrupt_the_json_it_runs_over():
 
 def test_a_real_uei_is_still_redacted():
     assert "ABC123DEF456" not in redact("Our UEI is ABC123DEF456 on file.")
+
+
+def test_json_redaction_preserves_long_decimal_numbers():
+    payload = json.dumps(
+        {"usd_estimate": 0.123456789012, "summary": "SSN 123-45-6789"}
+    )
+
+    restored = json.loads(redact_json(payload))
+
+    assert restored["usd_estimate"] == 0.123456789012
+    assert restored["summary"] == "SSN [REDACTED_SSN]"
 
 
 def test_safe_detail_does_both_jobs_and_caps_length():

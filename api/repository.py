@@ -30,7 +30,7 @@ from agent.models import (
     RunJob,
     RunReport,
 )
-from agent.sanitize import redact
+from agent.sanitize import redact_json
 from agent.semantic import (
     DEFAULT_MATCHER,
     DEFAULT_THRESHOLD,
@@ -346,7 +346,7 @@ class SqliteRepository:
             )
             # Redact at the persistence boundary, not at display time
             # (Section 10.4).
-            row.payload = redact(profile.model_dump_json())
+            row.payload = redact_json(profile.model_dump_json())
             row.updated_at = _now()
             session.add(row)
             session.commit()
@@ -447,7 +447,7 @@ class SqliteRepository:
                 started_at=report.started_at,
                 payload="",
             )
-            row.payload = redact(report.model_dump_json())
+            row.payload = redact_json(report.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -492,7 +492,7 @@ class SqliteRepository:
             # `description_excerpt` is untrusted text from the open web. It was
             # sanitised at ingestion; redact again here because this is the
             # persistence boundary and the boundary is where it belongs.
-            row.payload = redact(opportunity.model_dump_json())
+            row.payload = redact_json(opportunity.model_dump_json())
             row.source = opportunity.source
             row.updated_at = _now()
             session.add(row)
@@ -536,7 +536,7 @@ class SqliteRepository:
                     founder_id=item.founder_id,
                     opportunity_id=item.opportunity_id,
                     created_at=item.created_at,
-                    payload=redact(item.model_dump_json()),
+                    payload=redact_json(item.model_dump_json()),
                 )
             )
             session.commit()
@@ -580,7 +580,7 @@ class SqliteRepository:
                 return None
             item = InboxItem.model_validate_json(row.payload)
             item.state = state
-            row.payload = redact(item.model_dump_json())
+            row.payload = redact_json(item.model_dump_json())
             session.add(row)
             session.commit()
             return item
@@ -600,7 +600,7 @@ class SqliteRepository:
                 opportunity_id=draft.opportunity_id,
                 payload="",
             )
-            row.payload = redact(draft.model_dump_json())
+            row.payload = redact_json(draft.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -652,7 +652,7 @@ class SqliteRepository:
                 payload="",
             )
             row.status = job.status
-            row.payload = redact(job.model_dump_json())
+            row.payload = redact_json(job.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -701,7 +701,7 @@ class SqliteRepository:
                 job.error = reason
                 job.finished_at = _now()
                 row.status = job.status
-                row.payload = redact(job.model_dump_json())
+                row.payload = redact_json(job.model_dump_json())
                 session.add(row)
                 orphaned.append(job)
             session.commit()
@@ -726,7 +726,7 @@ class SqliteRepository:
                 question_key=key,
                 payload="",
             )
-            row.payload = redact(field.model_dump_json())
+            row.payload = redact_json(field.model_dump_json())
             session.add(row)
             session.commit()
 

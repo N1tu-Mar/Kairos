@@ -172,6 +172,13 @@ def build_record(
             "[web search] This page was discovered by a search API result, fetched "
             "exactly once, and has not been human reviewed."
         )
+    if record.renderer == "firecrawl":
+        opportunity.caveats.append(
+            "[firecrawl fallback] The local fetch could not provide usable page "
+            f"content ({record.fallback_reason or 'unknown reason'}). Firecrawl "
+            "supplied the main-content markdown used for extraction; that exact "
+            "markdown and the returned raw HTML are archived for review."
+        )
 
     # Never scraped, never inferred. Stated on every record so its emptiness
     # cannot be mistaken for "no reviews exist".

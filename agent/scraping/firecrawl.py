@@ -7,6 +7,7 @@ to extraction plus the returned raw HTML, and reports every failure as data.
 
 from __future__ import annotations
 
+import json
 import os
 import time
 from dataclasses import dataclass
@@ -17,7 +18,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from agent.scraping.fetch import MAX_BYTES, _slug
+from agent.scraping.fetch import MAX_BYTES, MIN_USEFUL_TEXT, PageFetcher, _slug
 from agent.scraping.models import FetchRecord, content_hash
 
 FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v2"
@@ -43,6 +44,99 @@ class FirecrawlResult:
     @property
     def succeeded(self) -> bool:
         return bool(self.text) and self.record.failure is None
+
+
+@dataclass
+class FirecrawlFallbackStats:
+    """Paid-provider accounting for one CLI invocation."""
+
+    pages_attempted: int = 0
+    provider_requests: int = 0
+    retries: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    capped: int = 0
+    disabled: int = 0
+
+
+class FirecrawlFallbackFetcher:
+    """Try a local fetch first and spend Firecrawl credits only when justified."""
+
+    def __init__(
+        self,
+        local: PageFetcher,
+        firecrawl: "FirecrawlClient",
+        *,
+        max_pages: int = 5,
+    ) -> None:
+        if max_pages <= 0:
+            raise ValueError("max_pages must be greater than zero")
+        self.local = local
+        self.firecrawl = firecrawl
+        self.max_pages = max_pages
+        self.stats = FirecrawlFallbackStats()
+        self.disabled_reason = ""
+
+    def fetch(self, url: str, *, allow_js: bool = False) -> tuple[str, FetchRecord]:
+        """Return local content unless the narrow fallback policy permits a call."""
+        # Firecrawl and local Playwright are intentionally separate operator
+        # choices. The CLI rejects enabling both, and this wrapper always makes
+        # its first attempt a plain HTTP fetch.
+        local_text, local_record = self.local.fetch(url, allow_js=False)
+        reason = self._fallback_reason(local_text, local_record)
+        if reason is None:
+            return local_text, local_record
+
+        if self.disabled_reason:
+            self.stats.disabled += 1
+            return local_text, local_record
+        if self.stats.pages_attempted >= self.max_pages:
+            self.stats.capped += 1
+            return local_text, local_record
+
+        self.stats.pages_attempted += 1
+        result = self.firecrawl.scrape(
+            url,
+            local_record=local_record,
+            fallback_reason=reason,
+        )
+        self.stats.provider_requests += result.attempts
+        self.stats.retries += result.retries
+        if result.succeeded:
+            self.stats.succeeded += 1
+            return result.text, result.record
+
+        self.stats.failed += 1
+        if result.disable_fallback:
+            self.disabled_reason = result.record.failure or "provider disabled"
+
+        # Thin local text is still evidence. A provider outage must not turn a
+        # usable local page into a failed target merely because enrichment was
+        # unavailable.
+        if local_text and local_record.failure is None:
+            return local_text, local_record
+        return "", result.record
+
+    def run_notes(self) -> list[str]:
+        """A secret-free cumulative cost and outcome line for the scrape log."""
+        note = (
+            "Firecrawl fallback invocation totals: "
+            f"pages attempted {self.stats.pages_attempted}; "
+            f"provider requests {self.stats.provider_requests}; "
+            f"retries {self.stats.retries}; succeeded {self.stats.succeeded}; "
+            f"failed {self.stats.failed}; capped {self.stats.capped}; "
+            f"disabled skips {self.stats.disabled}."
+        )
+        return [note]
+
+    @staticmethod
+    def _fallback_reason(text: str, record: FetchRecord) -> str | None:
+        failure = record.failure or ""
+        if failure.startswith("NEEDS_JS"):
+            return "NEEDS_JS"
+        if record.failure is None and record.status_code == 200 and len(text.strip()) < MIN_USEFUL_TEXT:
+            return "THIN_CONTENT"
+        return None
 
 
 class FirecrawlClient:
@@ -216,7 +310,11 @@ class FirecrawlClient:
                 attempts,
             )
         if not isinstance(raw_html, str):
-            raw_html = ""
+            return self._failure(
+                record,
+                "FIRECRAWL_MALFORMED: response contained no raw HTML",
+                attempts,
+            )
 
         metadata = data.get("metadata")
         if isinstance(metadata, dict):
@@ -228,7 +326,14 @@ class FirecrawlClient:
         record.bytes = len(markdown.encode("utf-8")) + len(raw_html.encode("utf-8"))
         record.content_hash = content_hash(markdown)
         try:
-            self._archive(url, markdown, raw_html, record)
+            self._archive(
+                url,
+                markdown,
+                raw_html,
+                record,
+                local_record=local_record,
+                provider_metadata=metadata if isinstance(metadata, dict) else {},
+            )
         except OSError as exc:
             return self._failure(
                 record,
@@ -248,6 +353,9 @@ class FirecrawlClient:
         markdown: str,
         raw_html: str,
         record: FetchRecord,
+        *,
+        local_record: FetchRecord,
+        provider_metadata: dict,
     ) -> None:
         stamp = record.fetched_at.strftime("%Y%m%dT%H%M%SZ")
         base = self.raw_dir / "pages" / f"{_slug(url)}.{stamp}.firecrawl"
@@ -255,12 +363,20 @@ class FirecrawlClient:
         raw_html_path = Path(f"{base}.raw.html")
         meta_path = Path(f"{base}.meta.json")
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
-        markdown_path.write_text(markdown, encoding="utf-8")
+        markdown_path.write_bytes(markdown.encode("utf-8"))
         record.raw_path = str(markdown_path)
-        if raw_html:
-            raw_html_path.write_text(raw_html, encoding="utf-8")
-            record.source_raw_path = str(raw_html_path)
-        meta_path.write_text(record.model_dump_json(indent=2), encoding="utf-8")
+        raw_html_path.write_bytes(raw_html.encode("utf-8"))
+        record.source_raw_path = str(raw_html_path)
+        archive_metadata = {
+            "fetch": record.model_dump(mode="json"),
+            "local_fetch": local_record.model_dump(mode="json"),
+            "provider_metadata": provider_metadata,
+        }
+        meta_path.write_bytes(
+            (json.dumps(archive_metadata, indent=2, ensure_ascii=False) + "\n").encode(
+                "utf-8"
+            )
+        )
 
     @staticmethod
     def _safe_final_url(metadata: dict, original: str) -> str:

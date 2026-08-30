@@ -370,6 +370,7 @@ class WebScraperAgent:
         if not targets:
             run = ScrapeRun(run_id=f"web_scrape_{uuid.uuid4().hex[:12]}")
             run.finished_at = datetime.now(timezone.utc)
+            run.notes.extend(self._fetcher_run_notes())
             run.notes.extend(notes)
             run.notes.append("search returned no fetchable candidate URLs")
             return [], run
@@ -381,6 +382,7 @@ class WebScraperAgent:
             discover=False,
             fetcher=self.fetcher,
         )
+        run.notes.extend(self._fetcher_run_notes())
         run.notes.extend(notes)
         run.notes.append(
             f"{self.config.lane.label} search produced {len(targets)} "
@@ -388,6 +390,11 @@ class WebScraperAgent:
             f"{len(self.config.queries)} query/queries"
         )
         return records, run
+
+    def _fetcher_run_notes(self) -> list[str]:
+        """Return optional provider accounting without coupling to one fetcher."""
+        run_notes = getattr(self.fetcher, "run_notes", None)
+        return list(run_notes()) if callable(run_notes) else []
 
     def write(
         self,

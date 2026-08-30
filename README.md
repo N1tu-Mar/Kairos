@@ -249,6 +249,12 @@ uv run python scripts/run_web_scraper.py --lane university
 uv run python scripts/run_web_scraper.py --lane general
 uv run python scripts/run_web_scraper.py --lane both --out-dir data
 
+# opt-in paid fallback: local robots-aware HTTP first, then Firecrawl only for
+# JavaScript shells or unusably thin HTTP 200 pages. Five paid pages maximum by
+# default across both lanes; override the cap deliberately when needed.
+uv run python scripts/run_web_scraper.py --lane both --out-dir data --firecrawl
+uv run python scripts/run_web_scraper.py --lane general --firecrawl --max-firecrawl-pages 2
+
 # the API
 uv run fastapi dev api/main.py
 
@@ -264,6 +270,13 @@ uv run fastapi dev api/main.py
 # See docs/runbooks.md §13.
 cd frontend && npm ci && npm run dev
 ```
+
+Firecrawl is backend-only and opt-in. Put `FIRECRAWL_API_KEY` in the root
+`.env`; the CLI exits before Brave search or output writes when the key is
+missing. `--firecrawl` cannot be combined with `--allow-js`. The fallback is
+shared and capped across both lanes, never bypasses robots or network-safety
+failures, and archives the exact extraction markdown, raw HTML, local fetch
+decision, and provider metadata under the configured raw-data directory.
 
 `KAIROS_API_TOKEN` in `.env` is empty by default and the API runs open on
 localhost, logging that fact at startup. Set it (both sides — backend `.env`

@@ -128,7 +128,10 @@ export interface ScraperFetchRecord {
   fetched_at: string;
   content_hash: string;
   raw_path: string;
-  renderer: "httpx" | "playwright";
+  renderer: "httpx" | "playwright" | "firecrawl";
+  content_format: "html" | "markdown";
+  fallback_reason: string;
+  source_raw_path: string;
   failure: string | null;
   bytes: number;
 }
