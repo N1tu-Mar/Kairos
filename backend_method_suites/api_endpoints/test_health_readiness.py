@@ -90,6 +90,15 @@ def test_ready_flags_an_unenforceable_spend_cap_in_production(api_client, monkey
     monkeypatch.setenv("KAIROS_ENV", "production")
     monkeypatch.setenv("KAIROS_API_TOKEN", "a-real-token")
     monkeypatch.setenv("KAIROS_DAILY_USD_CAP", "3.0")
+    # A `.env` with live prices would make the cap enforceable and this
+    # assertion meaningless, so clear the prices rather than assume them absent.
+    for price in (
+        "KAIROS_PRICE_REASONING_IN_PER_MTOK",
+        "KAIROS_PRICE_REASONING_OUT_PER_MTOK",
+        "KAIROS_PRICE_CLASSIFY_IN_PER_MTOK",
+        "KAIROS_PRICE_CLASSIFY_OUT_PER_MTOK",
+    ):
+        monkeypatch.delenv(price, raising=False)
     config.settings.cache_clear()
 
     body = api_client.get("/ready").json()

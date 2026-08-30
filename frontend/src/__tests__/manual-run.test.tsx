@@ -190,8 +190,8 @@ describe("ManualRunControl", () => {
         json(
           {
             error: "Could not reach the Kairos API.",
-            detail: "ECONNREFUSED",
             kind: "unreachable",
+            requestId: "req_0123456789ab",
           },
           502,
         ),
@@ -204,7 +204,11 @@ describe("ManualRunControl", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/the run did not start/i);
     expect(alert).toHaveTextContent(/could not reach the kairos api/i);
-    expect(alert).toHaveTextContent(/ECONNREFUSED/);
+    // The request id, not the raw failure. This assertion used to look for
+    // `ECONNREFUSED`, which reached the browser only because the proxy
+    // forwarded the underlying error verbatim — hostname and port included.
+    // The detail now goes to the server log under this id.
+    expect(alert).toHaveTextContent(/req_0123456789ab/);
     expect(refresh).not.toHaveBeenCalled();
   });
 

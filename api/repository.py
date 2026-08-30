@@ -149,6 +149,31 @@ class DraftRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class FounderMemberRow(SQLModel, table=True):
+    """Which identity-provider users may act for which founder.
+
+    The seam between "who signed in" and "whose data this is". Both halves are
+    the primary key, so a person may hold several founders and a founder may
+    have several people — the cofounder case, which is why
+    `Principal.founder_ids` is a set and why the founder id is not simply the
+    auth user's id.
+
+    `auth_user_id` is opaque here on purpose. It is a Supabase `sub` claim
+    today; nothing in this table or its queries knows that, so swapping
+    identity providers is a change to `api/auth.py` and a backfill of one
+    column rather than a migration of the tenancy key across six tables.
+    """
+
+    __tablename__ = "founder_members"
+    auth_user_id: str = Field(primary_key=True)
+    founder_id: str = Field(primary_key=True, index=True)
+    #: Read-only credentials are a real thing to want (an advisor, an
+    #: auditor). Collapsed conservatively into `Principal.can_write` — see
+    #: `SqliteRepository.can_write`.
+    can_write: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=_now)
+
+
 class AnswerRow(SQLModel, table=True):
     """Answers the founder has already given, for `recall`.
 
@@ -217,12 +242,36 @@ class Repository(Protocol):
     def remember_answer(self, founder_id: str, field: DraftField) -> None: ...
     def recall(self, founder_id: str, question: str) -> DraftField | None: ...
 
+    # Membership: which auth users may act for which founders. The only
+    # thing that turns "somebody signed in" into "may touch this founder".
+    def founder_ids_for(self, auth_user_id: str) -> frozenset[str]: ...
+    def can_write(self, auth_user_id: str) -> bool: ...
+    def link_member(
+        self, auth_user_id: str, founder_id: str, can_write: bool = True
+    ) -> None: ...
+    def unlink_member(self, auth_user_id: str, founder_id: str) -> None: ...
+
     # Jobs: the durable half of the async run boundary.
     def save_job(self, job: RunJob) -> None: ...
     def get_job(self, job_id: str) -> RunJob | None: ...
     def get_job_by_key(self, founder_id: str, idempotency_key: str) -> RunJob | None: ...
     def list_jobs(self, founder_id: str, limit: int = 20) -> list[RunJob]: ...
     def fail_orphaned_jobs(self, reason: str) -> list[RunJob]: ...
+
+
+def new_founder_id() -> str:
+    """A fresh founder id: `founder_` plus 12 hex characters.
+
+    Same shape as `job_` and `run_` ids, and random for the same reason the
+    others are. `authorize` answers 404 rather than 403 so a founder id cannot
+    be probed for existence; a sequential or name-derived id would make that
+    the only thing standing between a stranger and an enumerated customer
+    list. `founder_demo` remains what the seeded demo profile uses and is not
+    a template for anything real.
+    """
+    import uuid
+
+    return f"founder_{uuid.uuid4().hex[:12]}"
 
 
 def question_key(question: str) -> str:
@@ -307,6 +356,79 @@ class SqliteRepository:
         with Session(self.engine) as session:
             row = session.get(ProfileRow, founder_id)
             return FounderProfile.model_validate_json(row.payload) if row else None
+
+    # -- membership --
+
+    def founder_ids_for(self, auth_user_id: str) -> frozenset[str]:
+        """Every founder this auth user may act for. Empty when none.
+
+        An empty set is the fail-closed answer and the only one an unknown
+        user ever gets. It is never "the demo founder" — a lookup miss must
+        not resolve to access.
+        """
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(FounderMemberRow).where(
+                    FounderMemberRow.auth_user_id == auth_user_id
+                )
+            ).all()
+            return frozenset(row.founder_id for row in rows)
+
+    def can_write(self, auth_user_id: str) -> bool:
+        """Whether this user's memberships permit writes.
+
+        `Principal` carries one flag for the whole set, so a person holding a
+        writable membership and a read-only one has to collapse to something.
+        It collapses to read-only: granting writes because *one* founder said
+        yes would write to the founder that said no. A user with no membership
+        at all is False, like every other question about them.
+
+        The finer-grained answer is a per-founder flag on `Principal`, which
+        changes the authorization signature and is not worth making until a
+        read-only membership actually exists.
+        """
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(FounderMemberRow).where(
+                    FounderMemberRow.auth_user_id == auth_user_id
+                )
+            ).all()
+            return bool(rows) and all(row.can_write for row in rows)
+
+    def link_member(
+        self, auth_user_id: str, founder_id: str, can_write: bool = True
+    ) -> None:
+        """Grant a user access to a founder. Idempotent.
+
+        Upserted rather than inserted so a retried signup — or a second click
+        on an invitation link — updates the membership instead of failing on
+        the primary key.
+        """
+        with Session(self.engine) as session:
+            row = session.get(FounderMemberRow, (auth_user_id, founder_id))
+            if row is None:
+                row = FounderMemberRow(
+                    auth_user_id=auth_user_id,
+                    founder_id=founder_id,
+                    can_write=can_write,
+                )
+            else:
+                row.can_write = can_write
+            session.add(row)
+            session.commit()
+
+    def unlink_member(self, auth_user_id: str, founder_id: str) -> None:
+        """Revoke access. A no-op when the membership is already gone.
+
+        A real delete, unlike a credential's `revoked` flag: the record of
+        what this person did lives in the audit log, which is not this table's
+        job to preserve.
+        """
+        with Session(self.engine) as session:
+            row = session.get(FounderMemberRow, (auth_user_id, founder_id))
+            if row is not None:
+                session.delete(row)
+                session.commit()
 
     # -- runs --
 

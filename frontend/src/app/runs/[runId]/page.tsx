@@ -55,7 +55,7 @@ export default async function RunDetailPage({
           <>
             {formatInt(decisions)} recorded{" "}
             {decisions === 1 ? "decision" : "decisions"} below. Nothing here was
-            written by a model — every rejection names the deterministic check
+            written by a model. Every rejection names the deterministic check
             that fired, and every skip names the stage that made the call.
           </>
         }

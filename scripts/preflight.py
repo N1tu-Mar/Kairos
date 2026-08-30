@@ -125,12 +125,24 @@ def check_config(production: bool) -> list[Check]:
                     )
     elif settings.api_token:
         results.append(check("auth", PASS, "shared token, single founder"))
-    else:
+    elif settings.allow_open_api:
         results.append(
             check(
                 "auth",
                 FAIL if production else WARN,
-                "no credential configured — the API runs open",
+                "no credential configured and KAIROS_ALLOW_OPEN_API is on — "
+                "the API runs open",
+            )
+        )
+    else:
+        # Fails closed rather than open, so this is a refusal to serve, not a
+        # hole. Still worth naming: the operator meant to configure something.
+        results.append(
+            check(
+                "auth",
+                FAIL,
+                "no credential configured — every request will 401; set "
+                "KAIROS_API_TOKEN, or KAIROS_ALLOW_OPEN_API=1 for a local demo",
             )
         )
 
@@ -169,6 +181,7 @@ def check_config(production: bool) -> list[Check]:
         results.append(check("storage.state_dir", FAIL, f"not writable: {exc}"))
 
     results.extend(_check_schema(settings, production))
+    results.extend(check_supabase(settings))
 
     # Run timeout vs lease TTL. The lease must outlive the run it protects.
     results.append(
@@ -221,6 +234,118 @@ def _check_schema(settings, production: bool) -> list[Check]:
 
 
 # ── Repository hygiene ───────────────────────────────────────────────────────
+
+
+def check_supabase(settings) -> list[Check]:
+    """Whether Supabase identity is wired up, and whether it can actually verify.
+
+    Runs only when an issuer is configured; otherwise the deployment is on the
+    shared token or the credential file and there is nothing here to say.
+
+    Everything checked is public. The JWKS endpoint is published for exactly
+    this purpose, so this makes one unauthenticated GET and holds no secret —
+    which is what makes it safe to run anywhere, including CI.
+    """
+    results: list[Check] = []
+    issuer = settings.supabase_issuer
+    if not issuer:
+        return results
+
+    # Shape first: a pasted URL very often carries /rest/v1 or a trailing
+    # slash, and either makes every `iss` comparison fail with a 401 that
+    # looks like a credential problem rather than a typo.
+    if issuer.endswith("/"):
+        results.append(
+            check("supabase.issuer", FAIL, "ends with a slash; Supabase's `iss` does not")
+        )
+    elif "/rest/v1" in issuer:
+        results.append(
+            check(
+                "supabase.issuer",
+                FAIL,
+                "points at the REST API; the issuer is the project URL + /auth/v1",
+            )
+        )
+    elif not issuer.endswith("/auth/v1"):
+        results.append(
+            check("supabase.issuer", FAIL, "must end with /auth/v1")
+        )
+    else:
+        results.append(check("supabase.issuer", PASS, "well-formed"))
+
+    if settings.supabase_jwt_secret and settings.supabase_public_key:
+        results.append(
+            check(
+                "supabase.keys",
+                FAIL,
+                "both a JWT secret and a public key are set; which algorithm "
+                "family is trusted would be ambiguous",
+            )
+        )
+    elif settings.supabase_jwt_secret:
+        results.append(
+            check(
+                "supabase.keys",
+                WARN,
+                "using a shared HS256 secret — the value that verifies a token "
+                "can also mint one. Prefer asymmetric keys (JWKS).",
+            )
+        )
+    elif settings.supabase_public_key:
+        results.append(
+            check(
+                "supabase.keys",
+                WARN,
+                "using one static public key — logins break at the next "
+                "rotation. Clear it to use JWKS instead.",
+            )
+        )
+    else:
+        results.append(check("supabase.keys", PASS, "JWKS; keys are fetched and rotate"))
+
+        # Only worth probing on the JWKS path: it is the one with a remote
+        # dependency, and a broken endpoint means nobody can sign in.
+        jwks_url = f"{issuer.rstrip('/')}/.well-known/jwks.json"
+        payload = _get(jwks_url)
+        if payload is None:
+            results.append(
+                check(
+                    "supabase.jwks",
+                    FAIL,
+                    "signing keys are unreachable — check the issuer and that "
+                    "the project is awake",
+                )
+            )
+        else:
+            keys = payload.get("keys") or []
+            algorithms = sorted({k.get("alg", "?") for k in keys})
+            if not keys:
+                results.append(
+                    check(
+                        "supabase.jwks",
+                        FAIL,
+                        "endpoint responded but published no keys — the project "
+                        "may still be on a shared HS256 secret",
+                    )
+                )
+            elif "HS256" in algorithms:
+                results.append(
+                    check(
+                        "supabase.jwks",
+                        WARN,
+                        f"published keys include HS256 ({', '.join(algorithms)})",
+                    )
+                )
+            else:
+                results.append(
+                    check(
+                        "supabase.jwks",
+                        PASS,
+                        f"{len(keys)} key(s), {', '.join(algorithms)}",
+                    )
+                )
+
+    return results
 
 
 def check_repository() -> list[Check]:

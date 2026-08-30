@@ -1,6 +1,13 @@
 import "server-only";
 
-import { apiBaseUrl, apiToken, founderId, readTimeoutMs } from "@/lib/config";
+import {
+  apiBaseUrl,
+  apiBaseUrlProblem,
+  apiToken,
+  founderId,
+  readTimeoutMs,
+} from "@/lib/config";
+import { currentAccessToken } from "@/lib/supabase/server";
 import type {
   DraftResponse,
   FounderProfile,
@@ -31,7 +38,10 @@ export type ApiErrorKind =
   | "timeout"
   | "unreachable"
   | "http"
-  | "malformed";
+  | "malformed"
+  // The dashboard's own configuration is wrong, so no request was attempted.
+  // Distinct from `unreachable`, which means a request was made and failed.
+  | "misconfigured";
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -51,11 +61,24 @@ export class ApiError extends Error {
     this.status = status;
   }
 
-  /** One line the UI can show a human without leaking a stack trace. */
+  /**
+   * One line the UI can show a human without leaking a stack trace.
+   *
+   * It also must not name the deployment. This used to interpolate
+   * `apiBaseUrl()` into the unreachable case, which meant an unauthenticated
+   * stranger could ask the dashboard where its backend lives by taking the
+   * backend down — or just by waiting for it to be down. The address helps
+   * nobody who cannot already read the environment, and the operator now
+   * gets it in the server log instead (`src/lib/errors.ts`).
+   */
   get userMessage(): string {
     switch (this.kind) {
+      case "misconfigured":
+        // The one case where naming the variable is the entire fix. It names
+        // the setting, never its value.
+        return `${this.message} Fix it in frontend/.env.local, then restart the dev server.`;
       case "unreachable":
-        return `Could not reach the Kairos API at ${apiBaseUrl()}. Is the FastAPI backend running?`;
+        return "Could not reach the Kairos API. Is the FastAPI backend running?";
       case "timeout":
         return "The Kairos API did not respond in time.";
       case "not_found":
@@ -77,6 +100,9 @@ export function httpStatusFor(error: ApiError): number {
       return 504;
     case "unreachable":
       return 502;
+    // The dashboard is broken, not the backend. 500, not 502.
+    case "misconfigured":
+      return 500;
     default:
       return error.status ?? 502;
   }
@@ -106,6 +132,13 @@ interface RequestOptions {
  */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, timeoutMs = readTimeoutMs() } = options;
+
+  // Checked before the fetch, not after it fails. A bad base URL makes every
+  // request fail in a way indistinguishable from a stopped backend, and the
+  // reader then goes and restarts a healthy one.
+  const problem = apiBaseUrlProblem();
+  if (problem) throw new ApiError("misconfigured", problem, path);
+
   const url = `${apiBaseUrl()}${path}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -114,8 +147,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     const headers: Record<string, string> = {};
     if (body) headers["content-type"] = "application/json";
-    // Attached server-side only; the browser never sees this credential.
-    const token = apiToken();
+    // The *user's* token when someone is signed in, and the shared token only
+    // in the local single-founder mode where no identity provider exists.
+    //
+    // This is the difference the login work exists to make. With a shared
+    // token the proxy acted for the founder on behalf of whoever asked it to,
+    // so the backend's authorization never saw a real caller. With a session
+    // token FastAPI verifies the signature, reads that subject's rows in
+    // `founder_members`, and a dashboard with no session for a founder cannot
+    // act as one.
+    const token = (await currentAccessToken()) || apiToken();
     if (token) headers.authorization = `Bearer ${token}`;
     response = await fetch(url, {
       method,

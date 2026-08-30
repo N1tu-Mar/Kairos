@@ -39,6 +39,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol
 
+import jwt
+
 log = logging.getLogger("kairos.auth")
 audit_log = logging.getLogger("kairos.audit")
 
@@ -120,9 +122,19 @@ class SharedTokenAuthenticator:
     """The documented local single-founder mode.
 
     One token, one founder. Every holder of the token is the same principal,
-    which is honest about what a shared secret can prove. When the token is
-    empty the API runs open and every request is `ANONYMOUS_LOCAL` — but
-    only outside production mode, where an empty token is refused instead.
+    which is honest about what a shared secret can prove.
+
+    An empty token means the API would serve every request as
+    `ANONYMOUS_LOCAL` — a principal with write access and no credential
+    behind it. That is a real mode, useful on a laptop, and it is reachable
+    only when someone asked for it: `allow_open` must be True, and it comes
+    from a variable that exists for nothing else.
+
+    It used to be the *fallback* instead, refused only when `KAIROS_ENV` also
+    read `production`. Two variables had to be right for the API to be shut,
+    and the one that mattered was set by the Terraform rather than by the
+    code — so ECS was covered and every other way of running this was not.
+    A missing variable now fails closed on any host.
     """
 
     def __init__(
@@ -130,12 +142,20 @@ class SharedTokenAuthenticator:
         token: str,
         founder_id: str = DEMO_FOUNDER_ID,
         *,
-        production: bool = False,
+        allow_open: bool = False,
+        environment: str = "",
     ) -> None:
-        """`token=""` means run open, which is only reachable when `production` is False; in production an empty token becomes an `AuthError` on every request instead of a mode."""
+        """`token=""` serves open only when `allow_open` is True and the
+        environment is not production; otherwise every request is an
+        `AuthError`. `environment` is carried for that one check and is
+        deliberately not what decides the ordinary case — an authentication
+        posture that depends on a deployment-naming string is one a typo can
+        widen.
+        """
         self.token = token
         self.founder_id = founder_id
-        self.production = production
+        self.allow_open = allow_open
+        self.environment = environment
 
     def authenticate(self, authorization: str | None) -> Principal:
         """Compare the bearer token against the one configured token.
@@ -145,8 +165,9 @@ class SharedTokenAuthenticator:
         same `Principal`, because a shared secret cannot prove more than that.
         """
         if not self.token:
-            if self.production:
-                # An open API in production is a misconfiguration, not a mode.
+            if not self.allow_open or self.environment == "production":
+                # Unconfigured is not a mode. Say nothing about which half is
+                # missing — the operator's log has that, the caller does not.
                 raise AuthError("no credential is configured")
             return ANONYMOUS_LOCAL
         supplied = _bearer(authorization)
@@ -334,17 +355,241 @@ class StaticTokenFileAuthenticator:
         )
 
 
-def build_authenticator(config) -> Authenticator:
-    """Pick an authenticator from configuration.
+class _RemoteJWKS:
+    """Supabase's published signing keys, fetched by `kid` and cached.
 
-    A credential file, when configured, wins: it is the only one of the two
-    that can tell founders apart. Otherwise the shared token, which is the
-    documented single-founder mode.
+    A thin wrapper over `jwt.PyJWKClient` for one reason: it gives the
+    authenticator a one-method dependency, so a test injects a fake instead
+    of reaching the network, and the object under test is the same shape as
+    the one that runs.
+
+    `PyJWKClient` does the caching and the refetch-on-unknown-kid. The cache
+    is per instance, so it lives as long as the authenticator does — which is
+    the process, since the app builds one at startup.
     """
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+        self._client = None
+
+    def get_public_key(self, kid: str):
+        """The signing key for `kid`. Raises if the auth server has no such key."""
+        if self._client is None:
+            # Constructed lazily so a deployment starts even when the auth
+            # server is unreachable, and so no network call happens at import.
+            self._client = jwt.PyJWKClient(self.url, cache_keys=True)
+        return self._client.get_signing_key(kid).key
+
+
+class SupabaseJWTAuthenticator:
+    """Verify a Supabase session token; read authorization from the database.
+
+    The adapter the `Authenticator` protocol was left open for. It answers
+    *who* — the `sub` claim of a signed token — and then asks
+    `founder_members` *what they may touch*. The token never says which
+    founders it owns, and that is the point: a claim inside a token is
+    something the token's holder can be given by mistake, while a membership
+    row is something an operator granted.
+
+    Membership is read on every request rather than cached against the token.
+    A Supabase access token lives about an hour; caching would mean a revoked
+    person kept their access until it expired, which is not what revocation
+    means.
+
+    **Key material.** Exactly one of `jwt_secret` (HS256, Supabase's shared
+    JWT secret) or `public_key` (RS256/ES256, the asymmetric signing keys)
+    must be supplied, and whichever it is fixes the accepted algorithm list.
+    That list comes from configuration and never from the token's own header,
+    which is what makes algorithm confusion — an HS256 token signed with the
+    deployment's RSA *public* key as its HMAC secret — a refusal instead of a
+    valid session. `alg: none` is unreachable for the same reason.
+
+    `iss` and `aud` are both verified. A correctly signed token from another
+    Supabase project is still a correctly signed token; the issuer is what
+    makes it not ours, and the audience separates a user session from a
+    service-role key.
+    """
+
+    #: The `aud` claim Supabase puts on a signed-in user's access token. A
+    #: `service_role` token is not a person and must never resolve to one.
+    AUDIENCE = "authenticated"
+
+    #: Algorithms accepted on the asymmetric path. ES256 is what Supabase
+    #: gives a new project; RS256 covers older ones and other providers.
+    ASYMMETRIC_ALGORITHMS = ["RS256", "ES256"]
+
+    def __init__(
+        self,
+        *,
+        repository,
+        issuer: str,
+        jwt_secret: str = "",
+        public_key: str = "",
+        jwks=None,
+        leeway_s: int = 10,
+        unknown_kid_cooldown_s: float = 300.0,
+    ) -> None:
+        """Pick a way to obtain the signing key. Exactly one, never two.
+
+        In order of preference:
+
+        *   **JWKS** (the default, and what an issuer alone gives you) —
+            public keys fetched from the auth server and selected by the
+            token's `kid`. The only option that survives a rotation without a
+            human pasting a new key into a secret store.
+        *   **`public_key`** — one static PEM. Works offline; goes stale the
+            moment Supabase rotates.
+        *   **`jwt_secret`** — the legacy shared HS256 secret. Supported
+            because older projects still have one; Supabase itself recommends
+            against it, since verifying means holding a value that can also
+            *mint* tokens.
+
+        `leeway_s` tolerates small clock skew on `exp`/`iat`, nothing else.
+        `unknown_kid_cooldown_s` bounds refetching — see `_resolve_key`.
+        """
+        if jwt_secret and public_key:
+            # Which algorithm family is trusted would be ambiguous, and that
+            # ambiguity is precisely what algorithm confusion exploits.
+            raise ValueError("supply either jwt_secret or public_key, not both")
+
+        self.repository = repository
+        self.issuer = issuer.rstrip("/")
+        self.leeway_s = leeway_s
+        self.unknown_kid_cooldown_s = unknown_kid_cooldown_s
+        self.jwt_secret = jwt_secret
+        self.public_key = public_key
+        #: kid -> when it was last looked up and found missing.
+        self._missing_kids: dict[str, float] = {}
+
+        if jwt_secret:
+            self.algorithms = ["HS256"]
+            self.jwks = None
+            self.jwks_url = ""
+        elif public_key:
+            self.algorithms = list(self.ASYMMETRIC_ALGORITHMS)
+            self.jwks = None
+            self.jwks_url = ""
+        else:
+            if not self.issuer:
+                raise ValueError(
+                    "an issuer is required to discover signing keys"
+                )
+            self.algorithms = list(self.ASYMMETRIC_ALGORITHMS)
+            self.jwks_url = f"{self.issuer}/.well-known/jwks.json"
+            # Built, not called: construction must not touch the network, so
+            # a deployment starts even while the auth server is unreachable.
+            self.jwks = jwks if jwks is not None else _RemoteJWKS(self.jwks_url)
+
+    def _resolve_key(self, token: str) -> str:
+        """The key this token says it was signed with.
+
+        A `kid` that has already been looked up and found missing is refused
+        without another fetch until `unknown_kid_cooldown_s` has passed. That
+        bound is the point: without it, a stream of tokens carrying random
+        `kid` values becomes a stream of outbound requests, which turns this
+        deployment into an amplifier aimed at the auth server. A `kid` never
+        seen before is always fetched, so a genuine rotation is picked up at
+        once.
+        """
+        if self.jwks is None:
+            return self.jwt_secret or self.public_key
+
+        try:
+            kid = jwt.get_unverified_header(token).get("kid")
+        except jwt.InvalidTokenError:
+            raise AuthError("invalid credential") from None
+        if not kid:
+            # Every Supabase asymmetric token carries one.
+            raise AuthError("invalid credential")
+
+        missed_at = self._missing_kids.get(kid)
+        if missed_at is not None and time.time() - missed_at < self.unknown_kid_cooldown_s:
+            raise AuthError("invalid credential")
+
+        try:
+            return self.jwks.get_public_key(kid)
+        except Exception:  # noqa: BLE001 — a lookup failure is a refusal
+            self._missing_kids[kid] = time.time()
+            raise AuthError("invalid credential") from None
+
+    def authenticate(self, authorization: str | None) -> Principal:
+        """Resolve a bearer token to a principal, or raise `AuthError`.
+
+        Every failure is the same `AuthError`. Which claim was wrong, whether
+        the signature failed or the token merely expired, and whether the
+        subject has any membership at all are distinctions the caller does not
+        get — they are a probe oracle. They go to the audit log instead.
+        """
+        supplied = _bearer(authorization)
+        key = self._resolve_key(supplied)
+
+        try:
+            claims = jwt.decode(
+                supplied,
+                key,
+                algorithms=self.algorithms,
+                audience=self.AUDIENCE,
+                issuer=self.issuer,
+                leeway=self.leeway_s,
+                options={"require": ["exp", "sub", "aud", "iss"]},
+            )
+        except jwt.InvalidTokenError as exc:
+            # Expiry, bad signature, wrong issuer, wrong audience, a missing
+            # required claim, and anything that is not a JWT at all.
+            audit_event(
+                actor="unknown",
+                action="auth.rejected",
+                resource="supabase_jwt",
+                outcome=type(exc).__name__,
+            )
+            raise AuthError("invalid credential") from None
+
+        subject = str(claims.get("sub") or "").strip()
+        if not subject:
+            raise AuthError("invalid credential")
+
+        # Authorization is a database fact, re-read per request so revocation
+        # does not wait for the token to expire.
+        return Principal(
+            subject=subject,
+            founder_ids=self.repository.founder_ids_for(subject),
+            can_write=self.repository.can_write(subject),
+            method="supabase_jwt",
+        )
+
+
+def build_authenticator(config, repository=None) -> Authenticator:
+    """Pick an authenticator from configuration, strongest identity first.
+
+    1.  **Supabase** — the only one that identifies a *person*, and the only
+        one whose authorization comes from a table an operator controls
+        rather than from whoever holds a secret. Needs `repository`, since
+        that is where the memberships live.
+    2.  **Credential file** — hashed tokens, several founders, revocation.
+        Proves possession of a secret, not identity.
+    3.  **Shared token** — one secret, one founder, honest about it.
+
+    Configured-but-unusable is a startup failure, not a silent demotion: a
+    deployment that set a Supabase issuer and no key has made a mistake, and
+    falling back to a shared token would hide it behind a working API.
+    """
+    if config.supabase_issuer:
+        if repository is None:
+            raise ValueError(
+                "Supabase authentication needs a repository to read memberships from"
+            )
+        return SupabaseJWTAuthenticator(
+            repository=repository,
+            issuer=config.supabase_issuer,
+            jwt_secret=config.supabase_jwt_secret,
+            public_key=config.supabase_public_key,
+        )
     if config.credentials_file:
         return StaticTokenFileAuthenticator(config.credentials_file)
     return SharedTokenAuthenticator(
-        config.api_token, production=config.production
+        config.api_token,
+        allow_open=config.allow_open_api,
+        environment=config.environment,
     )
 
 

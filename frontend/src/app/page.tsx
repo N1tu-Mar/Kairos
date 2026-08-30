@@ -2,21 +2,25 @@ import Link from "next/link";
 
 import { ApiErrorState } from "@/components/api-error-state";
 import { InboxItemCard } from "@/components/inbox-item-card";
+import { IntakeSection } from "@/components/intake-chat";
 import { ManualRunControl } from "@/components/manual-run";
 import { RunSummary } from "@/components/run-summary";
 import { SchedulerFailures } from "@/components/scheduler-failures";
 import { ScraperCandidates } from "@/components/scraper-candidates";
 import { EmptyState, Note } from "@/components/states";
 import { Page, PageHeader, Section } from "@/components/primitives";
+import { founderId } from "@/lib/config";
 import {
   getInbox,
   getLatestRun,
   getOpportunities,
+  getProfileOrNull,
   getScraperCandidates,
   listSchedulerFailures,
 } from "@/lib/api";
 import { formatRelative, runHeadline } from "@/lib/format";
 import type {
+  FounderProfile,
   InboxItem,
   Opportunity,
   RunReport,
@@ -49,13 +53,22 @@ export default async function BriefingPage() {
 
   let failures: SchedulerFailure[] = [];
 
-  const [runResult, inboxResult, failureResult, scraperResult] =
+  // The profile is fetched alongside everything else and, like everything
+  // else, a failure to read it degrades one section rather than the page. A
+  // profile that will not load is treated as absent: intake opens, which is
+  // the same thing a founder would need to do anyway.
+  let profile: FounderProfile | null = null;
+
+  const [runResult, inboxResult, failureResult, scraperResult, profileResult] =
     await Promise.allSettled([
       getLatestRun(),
       getInbox(),
       listSchedulerFailures(),
       getScraperCandidates(),
+      getProfileOrNull(),
     ]);
+
+  if (profileResult.status === "fulfilled") profile = profileResult.value;
 
   if (runResult.status === "fulfilled") report = runResult.value;
   else runError = runResult.reason;
@@ -102,12 +115,23 @@ export default async function BriefingPage() {
           report ? (
             <>
               Last run {formatRelative(report.started_at)}. The number that
-              matters is the one Kairos threw away — every discard has a reason
+              matters is the one Kairos threw away. Every discard has a reason
               you can read.
             </>
           ) : null
         }
       />
+
+      <Section
+        title={profile ? "What Kairos is matching on" : "Start here"}
+        description={
+          profile
+            ? "The facts every funder's rules are compared against, and what you told Kairos about the work."
+            : "Kairos cannot look for anything until it knows who you are and what you are building."
+        }
+      >
+        <IntakeSection profile={profile} founderId={founderId()} />
+      </Section>
 
       {failures.length > 0 ? (
         <Section title="Runs that did not happen">
@@ -126,7 +150,7 @@ export default async function BriefingPage() {
         ) : (
           <EmptyState title="No run has been recorded yet">
             Kairos has not looked for anything on your behalf so far. Start one
-            by hand below — it will scan, filter, judge, and write down every
+            by hand below. It will scan, filter, judge, and write down every
             decision it makes.
           </EmptyState>
         )}
@@ -162,7 +186,7 @@ export default async function BriefingPage() {
         ) : active.length === 0 ? (
           <EmptyState title="Nothing is waiting on you">
             {report && report.surfaced === 0
-              ? "The last run surfaced nothing. Kairos looked and judged that none of what it found was worth your time — that is a result, not a fault."
+              ? "The last run surfaced nothing. Kairos looked and judged that none of what it found was worth your time. That is a result, not a fault."
               : "No active recommendations right now."}
           </EmptyState>
         ) : (
@@ -190,8 +214,8 @@ export default async function BriefingPage() {
             <Note>
               {passive.length} more{" "}
               {passive.length === 1 ? "opportunity is" : "opportunities are"}{" "}
-              listed under <em>also found</em> — past the per-run surfacing cap,
-              so they are visible but never notified.{" "}
+              listed under <em>also found</em>. They sit past the per-run
+              surfacing cap, so they are visible but never notified.{" "}
               <Link
                 href="/inbox?view=passive"
                 className="text-accent underline underline-offset-4"

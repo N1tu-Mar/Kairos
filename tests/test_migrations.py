@@ -288,12 +288,23 @@ def test_the_alembic_version_table_is_not_a_repository_table():
 
 
 def test_the_repository_can_report_the_schema_version(fresh_db):
-    """Readiness needs to distinguish migrated from never-adopted."""
+    """Readiness needs to distinguish migrated from never-adopted.
+
+    Compared against whatever `head` currently is rather than a literal
+    revision. The literal made this test fail on every new migration for a
+    reason unrelated to what it checks — that an upgraded database reports its
+    revision and an unmanaged one reports None.
+    """
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
     unmanaged = SqliteRepository(fresh_db)
     assert unmanaged.schema_version() is None
 
     alembic("upgrade", "head", db_url=fresh_db)
-    assert SqliteRepository(fresh_db).schema_version() == "23556375cc0d"
+
+    head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+    assert SqliteRepository(fresh_db).schema_version() == head
 
 
 def test_create_schema_false_leaves_an_empty_database_empty(tmp_path):

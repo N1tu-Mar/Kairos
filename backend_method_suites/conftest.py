@@ -38,8 +38,15 @@ def method_suite_env(monkeypatch, tmp_path):
     monkeypatch.setenv("BEDROCK_MODEL_CLASSIFY", "[DEMO]classify-model")
     monkeypatch.setenv("KAIROS_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("KAIROS_DAILY_USD_CAP", "0")
-    # A developer .env may set a token; these suites assume the open local mode.
+    monkeypatch.setenv("KAIROS_ENV", "local")
+    monkeypatch.setenv("KAIROS_MAX_RUN_TOKENS", "250000")
+    monkeypatch.setenv("KAIROS_MAX_ASSESSMENTS", "25")
+    # A developer .env may set a token or a credential file; these suites
+    # assume the open local mode. Deleting them is no longer enough to get it:
+    # an absent token fails closed, so open mode has to be asked for by name.
     monkeypatch.delenv("KAIROS_API_TOKEN", raising=False)
+    monkeypatch.delenv("KAIROS_CREDENTIALS_FILE", raising=False)
+    monkeypatch.setenv("KAIROS_ALLOW_OPEN_API", "1")
     config.settings.cache_clear()
     yield
     config.settings.cache_clear()

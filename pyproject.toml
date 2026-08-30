@@ -9,6 +9,7 @@ dependencies = [
     "fastapi[standard]>=0.141.1",
     "httpx>=0.28.1",
     "pydantic>=2.13.4",
+    "pyjwt[crypto]>=2.10",
     "python-dotenv>=1.2.3",
     "sqlmodel>=0.0.39",
     "strands-agents>=1.53.0",

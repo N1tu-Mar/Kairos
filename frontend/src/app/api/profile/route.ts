@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { ApiError, httpStatusFor, putProfile } from "@/lib/api";
+import { putProfile } from "@/lib/api";
+import { errorResponse } from "@/lib/errors";
 import { founderId } from "@/lib/config";
 import type { FounderProfile } from "@/lib/types";
 
@@ -48,19 +49,10 @@ export async function PUT(request: Request) {
     const stored = await putProfile(profile);
     return NextResponse.json(stored);
   } catch (error) {
-    if (error instanceof ApiError) {
-      return NextResponse.json(
-        { error: error.userMessage, detail: error.message, kind: error.kind },
-        { status: httpStatusFor(error) },
-      );
-    }
-    return NextResponse.json(
-      {
-        error: "The profile could not be saved.",
-        detail: error instanceof Error ? error.message : String(error),
-        kind: "unknown",
-      },
-      { status: 500 },
+    return errorResponse(
+      error,
+      "PUT /api/profile",
+      "The profile could not be saved.",
     );
   }
 }

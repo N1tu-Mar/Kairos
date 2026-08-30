@@ -136,7 +136,7 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
           setStatus({
             phase: "error",
             message:
-              "Lost contact with the Kairos API while the run was in progress. The run may still be going — check the run history.",
+              "Lost contact with the Kairos API while the run was in progress. The run may still be going, so check the run history.",
             detail: error instanceof Error ? error.message : String(error),
           });
         }
@@ -193,14 +193,18 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
       }
 
       if (!response.ok) {
-        const body = (payload ?? {}) as { error?: string; detail?: string };
+        const body = (payload ?? {}) as { error?: string; requestId?: string };
         inFlight.current = false;
         setStatus({
           phase: "error",
           message:
             body.error ??
             `The backend returned ${response.status} and the run did not start.`,
-          detail: body.detail,
+          // The proxy no longer returns `detail` — it named the backend's
+          // host and port to anyone who could make a request fail. What comes
+          // back instead is the id the server logged the detail under, which
+          // is the half a person can actually do something with.
+          detail: body.requestId,
         });
         return;
       }
@@ -226,8 +230,9 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
       <h2 className="font-serif text-lg tracking-tight text-ink">Run Kairos now</h2>
       <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-muted">
         Starts one run by hand, immediately. The run happens on the backend, so
-        it keeps going if you close this page. This does not create a schedule —
-        production scheduling calls the same endpoint on a timer.
+        it keeps going if you close this page. It runs once and does not create
+        a schedule, so come back whenever you like and the results will be
+        waiting.
       </p>
 
       {!compact ? (
@@ -351,8 +356,8 @@ export function ManualRunControl({ compact = false }: { compact?: boolean }) {
           ) : null}
           {status.report.surfaced === 0 && !status.report.halted_reason ? (
             <p className="text-sm text-ink-muted">
-              Nothing surfaced. That is a legitimate result — the reasons are on
-              the run detail page.
+              Nothing surfaced. That is a legitimate result, and the reasons are
+              on the run detail page.
             </p>
           ) : null}
         </div>

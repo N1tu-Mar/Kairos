@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { ApiError, httpStatusFor, triggerRun } from "@/lib/api";
+import { triggerRun } from "@/lib/api";
+import { errorResponse } from "@/lib/errors";
 import type { RunTrigger } from "@/lib/types";
 
 /**
@@ -52,27 +53,13 @@ export async function POST(request: Request) {
     const job = await triggerRun(trigger);
     return NextResponse.json(job, { status: 202 });
   } catch (error) {
-    if (error instanceof ApiError) {
-      const status = httpStatusFor(error);
-      return NextResponse.json(
-        {
-          error:
-            status === 409
-              ? "A run is already in progress for this founder."
-              : error.userMessage,
-          detail: error.message,
-          kind: error.kind,
-        },
-        { status },
-      );
-    }
-    return NextResponse.json(
-      {
-        error: "The run could not be started.",
-        detail: error instanceof Error ? error.message : String(error),
-        kind: "unknown",
-      },
-      { status: 500 },
+    return errorResponse(
+      error,
+      "POST /api/runs",
+      "The run could not be started.",
+      // A 409 is the lease held by a run already going, which is worth saying
+      // plainly to someone who pressed the button twice.
+      { 409: "A run is already in progress for this founder." },
     );
   }
 }

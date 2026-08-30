@@ -31,8 +31,9 @@ export function SourceFailures({ report }: { report: RunReport }) {
           <li key={`${failure.source}-${index}`} className="text-sm text-ink-soft">
             <span className="font-mono text-xs uppercase tracking-wide text-warn">
               {failure.source}
-            </span>{" "}
-            — {failure.detail}
+            </span>
+            {": "}
+            {failure.detail}
           </li>
         ))}
       </ul>
@@ -140,7 +141,7 @@ export function RunSummary({
 
       {nothingSurfaced ? (
         <Note>
-          Nothing surfaced this run. That is a result, not a failure — Kairos
+          Nothing surfaced this run. That is a result, not a failure. Kairos
           looked at {formatInt(report.scanned)}{" "}
           {report.scanned === 1 ? "opportunity" : "opportunities"} and judged
           that none were worth your time yet. Every discard has a reason you can

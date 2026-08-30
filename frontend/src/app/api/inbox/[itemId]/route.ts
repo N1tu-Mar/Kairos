@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { ApiError, httpStatusFor, setInboxState } from "@/lib/api";
+import { setInboxState } from "@/lib/api";
+import { errorResponse } from "@/lib/errors";
 import { INBOX_STATES } from "@/lib/types";
 import type { InboxState } from "@/lib/types";
 
@@ -60,19 +61,10 @@ export async function PATCH(
     const item = await setInboxState(decodeURIComponent(itemId), state);
     return NextResponse.json(item);
   } catch (error) {
-    if (error instanceof ApiError) {
-      return NextResponse.json(
-        { error: error.userMessage, detail: error.message, kind: error.kind },
-        { status: httpStatusFor(error) },
-      );
-    }
-    return NextResponse.json(
-      {
-        error: "The item's state could not be updated.",
-        detail: error instanceof Error ? error.message : String(error),
-        kind: "unknown",
-      },
-      { status: 500 },
+    return errorResponse(
+      error,
+      "PATCH /api/inbox/[itemId]",
+      "The item's state could not be updated.",
     );
   }
 }

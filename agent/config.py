@@ -194,6 +194,18 @@ class Settings:
     #: set it supersedes `api_token` — it is the only one of the two that can
     #: tell founders apart. Tokens are stored hashed; see api/auth.py.
     credentials_file: str
+    #: Supabase identity. `supabase_issuer` is `{project_url}/auth/v1` and is
+    #: verified as the `iss` claim; exactly one of the two keys is supplied.
+    #: When an issuer and a key are both set they supersede every other
+    #: authenticator — they are the only one that identifies a real person.
+    supabase_issuer: str
+    supabase_jwt_secret: str
+    supabase_public_key: str
+    #: Serve requests with no credential at all, as `ANONYMOUS_LOCAL`. Off
+    #: unless explicitly turned on, because the alternative — treating an
+    #: absent token as "run open" — makes a forgotten variable indistinguishable
+    #: from a deliberate localhost demo. Production refuses it regardless.
+    allow_open_api: bool
     #: Production mode. Off by default so a clean clone stays runnable with
     #: no credentials. On, it stops being advisory: `/ready` fails without a
     #: token or without live prices, and the auth layer refuses anonymous
@@ -275,5 +287,14 @@ def settings() -> Settings:
         # only outside production mode, where `/ready` fails without it.
         api_token=os.getenv("KAIROS_API_TOKEN", "").strip(),
         credentials_file=os.getenv("KAIROS_CREDENTIALS_FILE", "").strip(),
+        supabase_issuer=os.getenv("KAIROS_SUPABASE_ISSUER", "").strip(),
+        supabase_jwt_secret=os.getenv("KAIROS_SUPABASE_JWT_SECRET", "").strip(),
+        # PEM, newlines and all. Read from the environment as-is; a secret
+        # store hands it over whole rather than a path to it.
+        supabase_public_key=os.getenv("KAIROS_SUPABASE_PUBLIC_KEY", "").strip(),
+        # Default False: an unconfigured deployment must fail closed. `_bool`
+        # reads an unrecognised value as False, so a typo in the flag that
+        # opens an API leaves it shut.
+        allow_open_api=_bool("KAIROS_ALLOW_OPEN_API", False),
         environment=os.getenv("KAIROS_ENV", "local").strip().lower(),
     )

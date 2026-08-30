@@ -34,6 +34,36 @@ export function apiBaseUrl(): string {
   return env("KAIROS_API_URL", "http://127.0.0.1:8000").replace(/\/+$/, "");
 }
 
+/**
+ * Why `KAIROS_API_URL` is unusable, or null when it is fine.
+ *
+ * Everything after the first `=` in a dotenv line is the value, so a line
+ * pasted onto itself — `KAIROS_API_URL=KAIROS_API_URL=http://...` — is not a
+ * syntax error. It is a valid assignment of a nonsense value, and `fetch`
+ * fails on it exactly the way it fails when a backend is down. That sent a
+ * reader off to restart a server that was already healthy, which is the whole
+ * reason this function exists: a configuration mistake and an absent backend
+ * are different problems and must not produce the same sentence.
+ *
+ * Returns a reason, never the value. The value is the deployment's address and
+ * does not belong in a browser (see `ApiError.userMessage`).
+ */
+export function apiBaseUrlProblem(): string | null {
+  const raw = apiBaseUrl();
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return raw.includes("KAIROS_API_URL=")
+      ? "KAIROS_API_URL contains its own name. The line in frontend/.env.local was pasted onto itself."
+      : "KAIROS_API_URL is not a valid URL.";
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return "KAIROS_API_URL has to start with http:// or https://.";
+  }
+  return null;
+}
+
 /** The dashboard is single-founder. There is no auth in this repository. */
 export function founderId(): string {
   return env("KAIROS_FOUNDER_ID", "founder_demo");

@@ -83,6 +83,20 @@ MAX_ID_LENGTH = 200
 #: Most rows a list endpoint will return in one response.
 MAX_LIST_LIMIT = 1_000
 
+#: Largest request body this API will read, in bytes.
+#:
+#: The parameter bounds above stop a caller asking for the whole table back.
+#: This is the same argument pointed the other way: uvicorn imposes no ceiling
+#: of its own, so a `PUT /founders/{id}` was buffered in full before Pydantic
+#: saw it, and `knowledge_base` is a list with no length limit whose entries
+#: had no length limit either. A body is refused on its `Content-Length`
+#: before it is read; `FounderProfile`'s own field bounds catch what is small
+#: enough to admit and still absurd as a profile.
+#:
+#: 2 MB against a real caller: the largest thing anyone legitimately sends is
+#: a profile with a full knowledge base, which is tens of kilobytes.
+MAX_BODY_BYTES = 2 * 1024 * 1024
+
 #: A list limit: at least one row, at most `MAX_LIST_LIMIT`.
 ListLimit = Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)]
 
@@ -154,13 +168,25 @@ async def lifespan(app: FastAPI):
     disturbing this one.
     """
     config = settings()
-    if not config.api_token and not config.credentials_file:
-        log.warning(
-            "No credential is configured — the API is running open. "
-            "Acceptable on localhost only; never deploy it this way. "
-            "Set KAIROS_ENV=production to make this a startup failure."
-        )
-    app.state.authenticator = build_authenticator(config)
+    if (
+        not config.supabase_issuer
+        and not config.api_token
+        and not config.credentials_file
+    ):
+        if config.allow_open_api:
+            log.warning(
+                "KAIROS_ALLOW_OPEN_API is on and no credential is configured — "
+                "the API is running open and every request has write access. "
+                "Acceptable on localhost only; never deploy it this way."
+            )
+        else:
+            # Fails closed, so this is not a hole — but every request will 401
+            # and the operator should hear why at startup rather than deduce
+            # it from a wall of 401s.
+            log.error(
+                "No credential is configured — every request will be refused. "
+                "Set KAIROS_API_TOKEN, or KAIROS_ALLOW_OPEN_API=1 for a local demo."
+            )
     # In production the schema belongs to `alembic upgrade head`, run at
     # deploy time. create_all() cannot evolve one — it fills in missing
     # tables and says nothing about a table whose shape has drifted — so a
@@ -170,6 +196,9 @@ async def lifespan(app: FastAPI):
         config.db_url, create_schema=not config.production
     )
     _seed_demo_profile(app.state.repo)
+    # After the repository, not before: Supabase authorization reads its
+    # memberships from it, so the authenticator cannot be built first.
+    app.state.authenticator = build_authenticator(config, app.state.repo)
 
     # The async job machinery. The lease TTL is double the run timeout so a
     # live run's lease can never expire out from under it.
@@ -196,6 +225,36 @@ app = FastAPI(title="Kairos", lifespan=lifespan)
 #: the deployment: liveness is a constant, readiness names which check failed
 #: and never what it was configured with.
 AUTH_EXEMPT_PATHS = {"/health", "/ready"}
+
+
+@app.middleware("http")
+async def bound_request_body(request: Request, call_next):
+    """Refuse an oversized body before anything reads it.
+
+    Registered before `authenticate` so it runs *after* it — Starlette applies
+    HTTP middleware in reverse registration order — which is deliberate: an
+    unauthenticated caller should not be able to make the server buffer two
+    megabytes before being told to go away, but neither should the size check
+    be the thing that leaks whether a credential was valid. Authentication
+    first, then the size ceiling, then the route.
+
+    `Content-Length` only. A chunked upload arrives without one, and reading
+    the stream to measure it is the work this exists to avoid; Starlette will
+    still buffer such a body, which is why `FounderProfile` carries its own
+    field bounds rather than trusting this to be the only wall.
+    """
+    declared = request.headers.get("content-length")
+    if declared is not None:
+        try:
+            size = int(declared)
+        except ValueError:
+            return JSONResponse({"detail": "malformed content-length"}, status_code=400)
+        if size > MAX_BODY_BYTES:
+            return JSONResponse(
+                {"detail": f"request body exceeds {MAX_BODY_BYTES} bytes"},
+                status_code=413,
+            )
+    return await call_next(request)
 
 
 @app.middleware("http")

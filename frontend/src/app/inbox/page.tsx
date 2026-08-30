@@ -62,8 +62,8 @@ export default async function InboxPage({
         lede={
           <>
             Each item names what the Assessor judged and what stands in the way.
-            A draft link means Kairos already wrote most of the application —
-            for you to review, never to submit.
+            A draft link means Kairos already wrote most of the application,
+            for you to review and never to submit.
           </>
         }
       />
