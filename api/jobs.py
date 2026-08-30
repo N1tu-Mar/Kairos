@@ -44,7 +44,7 @@ from agent.runtime import SubAgents
 from agent.scheduler import Lease, RunLock, ScheduledRunFailureLog
 from agent.sanitize import safe_detail
 from agent.scout import new_run_context, run_once
-from agent.tools.campus import CampusDiscoverySource
+from agent.tools.campus import CampusDiscoverySource, reviewed_web_sources
 from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
 
 log = logging.getLogger("kairos.jobs")
@@ -139,6 +139,7 @@ def build_sources(job: RunJob):
     sources.append(
         CampusDiscoverySource(enabled=config.enable_browser, allow_live_scrape=False)
     )
+    sources.extend(reviewed_web_sources())
     return sources
 
 

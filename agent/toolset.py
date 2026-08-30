@@ -58,6 +58,8 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         ctx.retrieved = {o.id: o for o in found}
         ctx.report.scanned = len(found)
         ctx.report.sources_failed.extend(failures)
+        for source in sources:
+            ctx.report.notes.extend(getattr(source, "run_notes", []))
 
         failed = (
             "; ".join(f"{f.source} failed ({f.detail})" for f in failures)
