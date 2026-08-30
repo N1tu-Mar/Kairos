@@ -26,7 +26,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 
-from agent.scraping.fetch import PoliteFetcher
+from agent.scraping.fetch import PageFetcher
 from agent.scraping.models import ScrapedOpportunity, ScrapeRun
 from agent.scraping.pipeline import RAW_DIR, scrape, write_candidates
 from agent.scraping.registry import Target, Tier
@@ -312,7 +312,7 @@ class WebScraperAgent:
 
     search_client: SearchClient
     config: WebScraperConfig = field(default_factory=WebScraperConfig)
-    fetcher: PoliteFetcher | None = None
+    fetcher: PageFetcher | None = None
 
     def discover_targets(self) -> tuple[list[Target], list[str]]:
         """Search every query and return the fetchable targets, plus notes.
@@ -446,7 +446,7 @@ class GeneralWebScraperAgent(WebScraperAgent):
         self,
         search_client: SearchClient,
         config: WebScraperConfig | None = None,
-        fetcher: PoliteFetcher | None = None,
+        fetcher: PageFetcher | None = None,
     ) -> None:
         """Preset for the general lane. Same behaviour as `WebScraperAgent` with `GENERAL_LANE` config."""
         super().__init__(
@@ -463,7 +463,7 @@ class UniversityWebScraperAgent(WebScraperAgent):
         self,
         search_client: SearchClient,
         config: WebScraperConfig | None = None,
-        fetcher: PoliteFetcher | None = None,
+        fetcher: PageFetcher | None = None,
     ) -> None:
         """Preset for the university lane, which additionally requires a university signal per hit."""
         super().__init__(

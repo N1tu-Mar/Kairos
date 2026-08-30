@@ -28,6 +28,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlsplit
 
 import httpx
@@ -67,6 +68,12 @@ MAX_REDIRECTS = 5
 
 class FetchRefused(RuntimeError):
     """We declined to fetch. Recorded on the run, never swallowed."""
+
+
+class PageFetcher(Protocol):
+    """Provider-neutral page retrieval boundary used by the scrape pipeline."""
+
+    def fetch(self, url: str, *, allow_js: bool = False) -> tuple[str, FetchRecord]: ...
 
 
 def html_to_text(html: str) -> str:
@@ -310,5 +317,7 @@ def load_archived(meta_path: Path) -> tuple[str, FetchRecord]:
     twice.
     """
     record = FetchRecord.model_validate(json.loads(Path(meta_path).read_text()))
-    html = Path(record.raw_path).read_text(encoding="utf-8")
-    return html_to_text(html), record
+    body = Path(record.raw_path).read_text(encoding="utf-8")
+    if record.content_format == "markdown":
+        return body, record
+    return html_to_text(body), record

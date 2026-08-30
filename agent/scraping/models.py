@@ -89,7 +89,15 @@ class FetchRecord(BaseModel):
     fetched_at: datetime = Field(default_factory=_now)
     content_hash: str = ""
     raw_path: str = ""
-    renderer: Literal["httpx", "playwright"] = "httpx"
+    renderer: Literal["httpx", "playwright", "firecrawl"] = "httpx"
+    #: How `raw_path` should be replayed. Firecrawl archives the exact markdown
+    #: handed to extraction; local fetches continue to archive HTML.
+    content_format: Literal["html", "markdown"] = "html"
+    #: Why a secondary renderer was attempted. Empty for ordinary local fetches.
+    fallback_reason: str = ""
+    #: Optional source representation alongside `raw_path`, such as the raw
+    #: rendered HTML returned with Firecrawl's extraction markdown.
+    source_raw_path: str = ""
     #: Set when the fetch did not produce usable text. `NEEDS_JS` means the
     #: page returned HTML that says it requires JavaScript.
     failure: str | None = None

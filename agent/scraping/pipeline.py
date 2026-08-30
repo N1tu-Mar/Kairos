@@ -31,7 +31,7 @@ from urllib.parse import urljoin, urlsplit
 from bs4 import BeautifulSoup
 
 from agent.scraping import extract
-from agent.scraping.fetch import PoliteFetcher
+from agent.scraping.fetch import PageFetcher, PoliteFetcher
 from agent.scraping.models import (
     Evidence,
     FetchRecord,
@@ -310,7 +310,7 @@ def scrape(
     raw_dir: Path = RAW_DIR,
     allow_js: bool = False,
     discover: bool = False,
-    fetcher: PoliteFetcher | None = None,
+    fetcher: PageFetcher | None = None,
 ) -> tuple[list[ScrapedOpportunity], ScrapeRun]:
     """Run the sweep. Returns `(records, run)`; failures live on the run."""
     targets = list(targets if targets is not None else TARGETS)
