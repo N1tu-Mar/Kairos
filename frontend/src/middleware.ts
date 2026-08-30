@@ -27,6 +27,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /** Paths that must work while signed out, or signing in is impossible. */
 const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/signout"];
+const CSP_HEADER = "Content-Security-Policy";
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some(
@@ -34,14 +35,63 @@ function isPublic(pathname: string): boolean {
   );
 }
 
+/**
+ * A strict policy that still permits the scripts Next generated for this one
+ * response. Next reads the nonce from the request CSP and adds it to its
+ * framework, hydration and streaming scripts automatically.
+ *
+ * React's development runtime uses eval for debugging. Production does not,
+ * so that exception is deliberately limited to `next dev`.
+ */
+export function contentSecurityPolicy(nonce: string): string {
+  const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const developmentEval =
+    process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
+
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${developmentEval}`,
+    // Next and Tailwind emit inline styles. Scripts remain nonce-restricted.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin} ${supabaseOrigin.replace(/^https:/, "wss:")}` : ""}`,
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
+function nonceForRequest(): string {
+  return Buffer.from(crypto.randomUUID()).toString("base64");
+}
+
+function setCsp(response: NextResponse, policy: string): NextResponse {
+  response.headers.set(CSP_HEADER, policy);
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const nonce = nonceForRequest();
+  const policy = contentSecurityPolicy(nonce);
+
+  // The request copy is what Next's renderer examines to discover the nonce.
+  // Rebuild it after a Supabase cookie refresh so the refreshed Cookie header
+  // and the nonce both reach the route.
+  const nextResponse = () => {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-nonce", nonce);
+    requestHeaders.set(CSP_HEADER, policy);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  };
 
   // Not configured: local single-founder mode, no sign-in, nothing gated.
-  if (!url || !key) return NextResponse.next();
+  if (!url || !key) return setCsp(nextResponse(), policy);
 
-  let response = NextResponse.next({ request });
+  let response = nextResponse();
 
   const supabase = createServerClient(url, key, {
     cookies: {
@@ -52,7 +102,7 @@ export async function middleware(request: NextRequest) {
         for (const { name, value } of toSet) {
           request.cookies.set(name, value);
         }
-        response = NextResponse.next({ request });
+        response = nextResponse();
         for (const { name, value, options } of toSet) {
           response.cookies.set(name, value, options);
         }
@@ -76,10 +126,10 @@ export async function middleware(request: NextRequest) {
     // through `URL` parsing in the login route, so an absolute URL here
     // cannot turn the redirect into an open redirect off-site.
     login.searchParams.set("next", request.nextUrl.pathname);
-    return NextResponse.redirect(login);
+    return setCsp(NextResponse.redirect(login), policy);
   }
 
-  return response;
+  return setCsp(response, policy);
 }
 
 export const config = {

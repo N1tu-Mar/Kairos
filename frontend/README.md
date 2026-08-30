@@ -148,6 +148,12 @@ npm run test        # vitest
   [`../incomplete.md`](../incomplete.md).
 - **Every data-backed view has loading, empty and error states**, and "nothing
   recorded yet" is visually distinct from "the backend is down".
+- **The CSP must never strand a route on its loading skeleton.** Next's App
+  Router uses inline replacement scripts to swap streamed `loading.tsx` UI for
+  the completed page. Keep `script-src` nonce-based and request-specific in
+  `src/middleware.ts`, forward the same nonce-bearing policy to both Next's
+  renderer and the browser, and never add a second static CSP in
+  `next.config.mjs`. A bare `script-src 'self'` blocks those scripts.
 
 ## Tests
 
@@ -157,4 +163,7 @@ easy to get wrong: quiet results, halted runs, missing gate results, the
 while a request is in flight, the card falling back to the composed headline
 when an opportunity row cannot be resolved, a passed deadline being flagged,
 and the profile editor sending the whole object with traction and the
-knowledge base untouched.
+knowledge base untouched. The CSP tests also lock the streaming invariant:
+every request gets a fresh nonce, Next receives it before rendering, arbitrary
+inline scripts stay blocked, and `next.config.mjs` cannot introduce a second
+policy that browsers would intersect with the nonce policy.

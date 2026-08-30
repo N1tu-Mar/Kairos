@@ -12,11 +12,10 @@
  *
  * Each one, and why it is set the way it is:
  *
- * - **`Content-Security-Policy`** — the one doing real work. `'self'` for
- *   scripts, plus the `connect-src` entries Supabase auth needs. Tailwind and
- *   Next both inline styles, hence `'unsafe-inline'` for styles only; scripts
- *   get no such allowance, which is where it counts. `frame-ancestors 'none'`
- *   is the modern clickjacking control.
+ * - **`Content-Security-Policy`** is request-specific and therefore lives in
+ *   `src/middleware.ts`, where a fresh nonce can be generated before Next
+ *   renders the page. A static CSP here blocked Next's streamed inline
+ *   scripts and left every route stuck on its loading skeleton.
  * - **`X-Frame-Options: DENY`** — the same control for browsers that predate
  *   `frame-ancestors`. Redundant on purpose.
  * - **`X-Content-Type-Options: nosniff`** — stops a browser deciding a
@@ -26,29 +25,10 @@
  * - **`Strict-Transport-Security`** — HTTPS only, once seen. Harmless on
  *   localhost, where browsers ignore it for `http://localhost`.
  *
- * `NEXT_PUBLIC_SUPABASE_URL` is interpolated into `connect-src` rather than
- * wildcarded, so the page may reach *our* Supabase project and no other.
+ * See `src/middleware.ts` for the CSP directives and their rationale.
  */
 
-const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
-
-const csp = [
-  "default-src 'self'",
-  "script-src 'self'",
-  // Next and Tailwind both emit inline styles. Styles cannot exfiltrate the
-  // way a script can, and scripts get no equivalent allowance.
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
-  "font-src 'self' data:",
-  `connect-src 'self'${supabaseOrigin ? ` ${supabaseOrigin} ${supabaseOrigin.replace(/^https:/, "wss:")}` : ""}`,
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "object-src 'none'",
-].join("; ");
-
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },

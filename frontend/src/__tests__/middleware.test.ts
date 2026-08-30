@@ -142,6 +142,44 @@ describe("when Supabase is not configured", () => {
   });
 });
 
+describe("the content security policy", () => {
+  it("gives Next scripts a per-request nonce without allowing arbitrary inline scripts", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/"));
+    const policy = response.headers.get("content-security-policy");
+    const nonce = policy?.match(/'nonce-([^']+)'/)?.[1];
+
+    expect(policy).toMatch(/script-src[^;]*'nonce-[^']+'/);
+    expect(policy).toContain("'strict-dynamic'");
+    expect(policy).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+    // Response CSP protects the browser. These forwarded request headers are
+    // equally important: Next reads them before rendering and stamps this
+    // nonce onto the inline scripts that replace loading.tsx.
+    expect(
+      response.headers.get("x-middleware-request-content-security-policy"),
+    ).toBe(policy);
+    expect(response.headers.get("x-middleware-request-x-nonce")).toBe(nonce);
+  });
+
+  it("uses a different nonce for every request", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    const first = await middleware(await request("/"));
+    const second = await middleware(await request("/"));
+
+    expect(first.headers.get("content-security-policy")).not.toBe(
+      second.headers.get("content-security-policy"),
+    );
+  });
+});
+
 describe("the redirect target", () => {
   it("is always a path on this origin", async () => {
     // `next` is echoed back into the login page. A crafted link must not be
