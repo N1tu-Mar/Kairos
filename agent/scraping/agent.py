@@ -14,12 +14,13 @@ shared so swapping Brave for another provider is still one adapter change.
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import re
 import uuid
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -40,18 +41,21 @@ DEFAULT_UNIVERSITY_WEB_CANDIDATES_PATH = (
 )
 DEFAULT_WEB_CANDIDATES_PATH = DEFAULT_GENERAL_WEB_CANDIDATES_PATH
 
+_CURRENT_YEAR = date.today().year
+_NEXT_YEAR = _CURRENT_YEAR + 1
+
 GENERAL_QUERIES: tuple[str, ...] = (
-    '"startup grant" "student founder"',
-    '"small business" grant startup non-dilutive',
-    '"founder" "pitch competition" "cash prize"',
-    '"entrepreneur" fellowship grant application',
+    f'"startup grant" founder "applications open" {_CURRENT_YEAR} OR {_NEXT_YEAR}',
+    '"non-dilutive funding" startup "apply now" OR rolling',
+    f'founder "pitch competition" "cash prize" application {_CURRENT_YEAR} OR {_NEXT_YEAR}',
+    'entrepreneur fellowship grant "accepting applications"',
 )
 
 UNIVERSITY_QUERIES: tuple[str, ...] = (
-    '"student founder" grant OR prize OR pitch competition',
-    '"undergraduate" startup grant application',
-    '"university" entrepreneurship "pitch competition" prize',
-    '"student entrepreneurs" "cash prize" application',
+    f'"student founder" grant OR prize "applications open" {_CURRENT_YEAR} OR {_NEXT_YEAR}',
+    '"undergraduate" startup grant "apply now" OR rolling',
+    f'university entrepreneurship "pitch competition" application {_CURRENT_YEAR} OR {_NEXT_YEAR}',
+    '"student entrepreneurs" "cash prize" "accepting applications"',
 )
 DEFAULT_QUERIES = GENERAL_QUERIES
 
@@ -89,12 +93,55 @@ _TRACKING_PARAMS = {
 
 _SKIP_HOSTS = (
     "facebook.com",
+    "f6s.com",
+    "fastcompany.com",
+    "builduplabs.com",
+    "creditforstartups.com",
+    "fundingcake.com",
+    "forbes.com",
+    "globenewswire.com",
+    "grantwatch.com",
+    "inc.com",
     "instagram.com",
+    "instrumentl.com",
     "linkedin.com",
+    "nerdwallet.com",
+    "opengrants.io",
+    "prnewswire.com",
     "tiktok.com",
+    "techcrunch.com",
     "twitter.com",
+    "yourstory.com",
     "x.com",
     "youtube.com",
+)
+
+_ACTIVE_RESULT_HINT = re.compile(
+    r"\b(apply now|applications? open|accepting applications?|now accepting|"
+    r"rolling|deadline|application portal|submit an application)\b",
+    re.I,
+)
+_STALE_RESULT_HINT = re.compile(
+    r"\b(archive|archived|winner|winners|finalist|finalists|recipient|recipients|"
+    r"alumni|closed|applications? ended|deadline passed|past competition)\b",
+    re.I,
+)
+_SECONDARY_RESULT_HINT = re.compile(
+    r"\b(best|top\s+\d+|list of|roundup|directory|database|resources?|"
+    r"grants and programs|grant programs for|funding programs|grants funding|"
+    r"grants for small business|founder opportunities|credits?|perks?|how to find)\b|"
+    r"\b\d{2,}\s+(?:ways|grants|programs|opportunities)\b",
+    re.I,
+)
+_SECONDARY_PATH_HINT = re.compile(
+    r"/(?:learn|blog|news|resources?|articles?)/|^/p/|grants-and-programs|"
+    r"/20\d{2}/(?:0[1-9]|1[0-2])/",
+    re.I,
+)
+_DIRECT_PATH_HINT = re.compile(
+    r"/(?:apply|application|applications|competition|competitions|grant|grants|"
+    r"fellowship|fellowships|challenge|challenges|program|programs)(?:/|$|-)",
+    re.I,
 )
 
 
@@ -240,6 +287,9 @@ class BraveSearchClient:
                 "count": max(1, min(count, 20)),
                 "safesearch": "moderate",
                 "result_filter": "web",
+                "freshness": "py",
+                "country": "US",
+                "search_lang": "en",
             },
             timeout=self.timeout_s,
         )
@@ -286,6 +336,7 @@ class WebScraperConfig:
     allow_js: bool = False
     require_opportunity_hint: bool = True
     raw_dir: Path = RAW_DIR
+    today: date = field(default_factory=date.today)
 
     @classmethod
     def for_lane(cls, lane: ScraperLane | str, **overrides: Any) -> "WebScraperConfig":
@@ -313,6 +364,7 @@ class WebScraperAgent:
     search_client: SearchClient
     config: WebScraperConfig = field(default_factory=WebScraperConfig)
     fetcher: PageFetcher | None = None
+    stale_records: list[ScrapedOpportunity] = field(default_factory=list, init=False)
 
     def discover_targets(self) -> tuple[list[Target], list[str]]:
         """Search every query and return the fetchable targets, plus notes.
@@ -322,13 +374,15 @@ class WebScraperAgent:
         `Target`. Deduplication is by normalised URL across all queries, so the
         first query to find a page owns its provenance note.
 
-        `max_pages` returns early — the remaining queries are never issued — so
-        the cap bounds search calls as well as fetches. A query whose search call
-        fails records a note and is skipped; the sweep continues.
+        Every query is issued before selection. Results inside each query are
+        ordered by current-application signals, then selected round-robin so an
+        early broad query cannot consume the page budget. A failed query records
+        a note and the sweep continues.
         """
         targets: list[Target] = []
         notes: list[str] = []
         seen: set[str] = set()
+        batches: list[list[SearchResult]] = []
 
         for query in self.config.queries:
             try:
@@ -339,19 +393,37 @@ class WebScraperAgent:
                 notes.append(f"search failed for {query!r}: {type(exc).__name__}: {exc}")
                 continue
 
+            batch: list[SearchResult] = []
             for result in results:
                 normalized = normalize_candidate_url(result.url)
                 if normalized is None:
                     continue
                 result = replace(result, url=normalized, query=result.query or query)
 
-                if normalized in seen or not self._should_fetch(result):
+                if not self._should_fetch(result):
                     continue
-                seen.add(normalized)
-                targets.append(target_from_result(result, lane=self.config.lane))
+                batch.append(result)
+            batch.sort(
+                key=lambda result: search_result_priority(result, self.config.today),
+                reverse=True,
+            )
+            batches.append(batch)
 
-                if len(targets) >= self.config.max_pages:
-                    return targets, notes
+        batches.sort(
+            key=lambda batch: (
+                search_result_priority(batch[0], self.config.today)
+                if batch
+                else (-10_000, 0)
+            ),
+            reverse=True,
+        )
+        for result in _round_robin(batches):
+            if result.url in seen:
+                continue
+            seen.add(result.url)
+            targets.append(target_from_result(result, lane=self.config.lane))
+            if len(targets) >= self.config.max_pages:
+                break
 
         return targets, notes
 
@@ -366,6 +438,7 @@ class WebScraperAgent:
         search found nothing" is a recorded outcome rather than an empty result
         indistinguishable from a sweep that never ran.
         """
+        self.stale_records = []
         targets, notes = self.discover_targets()
         if not targets:
             run = ScrapeRun(run_id=f"web_scrape_{uuid.uuid4().hex[:12]}")
@@ -382,8 +455,20 @@ class WebScraperAgent:
             discover=False,
             fetcher=self.fetcher,
         )
+        self.stale_records = [
+            record
+            for record in records
+            if record.deadline_iso is not None and record.deadline_iso < self.config.today
+        ]
+        records = [record for record in records if record not in self.stale_records]
+        run.opportunities_found = len(records)
         run.notes.extend(self._fetcher_run_notes())
         run.notes.extend(notes)
+        if self.stale_records:
+            run.notes.append(
+                f"excluded {len(self.stale_records)} explicit past-deadline "
+                "candidate(s) from active review; raw evidence and stale archive retained"
+            )
         run.notes.append(
             f"{self.config.lane.label} search produced {len(targets)} "
             f"fetchable URL(s) from "
@@ -414,7 +499,13 @@ class WebScraperAgent:
             run,
             path=path or self.config.lane.output_path,
             run_log=run_log or self.config.raw_dir / "scrape_runs.jsonl",
+            remove=self.stale_records,
         )
+        if self.stale_records:
+            _write_stale_archive(
+                self.stale_records,
+                stale_candidates_path(path or self.config.lane.output_path),
+            )
         return written, records, run
 
     def _should_fetch(self, result: SearchResult) -> bool:
@@ -436,6 +527,12 @@ class WebScraperAgent:
 
         host = urlsplit(result.url).netloc.lower().removeprefix("www.")
         if any(host == skipped or host.endswith(f".{skipped}") for skipped in _SKIP_HOSTS):
+            return False
+
+        haystack = f"{result.title} {result.snippet}"
+        if _SECONDARY_RESULT_HINT.search(haystack) or _SECONDARY_PATH_HINT.search(
+            urlsplit(result.url).path
+        ):
             return False
 
         if self.config.require_opportunity_hint:
@@ -506,6 +603,72 @@ def normalize_candidate_url(url: str) -> str | None:
     path = parts.path or "/"
     normalized = urlunsplit((parts.scheme, parts.netloc.lower(), path, query, ""))
     return normalized.rstrip("/") if path != "/" else normalized
+
+
+def search_result_priority(
+    result: SearchResult, today: date | None = None
+) -> tuple[int, int]:
+    """Prefer active application pages while retaining provider rank as a tie-breaker."""
+    today = today or date.today()
+    haystack = f"{result.title} {result.snippet} {result.url}"
+    score = 0
+    if _ACTIVE_RESULT_HINT.search(haystack):
+        score += 6
+    if _STALE_RESULT_HINT.search(haystack):
+        score -= 8
+    path = urlsplit(result.url).path
+    if _DIRECT_PATH_HINT.search(path):
+        score += 4
+    host = urlsplit(result.url).netloc.lower()
+    if host.endswith(".gov") or host.endswith(".edu"):
+        score += 3
+
+    years = {int(value) for value in re.findall(r"\b20\d{2}\b", haystack)}
+    if today.year in years or today.year + 1 in years:
+        score += 3
+    if years and max(years) < today.year:
+        score -= 5
+    return score, -result.rank
+
+
+def _round_robin(batches: list[list[SearchResult]]):
+    """Yield one result per query per pass, preserving each batch's order."""
+    depth = 0
+    while True:
+        emitted = False
+        for batch in batches:
+            if depth < len(batch):
+                emitted = True
+                yield batch[depth]
+        if not emitted:
+            return
+        depth += 1
+
+
+def stale_candidates_path(path: Path) -> Path:
+    """Return the operator archive beside an active candidate file."""
+    path = Path(path)
+    return path.with_name(f"{path.stem}.stale{path.suffix}")
+
+
+def _write_stale_archive(records: list[ScrapedOpportunity], path: Path) -> None:
+    """Append or refresh stale records without making them an active review queue."""
+    existing: dict[str, dict[str, Any]] = {}
+    if path.exists():
+        existing = {
+            row.get("scrape_id", ""): row
+            for row in json.loads(path.read_text())
+            if row.get("scrape_id")
+        }
+    for record in records:
+        row = json.loads(record.model_dump_json())
+        previous = existing.get(record.scrape_id)
+        if previous:
+            row["review_status"] = previous.get("review_status", row["review_status"])
+            row["founder_reviews"] = previous.get("founder_reviews", [])
+        existing[record.scrape_id] = row
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(list(existing.values()), indent=2) + "\n")
 
 
 def host_matches_any(url: str, domains: tuple[str, ...]) -> bool:

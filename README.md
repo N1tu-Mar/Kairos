@@ -249,6 +249,11 @@ uv run python scripts/run_web_scraper.py --lane university
 uv run python scripts/run_web_scraper.py --lane general
 uv run python scripts/run_web_scraper.py --lane both --out-dir data
 
+# Brave requests fresh English US results, spreads the page budget across all
+# queries, and favors open application pages over archives and winner lists.
+# Explicit past-deadline pages are retained in a sibling *.stale.json operator
+# archive with their raw evidence, not placed in the active review queue.
+
 # opt-in paid fallback: local robots-aware HTTP first, then Firecrawl only for
 # JavaScript shells or unusably thin HTTP 200 pages. Five paid pages maximum by
 # default across both lanes; override the cap deliberately when needed.

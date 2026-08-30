@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from agent.scraping.agent import SearchResult
+from agent.scraping.agent import GENERAL_QUERIES, UNIVERSITY_QUERIES, SearchResult
 from agent.scraping.firecrawl import FirecrawlResult
 from agent.scraping.models import FetchRecord, content_hash
 from scripts import run_web_scraper
@@ -152,7 +152,7 @@ def test_both_lanes_share_search_client_and_write_separate_outputs(tmp_path):
     university_path = tmp_path / "out" / "opportunities.university-web.candidates.json"
 
     assert exit_code == 0
-    assert len(search.queries) == 2
+    assert search.queries == [*UNIVERSITY_QUERIES, *GENERAL_QUERIES]
     assert general_path.exists()
     assert university_path.exists()
 

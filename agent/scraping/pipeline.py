@@ -395,6 +395,7 @@ def write_candidates(
     run: ScrapeRun,
     path: Path = CANDIDATES_PATH,
     run_log: Path = RUN_LOG_PATH,
+    remove: list[ScrapedOpportunity] | None = None,
 ) -> Path:
     """Write the review file. Never `opportunities.seed.json`.
 
@@ -409,7 +410,15 @@ def write_candidates(
         for row in json.loads(path.read_text()):
             existing[row.get("scrape_id", "")] = row
 
-    payload = []
+    remove_ids = {record.scrape_id for record in remove or []}
+    remove_urls = {record.source_url for record in remove or []}
+    payload_by_id = {
+        scrape_id: row
+        for scrape_id, row in existing.items()
+        if scrape_id
+        and scrape_id not in remove_ids
+        and row.get("source_url") not in remove_urls
+    }
     for record in records:
         row = json.loads(record.model_dump_json())
         previous = existing.get(record.scrape_id)
@@ -417,7 +426,9 @@ def write_candidates(
             # Human decisions are never overwritten by a scraper.
             row["review_status"] = previous.get("review_status", row["review_status"])
             row["founder_reviews"] = previous.get("founder_reviews", [])
-        payload.append(row)
+        payload_by_id[record.scrape_id] = row
+
+    payload = list(payload_by_id.values())
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n")
