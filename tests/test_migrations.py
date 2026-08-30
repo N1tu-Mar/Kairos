@@ -10,6 +10,7 @@ matters most: an upgrade never destroys rows it did not create.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -48,7 +49,7 @@ def alembic(*args: str, db_url: str) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         env={
-            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            **os.environ,
             "KAIROS_DB_URL": db_url,
             "HOME": str(REPO_ROOT),
         },
