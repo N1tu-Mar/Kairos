@@ -28,6 +28,8 @@ export type InboxKind =
   | "DEADLINE_URGENT"
   | "COLD_START";
 export type InboxState = "new" | "opened" | "dismissed" | "applied";
+export type EligibilityAnswerValue = "yes" | "no" | "not_sure";
+export type EligibilityQuestionStatus = "pending" | "answered";
 
 export const FIELD_STATUSES: FieldStatus[] = [
   "KNOWN",
@@ -56,6 +58,11 @@ export const INBOX_STATES: InboxState[] = [
   "opened",
   "dismissed",
   "applied",
+];
+export const ELIGIBILITY_ANSWERS: EligibilityAnswerValue[] = [
+  "yes",
+  "no",
+  "not_sure",
 ];
 
 // ── Opportunity (agent/models.py) ────────────────────────────────────────────
@@ -105,6 +112,25 @@ export interface Opportunity {
   verified: boolean;
   verified_at: string | null;
   retrieved_at: string;
+}
+
+export interface EligibilityQuestion {
+  question_id: string;
+  founder_id: string;
+  opportunity_id: string;
+  opportunity_title: string;
+  source_url: string;
+  deadline: string | null;
+  check: string;
+  question: string;
+  requirement: string;
+  source_doc: string;
+  status: EligibilityQuestionStatus;
+  answer: EligibilityAnswerValue | null;
+  answer_updated_at: string | null;
+  reused_from_question_id: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // Scraper candidates
@@ -202,6 +228,7 @@ export interface FounderProfile {
   has_faculty_advisor: boolean;
   max_application_hours: number;
   geographies: string[];
+  reuse_eligibility_answers: boolean;
   knowledge_base: KnowledgeChunk[];
 }
 

@@ -314,6 +314,7 @@ function toProfile(
       existing?.max_application_hours ?? 8,
     ),
     geographies: pick("geographies", existing?.geographies ?? []),
+    reuse_eligibility_answers: existing?.reuse_eligibility_answers ?? false,
     knowledge_base: knowledge,
   };
 }

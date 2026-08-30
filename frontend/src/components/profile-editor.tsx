@@ -37,6 +37,7 @@ interface EditableFields {
   has_faculty_advisor: boolean;
   max_application_hours: string;
   geographies: string;
+  reuse_eligibility_answers: boolean;
 }
 
 /**
@@ -67,6 +68,7 @@ function fromProfile(profile: FounderProfile): EditableFields {
     has_faculty_advisor: profile.has_faculty_advisor,
     max_application_hours: String(profile.max_application_hours),
     geographies: profile.geographies.join(", "),
+    reuse_eligibility_answers: profile.reuse_eligibility_answers,
   };
 }
 
@@ -201,6 +203,7 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
         .split(",")
         .map((geo) => geo.trim())
         .filter(Boolean),
+      reuse_eligibility_answers: fields.reuse_eligibility_answers,
     };
 
     try {
@@ -412,6 +415,20 @@ export function ProfileEditor({ profile }: { profile: FounderProfile }) {
             Faculty advisor
             <span className="block text-xs text-ink-muted">
               Some funders require a faculty PI.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 text-sm text-ink-soft sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1 accent-[var(--accent)]"
+            checked={fields.reuse_eligibility_answers}
+            onChange={(e) => set("reuse_eligibility_answers", e.target.checked)}
+          />
+          <span>
+            Reuse answers across similar eligibility requirements
+            <span className="block text-xs text-ink-muted">
+              Off keeps reuse to exact requirement matches.
             </span>
           </span>
         </label>

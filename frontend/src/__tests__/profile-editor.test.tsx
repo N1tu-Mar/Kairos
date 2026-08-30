@@ -54,6 +54,32 @@ describe("ProfileEditor", () => {
     expect(sent.traction).toEqual(profile.traction);
     expect(sent.knowledge_base).toEqual(profile.knowledge_base);
     expect(sent.funding_range).toEqual(profile.funding_range);
+    expect(sent.reuse_eligibility_answers).toBe(false);
+  });
+
+  it("saves the eligibility answer reuse preference with the whole profile", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify(founderProfile()), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ProfileEditor profile={founderProfile()} />);
+    await user.click(screen.getByRole("button", { name: /edit these facts/i }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /reuse answers across similar/i }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /save the whole profile/i }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [, options] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    const sent = JSON.parse(String(options.body)) as FounderProfile;
+    expect(sent.reuse_eligibility_answers).toBe(true);
   });
 
   it("refuses a funding floor above the ceiling before anything is sent", async () => {

@@ -109,6 +109,23 @@ describe("proxy routes never name the backend", () => {
     assertNoLeak(await bodyOf(response));
   });
 
+  it("PUT eligibility answer keeps the host out of an unreachable-backend error", async () => {
+    backendUnreachable();
+    const { PUT } = await import(
+      "@/app/api/eligibility-questions/[questionId]/answer/route"
+    );
+
+    const response = await PUT(
+      new Request("http://localhost:3000/api/eligibility-questions/eq_1/answer", {
+        method: "PUT",
+        body: JSON.stringify({ answer: "yes" }),
+      }),
+      { params: Promise.resolve({ questionId: "eq_1" }) },
+    );
+
+    assertNoLeak(await bodyOf(response));
+  });
+
   it("POST /api/runs keeps the host out of an unreachable-backend error", async () => {
     backendUnreachable();
     const { POST } = await import("@/app/api/runs/route");

@@ -1,10 +1,15 @@
 import { ApiErrorState } from "@/components/api-error-state";
 import { InboxFilter, parseInboxView } from "@/components/inbox-filter";
 import { InboxItemCard } from "@/components/inbox-item-card";
+import { EligibilityQuestionCard } from "@/components/eligibility-question-card";
 import { Page, PageHeader } from "@/components/primitives";
 import { EmptyState } from "@/components/states";
-import { getInbox, getOpportunities } from "@/lib/api";
-import type { InboxItem, Opportunity } from "@/lib/types";
+import {
+  getInbox,
+  getOpportunities,
+  listEligibilityQuestions,
+} from "@/lib/api";
+import type { EligibilityQuestion, InboxItem, Opportunity } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +21,10 @@ const EMPTY_COPY: Record<string, { title: string; body: string }> = {
   passive: {
     title: "Nothing in the also-found list",
     body: "This list holds opportunities that cleared judgment but fell past the per-run surfacing cap. There are none right now.",
+  },
+  needs_you: {
+    title: "No questions need your answer",
+    body: "Kairos has no current opportunity waiting on a founder-only eligibility fact.",
   },
   all: {
     title: "Your inbox is empty",
@@ -38,12 +47,16 @@ export default async function InboxPage({
   const view = parseInboxView(params.view);
 
   let items: InboxItem[] = [];
+  let questions: EligibilityQuestion[] = [];
   let error: unknown = null;
   // Structured rows for the cards. A row that fails to resolve just falls
   // back to the composed headline — it never fails the page.
   let opportunities = new Map<string, Opportunity>();
   try {
-    items = await getInbox();
+    [items, questions] = await Promise.all([
+      getInbox(),
+      listEligibilityQuestions("pending"),
+    ]);
     opportunities = await getOpportunities(items.map((i) => i.opportunity_id));
   } catch (caught) {
     error = caught;
@@ -74,11 +87,27 @@ export default async function InboxPage({
         <>
           <InboxFilter
             view={view}
-            counts={{ active: active.length, passive: passive.length, all: items.length }}
+            counts={{
+              active: active.length,
+              needs_you: questions.length,
+              passive: passive.length,
+              all: items.length,
+            }}
           />
 
           <div className="mt-6 space-y-4">
-            {shown.length === 0 ? (
+            {view === "needs_you" ? (
+              questions.length === 0 ? (
+                <EmptyState title={empty.title}>{empty.body}</EmptyState>
+              ) : (
+                questions.map((question) => (
+                  <EligibilityQuestionCard
+                    key={question.question_id}
+                    question={question}
+                  />
+                ))
+              )
+            ) : shown.length === 0 ? (
               <EmptyState title={empty.title}>{empty.body}</EmptyState>
             ) : (
               shown.map((item) => (
