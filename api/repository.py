@@ -249,6 +249,9 @@ class Repository(Protocol):
     def answer_eligibility_question(
         self, question_id: str, answer: EligibilityAnswerValue
     ) -> EligibilityQuestion | None: ...
+    def mark_eligibility_reassessed(
+        self, founder_id: str, opportunity_id: str, *, before: datetime
+    ) -> int: ...
 
     # Inbox: `has_surfaced` + the unique index on `save_inbox_item` are
     # the two halves of never notifying the same founder twice.
@@ -588,12 +591,41 @@ class SqliteRepository:
             question.answer = answer
             question.answer_updated_at = _now()
             question.updated_at = question.answer_updated_at
+            question.reassessment_pending = answer in {"yes", "no"}
             question.align_status_with_answer()
             row.status = question.status
             row.payload = redact_json(question.model_dump_json())
             session.add(row)
             session.commit()
             return question
+
+    def mark_eligibility_reassessed(
+        self, founder_id: str, opportunity_id: str, *, before: datetime
+    ) -> int:
+        """Clear answers consumed by a run, without racing a newer edit."""
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(EligibilityQuestionRow).where(
+                    EligibilityQuestionRow.founder_id == founder_id,
+                    EligibilityQuestionRow.opportunity_id == opportunity_id,
+                )
+            ).all()
+            changed = 0
+            for row in rows:
+                question = EligibilityQuestion.model_validate_json(row.payload)
+                if (
+                    question.reassessment_pending
+                    and question.answer_updated_at is not None
+                    and question.answer_updated_at <= before
+                ):
+                    question.reassessment_pending = False
+                    question.updated_at = _now()
+                    row.payload = redact_json(question.model_dump_json())
+                    session.add(row)
+                    changed += 1
+            if changed:
+                session.commit()
+            return changed
 
     # -- inbox --
 

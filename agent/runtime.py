@@ -19,6 +19,7 @@ from agent.models import (
     ApplicationForm,
     Assessment,
     Draft,
+    EligibilityQuestion,
     EligibilityResult,
     FounderProfile,
     InboxItem,
@@ -85,6 +86,8 @@ class RunContext:
     assessments: dict[str, Assessment] = field(default_factory=dict)
     drafts: dict[str, Draft] = field(default_factory=dict)
     forms: dict[str, ApplicationForm] = field(default_factory=dict)
+    eligibility_questions: dict[str, list[EligibilityQuestion]] = field(default_factory=dict)
+    applied_eligibility_answers: set[str] = field(default_factory=set)
 
     #: Held in memory until the run completes. A halted run surfaces nothing,
     #: so nothing may be persisted before we know the run finished.

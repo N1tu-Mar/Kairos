@@ -263,6 +263,8 @@ class EligibilityQuestion(Mutable):
     answer: EligibilityAnswerValue | None = None
     answer_updated_at: datetime | None = None
     reused_from_question_id: str | None = Field(default=None, max_length=200)
+    #: A definite answer has been saved but no run has consumed it yet.
+    reassessment_pending: bool = False
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
 
@@ -706,9 +708,11 @@ class RunJob(Mutable):
     founder_id: str
     #: Scoped per founder before storage; None for callers that sent none.
     idempotency_key: str | None = None
-    source: Literal["manual", "scheduled", "unknown"] = "unknown"
+    source: Literal["manual", "scheduled", "eligibility_answer", "unknown"] = "unknown"
     use_demo_catalog: bool = False
     include_grants_gov: bool = True
+    #: Set only for a one-opportunity answer-triggered reassessment.
+    target_opportunity_id: str | None = None
 
     status: JobStatus = "queued"
     created_at: datetime = Field(default_factory=_now)

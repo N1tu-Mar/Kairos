@@ -129,6 +129,7 @@ export interface EligibilityQuestion {
   answer: EligibilityAnswerValue | null;
   answer_updated_at: string | null;
   reused_from_question_id: string | null;
+  reassessment_pending: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -404,9 +405,10 @@ export interface RunJob {
   job_id: string;
   founder_id: string;
   idempotency_key: string | null;
-  source: "manual" | "scheduled" | "unknown";
+  source: "manual" | "scheduled" | "eligibility_answer" | "unknown";
   use_demo_catalog: boolean;
   include_grants_gov: boolean;
+  target_opportunity_id: string | null;
 
   status: JobStatus;
   created_at: string;

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+
 from fastapi.testclient import TestClient
 
 from agent.models import EligibilityQuestion, FounderProfile
 from api.main import app
 from api.repository import SqliteRepository
-from tests.factories import profile
+from tests.factories import opportunity, profile
 
 
 def question(**overrides) -> EligibilityQuestion:
@@ -57,6 +59,7 @@ def test_repository_filters_and_edits_questions(tmp_path):
     assert resolved is not None
     assert resolved.status == "answered"
     assert resolved.answer == "no"
+    assert resolved.reassessment_pending is True
 
 
 def test_repository_scopes_question_lists_by_founder(tmp_path):
@@ -69,6 +72,33 @@ def test_repository_scopes_question_lists_by_founder(tmp_path):
     assert [item.question_id for item in repo.list_eligibility_questions(
         "founder_demo", "all"
     )] == ["eq_demo_1"]
+
+
+def test_pending_api_hides_questions_after_the_deadline(monkeypatch, tmp_path):
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/api.db")
+    from agent import config
+
+    config.settings.cache_clear()
+    with TestClient(app) as client:
+        app.state.repo.save_eligibility_question(
+            question(
+                question_id="expired",
+                deadline=date.today() - timedelta(days=1),
+            )
+        )
+        app.state.repo.save_eligibility_question(
+            question(
+                question_id="current",
+                deadline=date.today() + timedelta(days=1),
+            )
+        )
+
+        body = client.get(
+            "/founders/founder_demo/eligibility-questions?status=pending"
+        ).json()
+
+    config.settings.cache_clear()
+    assert [item["question_id"] for item in body] == ["current"]
 
 
 def test_question_api_lists_and_edits_answers(monkeypatch, tmp_path):
@@ -117,3 +147,95 @@ def test_question_api_rejects_invalid_answers_and_wrong_founders(monkeypatch, tm
     config.settings.cache_clear()
     assert invalid.status_code == 422
     assert wrong_founder.status_code == 404
+
+
+class CapturingExecutor:
+    def __init__(self):
+        self.jobs = []
+
+    def submit(self, job, lease):
+        self.jobs.append(job)
+        lease.release()
+
+
+def test_definite_answer_queues_one_persisted_opportunity(monkeypatch, tmp_path):
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/api.db")
+    from agent import config
+
+    config.settings.cache_clear()
+    with TestClient(app) as client:
+        app.state.repo.save_opportunity(opportunity(id="opp_demo_1"))
+        app.state.repo.save_eligibility_question(question())
+        executor = CapturingExecutor()
+        app.state.executor = executor
+
+        response = client.put(
+            "/founders/founder_demo/eligibility-questions/eq_demo_1/answer",
+            json={"answer": "yes"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["x-kairos-reassessment"] == "queued"
+        assert response.headers["x-kairos-reassessment-job"]
+        assert len(executor.jobs) == 1
+        job = executor.jobs[0]
+        assert job.source == "eligibility_answer"
+        assert job.target_opportunity_id == "opp_demo_1"
+        assert app.state.repo.get_job(job.job_id) is not None
+    config.settings.cache_clear()
+
+
+def test_busy_run_defers_without_losing_the_answer(monkeypatch, tmp_path):
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/api.db")
+    from agent import config
+    from api import jobs as job_module
+
+    config.settings.cache_clear()
+    with TestClient(app) as client:
+        app.state.repo.save_opportunity(opportunity(id="opp_demo_1"))
+        app.state.repo.save_eligibility_question(question())
+        held = app.state.run_lock.acquire(
+            founder_id="founder_demo",
+            run_kind=job_module.RUN_KIND,
+        )
+        assert held.acquired
+        try:
+            response = client.put(
+                "/founders/founder_demo/eligibility-questions/eq_demo_1/answer",
+                json={"answer": "no"},
+            )
+        finally:
+            held.release()
+
+        stored = app.state.repo.get_eligibility_question("eq_demo_1")
+        assert response.status_code == 200
+        assert response.headers["x-kairos-reassessment"] == "deferred"
+        assert stored is not None
+        assert stored.answer == "no"
+        assert stored.reassessment_pending is True
+        assert app.state.repo.list_jobs("founder_demo") == []
+    config.settings.cache_clear()
+
+
+def test_not_sure_saves_without_reassessment(monkeypatch, tmp_path):
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/api.db")
+    from agent import config
+
+    config.settings.cache_clear()
+    with TestClient(app) as client:
+        app.state.repo.save_opportunity(opportunity(id="opp_demo_1"))
+        app.state.repo.save_eligibility_question(question())
+
+        response = client.put(
+            "/founders/founder_demo/eligibility-questions/eq_demo_1/answer",
+            json={"answer": "not_sure"},
+        )
+
+        stored = app.state.repo.get_eligibility_question("eq_demo_1")
+        assert response.status_code == 200
+        assert response.headers["x-kairos-reassessment"] == "not-requested"
+        assert stored is not None
+        assert stored.status == "pending"
+        assert stored.reassessment_pending is False
+        assert app.state.repo.list_jobs("founder_demo") == []
+    config.settings.cache_clear()

@@ -145,6 +145,12 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
         # 2. Deterministic gate. Cheap, and it decides most of the outcome.
         tools["filter_eligibility"]()
 
+        # Source-stated rules the profile cannot answer stay three-valued.
+        # Definite founder answers may resolve them before model judgment.
+        from agent.eligibility_clarifications import resolve_founder_answers
+
+        await resolve_founder_answers(ctx)
+
         # 3. Judge the survivors, most valuable first, until the cap.
         survivors = sorted(
             (ctx.retrieved[oid] for oid in ctx.eligibility if ctx.eligibility[oid].verdict != "INELIGIBLE"),
@@ -172,6 +178,10 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
                 break
             await tools["assess_fit"](opportunity.id)
             assessed += 1
+
+        from agent.eligibility_clarifications import persist_plausible_questions
+
+        persist_plausible_questions(ctx)
 
         # 4. Apply the escalation policy, then rank what survives it.
         candidates = []
@@ -282,6 +292,16 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
             report.surfaced += 1
     for draft in ctx.drafts.values():
         ctx.repo.save_draft(draft)
+
+    if not report.halted_reason:
+        for opportunity_id in ctx.applied_eligibility_answers:
+            mark_reassessed = getattr(ctx.repo, "mark_eligibility_reassessed", None)
+            if mark_reassessed is not None:
+                mark_reassessed(
+                    ctx.profile.founder_id,
+                    opportunity_id,
+                    before=report.started_at,
+                )
 
     report.usage = ctx.budget.usage
     report.finished_at = datetime.now(timezone.utc)
