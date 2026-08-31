@@ -18,8 +18,10 @@ successful injection cannot change a deterministic Python comparison.
 from __future__ import annotations
 
 import html
+import json
 import re
 import unicodedata
+from typing import Any
 
 #: Rough chars-per-token. Deliberately conservative — this bounds a wallet,
 #: it is not an accounting figure. Real token counts come from Bedrock usage.
@@ -167,6 +169,21 @@ def redact(text: str) -> str:
     for replacement, pattern in _REDACTIONS:
         text = pattern.sub(replacement, text)
     return text
+
+
+def redact_json(payload: str) -> str:
+    """Redact string values in JSON without interpreting numbers as PII."""
+
+    def visit(value: Any) -> Any:
+        if isinstance(value, str):
+            return redact(value)
+        if isinstance(value, list):
+            return [visit(item) for item in value]
+        if isinstance(value, dict):
+            return {key: visit(item) for key, item in value.items()}
+        return value
+
+    return json.dumps(visit(json.loads(payload)), separators=(",", ":"))
 
 
 #: Credentials and filesystem layout. Separate from `_REDACTIONS` because

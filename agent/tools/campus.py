@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from agent.models import (
@@ -47,6 +47,7 @@ from agent.models import (
     SourceFailure,
     SourceName,
 )
+from agent.scraping.agent import GENERAL_LANE, UNIVERSITY_LANE, ScraperLane
 from agent.tools.discovery import SourceError
 from agent.tools.extraction import (
     EligibilityClaim,
@@ -58,6 +59,8 @@ log = logging.getLogger("kairos.discovery.campus")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CAMPUS_CANDIDATES = REPO_ROOT / "data" / "opportunities.rutgers.candidates.json"
+REVIEWED_WEB_MAX_AGE_DAYS = 30
+REVIEWED_WEB_LANES: tuple[ScraperLane, ...] = (UNIVERSITY_LANE, GENERAL_LANE)
 
 #: The scraper's vocabulary is the page's; the runtime's is the profile's.
 #: A term with no mapping is dropped rather than guessed — "alumni" is not a
@@ -157,7 +160,7 @@ def _source_text(row: dict) -> str:
     )
 
 
-def to_opportunity(row: dict) -> Opportunity:
+def to_opportunity(row: dict, *, id_prefix: str = "campus") -> Opportunity:
     """Map one ACCEPTED scraped row onto the runtime contract."""
     source_url = row.get("source_url", "")
     rules, verified = extract_and_verify(
@@ -183,7 +186,7 @@ def to_opportunity(row: dict) -> Opportunity:
 
     scraped_at = row.get("scraped_at")
     return Opportunity(
-        id=f"campus:{row.get('scrape_id', '')}",
+        id=f"{id_prefix}:{row.get('scrape_id', '')}",
         title=row.get("title", ""),
         funder=row.get("organization", ""),
         source="browser",
@@ -223,6 +226,10 @@ class CampusDiscoverySource:
         allow_live_scrape: bool = False,
         targets=None,
         scrape_fn=None,
+        max_verification_age_days: int | None = None,
+        as_of: datetime | None = None,
+        label: str = "campus review",
+        id_prefix: str = "campus",
     ) -> None:
         """Two independent gates. `enabled` decides whether this source yields anything at all; `allow_live_scrape` decides whether `fetch` may also refresh the review file. A job sets the first and never the second."""
         self.path = Path(path)
@@ -232,7 +239,12 @@ class CampusDiscoverySource:
         #: Injected in tests. Production passes None and the real pipeline is
         #: imported lazily, so `agent.scraping`'s dependencies stay optional.
         self.scrape_fn = scrape_fn
+        self.max_verification_age_days = max_verification_age_days
+        self.as_of = as_of
+        self.label = label
+        self.id_prefix = id_prefix
         self.partial_failures: list[SourceFailure] = []
+        self.run_notes: list[str] = []
 
     # ── the optional live sweep ──────────────────────────────────────────
 
@@ -289,6 +301,7 @@ class CampusDiscoverySource:
         partial failure rather than surfaced without a page to open.
         """
         self.partial_failures = []
+        self.run_notes = []
 
         if not self.enabled:
             log.info("campus_source_disabled", extra={"flag": "KAIROS_ENABLE_BROWSER"})
@@ -306,9 +319,27 @@ class CampusDiscoverySource:
 
         opportunities: list[Opportunity] = []
         held_back = 0
+        stale_accepted = 0
+        cutoff = None
+        if self.max_verification_age_days is not None:
+            cutoff = (self.as_of or datetime.now(timezone.utc)) - timedelta(
+                days=self.max_verification_age_days
+            )
         for row in rows:
             if row.get("review_status") != "ACCEPTED":
                 held_back += 1
+                continue
+            scraped_at = row.get("scraped_at")
+            verified_at = None
+            if isinstance(scraped_at, str) and scraped_at:
+                try:
+                    verified_at = datetime.fromisoformat(scraped_at.replace("Z", "+00:00"))
+                    if verified_at.tzinfo is None:
+                        verified_at = verified_at.replace(tzinfo=timezone.utc)
+                except ValueError:
+                    verified_at = None
+            if cutoff is not None and (verified_at is None or verified_at < cutoff):
+                stale_accepted += 1
                 continue
             if not row.get("source_url"):
                 # An accepted row with no page is a curation mistake, not a
@@ -323,10 +354,38 @@ class CampusDiscoverySource:
                     )
                 )
                 continue
-            opportunities.append(to_opportunity(row))
+            opportunities.append(to_opportunity(row, id_prefix=self.id_prefix))
+
+        if stale_accepted:
+            self.run_notes.append(
+                f"{self.label}: held back {stale_accepted} accepted candidate(s) "
+                f"not verified within {self.max_verification_age_days} days"
+            )
 
         log.info(
             "campus_source_loaded",
-            extra={"accepted": len(opportunities), "awaiting_review": held_back},
+            extra={
+                "accepted": len(opportunities),
+                "awaiting_review": held_back,
+                "stale_accepted": stale_accepted,
+            },
         )
         return opportunities
+
+
+def reviewed_web_sources(
+    lanes: tuple[ScraperLane, ...] | None = None,
+) -> list[CampusDiscoverySource]:
+    """Runtime sources for human-accepted general and university search rows."""
+    selected = lanes if lanes is not None else REVIEWED_WEB_LANES
+    return [
+        CampusDiscoverySource(
+            lane.output_path,
+            enabled=lane.output_path.exists(),
+            allow_live_scrape=False,
+            max_verification_age_days=REVIEWED_WEB_MAX_AGE_DAYS,
+            label=f"{lane.label} review",
+            id_prefix=f"{lane.name}_web",
+        )
+        for lane in selected
+    ]

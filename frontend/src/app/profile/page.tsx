@@ -8,10 +8,11 @@ import {
   Section,
 } from "@/components/primitives";
 import { ProfileEditor } from "@/components/profile-editor";
+import { EligibilityQuestionCard } from "@/components/eligibility-question-card";
 import { EmptyState, Note } from "@/components/states";
-import { getProfileOrNull } from "@/lib/api";
+import { getProfileOrNull, listEligibilityQuestions } from "@/lib/api";
 import { formatInt, isDemo, titleCase } from "@/lib/format";
-import type { FounderProfile } from "@/lib/types";
+import type { EligibilityQuestion, FounderProfile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,13 @@ export const dynamic = "force-dynamic";
  */
 export default async function ProfilePage() {
   let profile: FounderProfile | null = null;
+  let eligibilityAnswers: EligibilityQuestion[] = [];
   let error: unknown = null;
   try {
-    profile = await getProfileOrNull();
+    [profile, eligibilityAnswers] = await Promise.all([
+      getProfileOrNull(),
+      listEligibilityQuestions("answered"),
+    ]);
   } catch (caught) {
     error = caught;
   }
@@ -136,12 +141,34 @@ export default async function ProfilePage() {
                 <span className="text-ink-muted">None recorded</span>
               )}
             </DefinitionRow>
+            <DefinitionRow term="Answer reuse">
+              {profile.reuse_eligibility_answers
+                ? "Similar requirements enabled"
+                : "Exact requirements only"}
+            </DefinitionRow>
           </dl>
         </Card>
         <div className="mt-4">
           <ProfileEditor profile={profile} />
         </div>
       </Section>
+
+      {eligibilityAnswers.length > 0 ? (
+        <Section
+          title="Eligibility answers"
+          description="Definite answers Kairos can apply again. You can correct any answer here."
+        >
+          <div className="space-y-3">
+            {eligibilityAnswers.map((question) => (
+              <EligibilityQuestionCard
+                key={question.question_id}
+                question={question}
+                compact
+              />
+            ))}
+          </div>
+        </Section>
+      ) : null}
 
       {tractionKeys.length > 0 ? (
         <Section

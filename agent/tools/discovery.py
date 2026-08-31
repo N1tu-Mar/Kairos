@@ -42,8 +42,9 @@ Note what is deliberately *not* mapped: `applicantEligibilityDesc` is free
 text, so it becomes an `ExtractedCriterion` (verbatim, quotable) and never an
 `EligibilityRules` field. Regexing a degree requirement out of federal prose
 and feeding it to the deterministic filter would put a parser's guess where a
-structured fact belongs. Grants.gov rows therefore arrive with mostly-UNKNOWN
-eligibility, which is the honest answer.
+structured fact belongs. The structured `applicantTypes` taxonomy is mapped
+only when every listed category has an exact representation in our entity
+vocabulary; otherwise it remains UNKNOWN rather than narrowing an OR-list.
 """
 
 from __future__ import annotations
@@ -58,6 +59,7 @@ import httpx
 
 from agent.models import (
     EligibilityRules,
+    EntityType,
     ExtractedCriterion,
     Opportunity,
     SourceFailure,
@@ -68,6 +70,47 @@ from agent.sanitize import ingest, safe_detail
 log = logging.getLogger("kairos.discovery")
 
 GRANTS_GOV_DETAIL_URL = "https://www.grants.gov/search-results-detail/{id}"
+
+_GRANTS_APPLICANT_ENTITY_TYPES: dict[str, tuple[EntityType, ...]] = {
+    "12": ("nonprofit",),
+    "13": ("nonprofit",),
+    "21": ("none",),
+    "22": ("llc", "c_corp", "s_corp"),
+    "23": ("llc", "c_corp", "s_corp"),
+}
+
+
+def _grants_entity_types(applicant_types: list[dict]) -> list[EntityType] | None:
+    """Map an exact Grants.gov OR-list without inventing missing alternatives."""
+    if not applicant_types:
+        return None
+    mapped: list[EntityType] = []
+    for applicant_type in applicant_types:
+        entity_types = _GRANTS_APPLICANT_ENTITY_TYPES.get(str(applicant_type.get("id", "")))
+        if entity_types is None:
+            return None
+        for entity_type in entity_types:
+            if entity_type not in mapped:
+                mapped.append(entity_type)
+    return mapped or None
+
+
+def _known_eligibility_count(opportunity: Opportunity) -> int:
+    return sum(
+        value is not None
+        for value in opportunity.eligibility.model_dump().values()
+    )
+
+
+def _federal_quality_key(opportunity: Opportunity) -> tuple:
+    """Order federal rows by decision-useful evidence, with award last."""
+    return (
+        _known_eligibility_count(opportunity),
+        bool(opportunity.criteria),
+        min(len(opportunity.criteria), 5),
+        opportunity.deadline is not None,
+        opportunity.best_award or 0,
+    )
 
 
 class SourceError(RuntimeError):
@@ -322,6 +365,7 @@ class GrantsGovSource:
         hydrate: bool = True,
         hydrate_concurrency: int = 4,
         skip_past_deadlines: bool = True,
+        max_low_information: int = 10,
     ) -> None:
         """Every bound is clamped to at least 1 here rather than validated, so a caller passing 0 or a negative gets the smallest sane value instead of an infinite or empty loop."""
         self.client = client
@@ -331,6 +375,7 @@ class GrantsGovSource:
         self.hydrate = hydrate
         self.hydrate_concurrency = max(1, hydrate_concurrency)
         self.skip_past_deadlines = skip_past_deadlines
+        self.max_low_information = max(0, max_low_information)
         #: Per-page / per-detail failures from the most recent fetch. Read by
         #: `discover_opportunities` after each fetch; a dead page inside an
         #: otherwise-working source must still reach the run report.
@@ -454,10 +499,18 @@ class GrantsGovSource:
                     else:
                         details[opp_id] = detail
 
-        return [
+        opportunities = [
             self.to_opportunity(hit, details.get(opp_id, {}))
             for opp_id, hit in selected.items()
         ]
+        opportunities.sort(key=_federal_quality_key, reverse=True)
+
+        informative = [o for o in opportunities if _known_eligibility_count(o) > 0]
+        low_information = [o for o in opportunities if _known_eligibility_count(o) == 0]
+        omitted = max(0, len(low_information) - self.max_low_information)
+        if omitted:
+            log.info("grants_gov_low_information_capped", extra={"omitted": omitted})
+        return informative + low_information[: self.max_low_information]
 
     @staticmethod
     def to_opportunity(hit: dict, detail: dict | None = None) -> Opportunity:
@@ -477,7 +530,8 @@ class GrantsGovSource:
                     source_doc=f"grants.gov/{hit['id']}#applicantEligibilityDesc",
                 )
             )
-        for applicant_type in synopsis.get("applicantTypes") or []:
+        applicant_types = synopsis.get("applicantTypes") or []
+        for applicant_type in applicant_types:
             criteria.append(
                 ExtractedCriterion(
                     text=str(applicant_type.get("description", "")),
@@ -499,9 +553,9 @@ class GrantsGovSource:
             award_max=_parse_money(synopsis.get("awardCeiling")),
             deadline=deadline,
             rolling=False,
-            # Every structured rule stays None: the source states eligibility
-            # in prose, and prose is not a structured fact.
-            eligibility=EligibilityRules(),
+            eligibility=EligibilityRules(
+                entity_types=_grants_entity_types(applicant_types)
+            ),
             criteria=criteria,
             description_excerpt=description,
             # Live API data is real by construction; `verified` is about

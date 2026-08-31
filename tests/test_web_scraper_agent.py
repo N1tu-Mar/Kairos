@@ -7,7 +7,8 @@ are skipped, and what provenance a candidate carries when it is written.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import json
+from datetime import date, datetime, timezone
 
 import httpx
 
@@ -23,6 +24,7 @@ from agent.scraping.agent import (
     host_matches_any,
     is_university_search_result,
     normalize_candidate_url,
+    stale_candidates_path,
     target_from_result,
 )
 from agent.scraping.models import FetchRecord
@@ -148,6 +150,16 @@ def test_discovery_filters_duplicates_social_hosts_and_weak_results():
                 good,
                 SearchResult(title="Student Startup Grant", url=good.url),
                 SearchResult(title="Video", url="https://youtube.com/watch?v=1", snippet="grant"),
+                SearchResult(
+                    title="Best Startup Grants",
+                    url="https://www.nerdwallet.com/business/loans/learn/startup-business-grants",
+                    snippet="A list of grant funding resources.",
+                ),
+                SearchResult(
+                    title="Free Grants and Programs for Small Business",
+                    url="https://www.uschamber.com/co/run/business-financing/small-business-grants-and-programs",
+                    snippet="A roundup of grant programs for founders.",
+                ),
                 SearchResult(title="Parking", url="https://example.edu/parking", snippet="maps"),
             ]
         ),
@@ -316,10 +328,14 @@ def test_brave_search_client_maps_web_results():
     class FakeHttp:
         """An httpx client returning one canned provider response."""
 
+        kwargs = None
+
         def get(self, *args, **kwargs):
+            self.kwargs = kwargs
             return response
 
-    client = BraveSearchClient("test-key", http_client=FakeHttp())
+    http = FakeHttp()
+    client = BraveSearchClient("test-key", http_client=http)
 
     results = client.search("student grant", count=5)
 
@@ -333,3 +349,114 @@ def test_brave_search_client_maps_web_results():
             source="brave",
         )
     ]
+    assert http.kwargs["params"]["freshness"] == "py"
+    assert http.kwargs["params"]["country"] == "US"
+    assert http.kwargs["params"]["search_lang"] == "en"
+
+
+def test_discovery_round_robins_queries_before_reusing_one_query():
+    class QuerySearch:
+        def __init__(self):
+            self.queries = []
+
+        def search(self, query: str, *, count: int):
+            self.queries.append(query)
+            prefix = query[-1]
+            return [
+                SearchResult(
+                    title=f"Grant {prefix}{index}",
+                    url=f"https://example.org/{prefix}{index}",
+                    snippet="Applications open for startup grant funding.",
+                    query=query,
+                    rank=index,
+                )
+                for index in range(1, 4)
+            ]
+
+    search = QuerySearch()
+    agent = WebScraperAgent(
+        search,
+        config=WebScraperConfig(queries=("query-a", "query-b"), max_pages=3),
+    )
+
+    targets, _ = agent.discover_targets()
+
+    assert search.queries == ["query-a", "query-b"]
+    assert [target.url for target in targets] == [
+        "https://example.org/a1",
+        "https://example.org/b1",
+        "https://example.org/a2",
+    ]
+
+
+def test_current_application_page_outranks_old_winner_page():
+    agent = WebScraperAgent(
+        FakeSearch(
+            [
+                SearchResult(
+                    title="2025 Grant Winners",
+                    url="https://example.org/archive/2025-winners",
+                    snippet="Past recipients of the startup grant.",
+                ),
+                SearchResult(
+                    title="2026 Startup Grant Applications Open",
+                    url="https://example.org/apply",
+                    snippet="Apply now for non-dilutive funding. Deadline October 1, 2026.",
+                ),
+            ]
+        ),
+        config=WebScraperConfig(
+            queries=("startup grant",), max_pages=1, today=date(2026, 8, 30)
+        ),
+    )
+
+    targets, _ = agent.discover_targets()
+
+    assert [target.url for target in targets] == ["https://example.org/apply"]
+
+
+def test_past_deadline_is_archived_outside_active_review_queue(tmp_path):
+    url = "https://example.org/old-grant"
+    page = """
+    Founder Grant
+    First prize $10,000.
+    Applications close March 1, 2026.
+    """
+    output = tmp_path / "opportunities.web.candidates.json"
+    output.write_text(
+        json.dumps(
+            [
+                {
+                    "scrape_id": "previous-version",
+                    "source_url": url,
+                    "review_status": "NEEDS_HUMAN_REVIEW",
+                    "founder_reviews": [],
+                }
+            ]
+        )
+    )
+    agent = WebScraperAgent(
+        FakeSearch(
+            [
+                SearchResult(
+                    title="Founder Grant",
+                    url=url,
+                    snippet="Startup grant application.",
+                )
+            ]
+        ),
+        config=WebScraperConfig(
+            queries=("founder grant",), raw_dir=tmp_path, today=date(2026, 8, 30)
+        ),
+        fetcher=FakeFetcher({url: page}),
+    )
+
+    written, records, run = agent.write(path=output, run_log=tmp_path / "runs.jsonl")
+
+    assert written == output
+    assert records == []
+    assert json.loads(output.read_text()) == []
+    archived = json.loads(stale_candidates_path(output).read_text())
+    assert len(archived) == 1
+    assert archived[0]["deadline_iso"] == "2026-03-01"
+    assert any("excluded 1 explicit past-deadline" in note for note in run.notes)

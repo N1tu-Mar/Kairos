@@ -52,11 +52,11 @@ in a week that already has a problem set due.
 | Measurement | A 20-program discovery-recall benchmark with hand-authored ground truth and 6 deliberate negatives: **85.7% retrieval recall, 83.3% eligibility coverage at 100% precision, 0 wrong deadlines.** Separate from the drafting golden set. |
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
 | Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
-| Decision loop | Deterministic eligibility filtering, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
-| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, runs, drafts and profile editing. |
-| Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. A run lease keyed by founder makes two overlapping runs impossible; a crash cannot leave one "running" forever. |
+| Decision loop | Deterministic eligibility filtering, founder clarification with exact answer reuse and opt-in capped semantic reuse, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
+| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. |
+| Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. Definite eligibility answers queue a one-opportunity reassessment. A run lease keyed by founder makes overlapping runs impossible; a busy lease safely defers the saved answer. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 843 Python tests pass with no expected-failures remaining; 55 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-27. The published golden-set result is fixture-based, not a live-model score, and nothing here has ever called Bedrock. |
+| Verification | 1,044 Python tests pass with no expected failures remaining; 111 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-30. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -249,6 +249,17 @@ uv run python scripts/run_web_scraper.py --lane university
 uv run python scripts/run_web_scraper.py --lane general
 uv run python scripts/run_web_scraper.py --lane both --out-dir data
 
+# Brave requests fresh English US results, spreads the page budget across all
+# queries, and favors open application pages over archives and winner lists.
+# Explicit past-deadline pages are retained in a sibling *.stale.json operator
+# archive with their raw evidence, not placed in the active review queue.
+
+# opt-in paid fallback: local robots-aware HTTP first, then Firecrawl only for
+# JavaScript shells or unusably thin HTTP 200 pages. Five paid pages maximum by
+# default across both lanes; override the cap deliberately when needed.
+uv run python scripts/run_web_scraper.py --lane both --out-dir data --firecrawl
+uv run python scripts/run_web_scraper.py --lane general --firecrawl --max-firecrawl-pages 2
+
 # the API
 uv run fastapi dev api/main.py
 
@@ -264,6 +275,13 @@ uv run fastapi dev api/main.py
 # See docs/runbooks.md §13.
 cd frontend && npm ci && npm run dev
 ```
+
+Firecrawl is backend-only and opt-in. Put `FIRECRAWL_API_KEY` in the root
+`.env`; the CLI exits before Brave search or output writes when the key is
+missing. `--firecrawl` cannot be combined with `--allow-js`. The fallback is
+shared and capped across both lanes, never bypasses robots or network-safety
+failures, and archives the exact extraction markdown, raw HTML, local fetch
+decision, and provider metadata under the configured raw-data directory.
 
 `KAIROS_API_TOKEN` in `.env` is empty by default and the API runs open on
 localhost, logging that fact at startup. Set it (both sides — backend `.env`

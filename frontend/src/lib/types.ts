@@ -28,6 +28,8 @@ export type InboxKind =
   | "DEADLINE_URGENT"
   | "COLD_START";
 export type InboxState = "new" | "opened" | "dismissed" | "applied";
+export type EligibilityAnswerValue = "yes" | "no" | "not_sure";
+export type EligibilityQuestionStatus = "pending" | "answered";
 
 export const FIELD_STATUSES: FieldStatus[] = [
   "KNOWN",
@@ -56,6 +58,11 @@ export const INBOX_STATES: InboxState[] = [
   "opened",
   "dismissed",
   "applied",
+];
+export const ELIGIBILITY_ANSWERS: EligibilityAnswerValue[] = [
+  "yes",
+  "no",
+  "not_sure",
 ];
 
 // ── Opportunity (agent/models.py) ────────────────────────────────────────────
@@ -107,6 +114,26 @@ export interface Opportunity {
   retrieved_at: string;
 }
 
+export interface EligibilityQuestion {
+  question_id: string;
+  founder_id: string;
+  opportunity_id: string;
+  opportunity_title: string;
+  source_url: string;
+  deadline: string | null;
+  check: string;
+  question: string;
+  requirement: string;
+  source_doc: string;
+  status: EligibilityQuestionStatus;
+  answer: EligibilityAnswerValue | null;
+  answer_updated_at: string | null;
+  reused_from_question_id: string | null;
+  reassessment_pending: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Scraper candidates
 
 export type ScraperLaneName = "university" | "general";
@@ -128,7 +155,10 @@ export interface ScraperFetchRecord {
   fetched_at: string;
   content_hash: string;
   raw_path: string;
-  renderer: "httpx" | "playwright";
+  renderer: "httpx" | "playwright" | "firecrawl";
+  content_format: "html" | "markdown";
+  fallback_reason: string;
+  source_raw_path: string;
   failure: string | null;
   bytes: number;
 }
@@ -199,6 +229,7 @@ export interface FounderProfile {
   has_faculty_advisor: boolean;
   max_application_hours: number;
   geographies: string[];
+  reuse_eligibility_answers: boolean;
   knowledge_base: KnowledgeChunk[];
 }
 
@@ -374,9 +405,10 @@ export interface RunJob {
   job_id: string;
   founder_id: string;
   idempotency_key: string | null;
-  source: "manual" | "scheduled" | "unknown";
+  source: "manual" | "scheduled" | "eligibility_answer" | "unknown";
   use_demo_catalog: boolean;
   include_grants_gov: boolean;
+  target_opportunity_id: string | null;
 
   status: JobStatus;
   created_at: string;

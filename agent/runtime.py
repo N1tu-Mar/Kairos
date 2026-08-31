@@ -12,12 +12,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from typing import Callable
 
 from agent.budget import RunBudget
 from agent.models import (
     ApplicationForm,
     Assessment,
     Draft,
+    EligibilityQuestion,
     EligibilityResult,
     FounderProfile,
     InboxItem,
@@ -37,6 +39,16 @@ class SubAgents:
     drafter_version: str
     auditor: object
     auditor_version: str
+    assessor_factory: Callable[[], tuple[object, object]] | None = field(
+        default=None, repr=False
+    )
+
+    def assessor_for_call(self) -> tuple[object, str]:
+        """Return an assessor with no conversation from another opportunity."""
+        if self.assessor_factory is None:
+            return self.assessor, self.assessor_version
+        agent, prompt = self.assessor_factory()
+        return agent, getattr(prompt, "version", str(prompt))
 
     @classmethod
     def build(cls) -> SubAgents:
@@ -53,6 +65,7 @@ class SubAgents:
             drafter_version=drafter_prompt.version,
             auditor=auditor_agent,
             auditor_version=auditor_prompt.version,
+            assessor_factory=assessor.build,
         )
 
 
@@ -73,6 +86,8 @@ class RunContext:
     assessments: dict[str, Assessment] = field(default_factory=dict)
     drafts: dict[str, Draft] = field(default_factory=dict)
     forms: dict[str, ApplicationForm] = field(default_factory=dict)
+    eligibility_questions: dict[str, list[EligibilityQuestion]] = field(default_factory=dict)
+    applied_eligibility_answers: set[str] = field(default_factory=set)
 
     #: Held in memory until the run completes. A halted run surfaces nothing,
     #: so nothing may be persisted before we know the run finished.

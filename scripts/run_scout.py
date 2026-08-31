@@ -24,7 +24,7 @@ from agent.config import REPO_ROOT, settings, stamp_placeholder_models  # noqa: 
 from agent.models import ApplicationForm, FounderProfile  # noqa: E402
 from agent.runtime import SubAgents  # noqa: E402
 from agent.scout import new_run_context, run_once  # noqa: E402
-from agent.tools.campus import CampusDiscoverySource  # noqa: E402
+from agent.tools.campus import CampusDiscoverySource, reviewed_web_sources  # noqa: E402
 from agent.tools.discovery import (  # noqa: E402
     GrantsGovClient,
     GrantsGovSource,
@@ -76,6 +76,7 @@ def build_sources(
             allow_live_scrape=config.enable_browser and live_campus_scrape,
         )
     )
+    sources.extend(reviewed_web_sources())
     return sources
 
 

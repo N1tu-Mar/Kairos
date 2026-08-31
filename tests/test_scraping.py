@@ -459,6 +459,17 @@ def test_a_human_review_decision_survives_the_next_scrape(tmp_path):
     assert len(after["founder_reviews"]) == 1
 
 
+def test_a_narrow_scrape_keeps_unrelated_existing_candidates(tmp_path):
+    path = tmp_path / "candidates.json"
+    first = build_record(target(title="First"), page("scarletpitch"), record(content_hash="first"))
+    second = build_record(target(title="Second"), page("rbs_business_plan"), record(content_hash="second"))
+
+    write_candidates([first], ScrapeRun(run_id="r1"), path=path, run_log=tmp_path / "l.jsonl")
+    write_candidates([second], ScrapeRun(run_id="r2"), path=path, run_log=tmp_path / "l.jsonl")
+
+    assert {row["title"] for row in json.loads(path.read_text())} == {"First", "Second"}
+
+
 def test_the_run_records_what_it_could_not_do():
     run = ScrapeRun(run_id="r", targets_attempted=8, pages_fetched=6, opportunities_found=7)
     run.failures.append(FetchRecord(url="https://x.invalid", failure="NEEDS_JS: shell"))

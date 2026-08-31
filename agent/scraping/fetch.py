@@ -28,6 +28,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlsplit
 
 import httpx
@@ -46,7 +47,7 @@ _CHROME_TAGS = ("script", "style", "noscript", "nav", "header", "footer", "form"
 #: A page whose visible text is shorter than this almost certainly did not
 #: render. Below it we look for a JavaScript-required banner rather than
 #: extracting from an empty shell.
-_MIN_USEFUL_TEXT = 400
+MIN_USEFUL_TEXT = 400
 
 _JS_REQUIRED = re.compile(
     r"requires javascript|enable javascript|javascript to be enabled|"
@@ -67,6 +68,12 @@ MAX_REDIRECTS = 5
 
 class FetchRefused(RuntimeError):
     """We declined to fetch. Recorded on the run, never swallowed."""
+
+
+class PageFetcher(Protocol):
+    """Provider-neutral page retrieval boundary used by the scrape pipeline."""
+
+    def fetch(self, url: str, *, allow_js: bool = False) -> tuple[str, FetchRecord]: ...
 
 
 def html_to_text(html: str) -> str:
@@ -245,7 +252,7 @@ class PoliteFetcher:
         body = response.text
         text = html_to_text(body)
 
-        if len(text) < _MIN_USEFUL_TEXT and _JS_REQUIRED.search(body):
+        if len(text) < MIN_USEFUL_TEXT and _JS_REQUIRED.search(body):
             # The honest outcome. This is the *only* condition under which
             # the pipeline reaches for a browser, and only when asked to.
             record.failure = "NEEDS_JS: page renders its content with JavaScript"
@@ -309,6 +316,12 @@ def load_archived(meta_path: Path) -> tuple[str, FetchRecord]:
     reproducible without asking a university web server the same question
     twice.
     """
-    record = FetchRecord.model_validate(json.loads(Path(meta_path).read_text()))
-    html = Path(record.raw_path).read_text(encoding="utf-8")
-    return html_to_text(html), record
+    metadata = json.loads(Path(meta_path).read_bytes().decode("utf-8"))
+    # Firecrawl sidecars also retain the local attempt and provider metadata.
+    # Local archives keep the original flat FetchRecord shape.
+    record_payload = metadata.get("fetch", metadata) if isinstance(metadata, dict) else metadata
+    record = FetchRecord.model_validate(record_payload)
+    body = Path(record.raw_path).read_bytes().decode("utf-8")
+    if record.content_format == "markdown":
+        return body, record
+    return html_to_text(body), record

@@ -23,7 +23,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # ── Vocabularies ─────────────────────────────────────────────────────────────
 
@@ -44,6 +44,8 @@ FieldStatus = Literal["KNOWN", "GENERATED", "NEEDS_FOUNDER", "REUSED"]
 #: What the founder has done with a surfaced item. The pipeline only ever
 #: writes `new`; every later value comes from a person.
 InboxState = Literal["new", "opened", "dismissed", "applied"]
+EligibilityAnswerValue = Literal["yes", "no", "not_sure"]
+EligibilityQuestionStatus = Literal["pending", "answered"]
 AuditVerdict = Literal["SUPPORTED", "UNSUPPORTED", "UNVERIFIABLE"]
 DraftStatus = Literal["DRAFT", "READY", "BLOCKED"]
 SourceName = Literal["seed", "grants_gov", "browser"]
@@ -169,6 +171,7 @@ class FounderProfile(Frozen):
     max_application_hours: int = Field(gt=0, le=10_000)
     #: US state / country tokens the founder can claim residency or study in.
     geographies: list[str] = Field(default_factory=list, max_length=500)
+    reuse_eligibility_answers: bool = False
     knowledge_base: list[KnowledgeChunk] = Field(
         default_factory=list, max_length=MAX_KNOWLEDGE_CHUNKS
     )
@@ -241,6 +244,35 @@ class Opportunity(Frozen):
     def best_award(self) -> int | None:
         """Highest stated award, for ranking and threshold checks."""
         return self.award_max if self.award_max is not None else self.award_min
+
+
+class EligibilityQuestion(Mutable):
+    """One founder-answerable requirement for one persisted opportunity."""
+
+    question_id: str = Field(max_length=200)
+    founder_id: str = Field(max_length=200)
+    opportunity_id: str = Field(max_length=500)
+    opportunity_title: str = Field(max_length=500)
+    source_url: str = Field(max_length=2_000)
+    deadline: date | None = None
+    check: str = Field(max_length=100)
+    question: str = Field(max_length=1_000)
+    requirement: str = Field(max_length=20_000)
+    source_doc: str = Field(default="", max_length=2_000)
+    status: EligibilityQuestionStatus = "pending"
+    answer: EligibilityAnswerValue | None = None
+    answer_updated_at: datetime | None = None
+    reused_from_question_id: str | None = Field(default=None, max_length=200)
+    #: A definite answer has been saved but no run has consumed it yet.
+    reassessment_pending: bool = False
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+
+    @model_validator(mode="after")
+    def align_status_with_answer(self) -> EligibilityQuestion:
+        """`not_sure` stays pending; only a definite answer resolves the row."""
+        self.status = "answered" if self.answer in {"yes", "no"} else "pending"
+        return self
 
 
 class Rejection(Frozen):
@@ -676,9 +708,11 @@ class RunJob(Mutable):
     founder_id: str
     #: Scoped per founder before storage; None for callers that sent none.
     idempotency_key: str | None = None
-    source: Literal["manual", "scheduled", "unknown"] = "unknown"
+    source: Literal["manual", "scheduled", "eligibility_answer", "unknown"] = "unknown"
     use_demo_catalog: bool = False
     include_grants_gov: bool = True
+    #: Set only for a one-opportunity answer-triggered reassessment.
+    target_opportunity_id: str | None = None
 
     status: JobStatus = "queued"
     created_at: datetime = Field(default_factory=_now)

@@ -1,6 +1,7 @@
 import type {
   Draft,
   DraftCounts,
+  EligibilityQuestion,
   FounderProfile,
   InboxItem,
   Opportunity,
@@ -20,6 +21,7 @@ export function runJob(overrides: Partial<RunJob> = {}): RunJob {
     source: "manual",
     use_demo_catalog: false,
     include_grants_gov: true,
+    target_opportunity_id: null,
     status: "queued",
     created_at: "2026-08-23T06:00:00Z",
     started_at: null,
@@ -181,6 +183,31 @@ export function opportunity(overrides: Partial<Opportunity> = {}): Opportunity {
   };
 }
 
+export function eligibilityQuestion(
+  overrides: Partial<EligibilityQuestion> = {},
+): EligibilityQuestion {
+  return {
+    question_id: "eq_demo_1",
+    founder_id: "founder_demo",
+    opportunity_id: "opp_1",
+    opportunity_title: "[DEMO] Campus Innovation Fund",
+    source_url: "https://example.invalid/campus-innovation-fund",
+    deadline: "2999-10-15",
+    check: "CITIZENSHIP",
+    question: "Is at least 51% of the company owned by eligible residents?",
+    requirement: "The company must be at least 51% owned by eligible residents.",
+    source_doc: "https://example.invalid/campus-innovation-fund#eligibility",
+    status: "pending",
+    answer: null,
+    answer_updated_at: null,
+    reused_from_question_id: null,
+    reassessment_pending: false,
+    created_at: "2026-08-30T18:00:00Z",
+    updated_at: "2026-08-30T18:00:00Z",
+    ...overrides,
+  };
+}
+
 export function scraperCandidate(
   overrides: Partial<ScraperCandidate> = {},
 ): ScraperCandidate {
@@ -215,6 +242,9 @@ export function scraperCandidate(
       content_hash: "abc123",
       raw_path: "",
       renderer: "httpx",
+      content_format: "html",
+      fallback_reason: "",
+      source_raw_path: "",
       failure: null,
       bytes: 2048,
     },
@@ -256,6 +286,7 @@ export function founderProfile(
     has_faculty_advisor: false,
     max_application_hours: 8,
     geographies: ["US-NJ", "US"],
+    reuse_eligibility_answers: false,
     knowledge_base: [
       {
         chunk_id: "chunk_1",

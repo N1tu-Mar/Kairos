@@ -8,12 +8,19 @@ output looks.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import pytest
 
-from agent.tools.campus import CampusDiscoverySource, to_opportunity
+import agent.tools.campus as campus_module
+import api.jobs as api_jobs
+from agent.models import RunJob
+from agent.scraping.agent import GENERAL_LANE, UNIVERSITY_LANE
+from agent.tools.campus import CampusDiscoverySource, reviewed_web_sources, to_opportunity
 from agent.tools.discovery import SourceError, discover_opportunities
+from scripts import run_scout
 
 
 def row(
@@ -145,6 +152,103 @@ class TestTheReviewBoundary:
         )
         assert source.fetch() == []
         assert "no source_url" in source.partial_failures[0].detail
+
+    def test_stale_accepted_row_waits_for_reverification(self, candidates):
+        source = CampusDiscoverySource(
+            candidates(
+                [
+                    row(
+                        review_status="ACCEPTED",
+                        scraped_at="2026-07-01T00:00:00Z",
+                    )
+                ]
+            ),
+            enabled=True,
+            max_verification_age_days=30,
+            as_of=datetime(2026, 8, 30, tzinfo=timezone.utc),
+            label="general funding review",
+        )
+
+        assert source.fetch() == []
+        assert "held back 1 accepted candidate" in source.run_notes[0]
+
+    def test_fresh_accepted_row_gets_lane_specific_id(self, candidates):
+        source = CampusDiscoverySource(
+            candidates([row(review_status="ACCEPTED")]),
+            enabled=True,
+            max_verification_age_days=30,
+            as_of=datetime(2026, 8, 30, tzinfo=timezone.utc),
+            id_prefix="general_web",
+        )
+
+        assert source.fetch()[0].id == "general_web:campus_fund:abc"
+
+    def test_both_reviewed_web_lanes_build_runtime_sources(self, tmp_path):
+        general_path = tmp_path / "general.json"
+        university_path = tmp_path / "university.json"
+        general_path.write_text("[]")
+        university_path.write_text("[]")
+
+        sources = reviewed_web_sources(
+            (
+                replace(GENERAL_LANE, output_path=general_path),
+                replace(UNIVERSITY_LANE, output_path=university_path),
+            )
+        )
+
+        assert [source.id_prefix for source in sources] == [
+            "general_web",
+            "university_web",
+        ]
+        assert all(source.enabled for source in sources)
+
+    def test_missing_reviewed_web_lane_is_disabled_cleanly(self, tmp_path):
+        lane = replace(GENERAL_LANE, output_path=tmp_path / "missing.json")
+        source = reviewed_web_sources((lane,))[0]
+
+        assert source.enabled is False
+        assert source.fetch() == []
+
+    def test_api_and_cli_build_both_reviewed_web_sources(self, tmp_path, monkeypatch):
+        general_path = tmp_path / "general.json"
+        university_path = tmp_path / "university.json"
+        general_path.write_text("[]")
+        university_path.write_text("[]")
+        monkeypatch.setattr(
+            campus_module,
+            "REVIEWED_WEB_LANES",
+            (
+                replace(UNIVERSITY_LANE, output_path=university_path),
+                replace(GENERAL_LANE, output_path=general_path),
+            ),
+        )
+        config = SimpleNamespace(
+            data_dir=tmp_path,
+            allow_unverified_seed=False,
+            enable_browser=False,
+            grants_gov_base_url="https://example.invalid",
+            http_timeout_s=1.0,
+        )
+        monkeypatch.setattr(api_jobs, "settings", lambda: config)
+        monkeypatch.setattr(run_scout, "settings", lambda: config)
+
+        api_sources = api_jobs.build_sources(
+            RunJob(
+                job_id="job_test",
+                founder_id="founder_test",
+                include_grants_gov=False,
+            )
+        )
+        cli_sources = run_scout.build_sources(demo=False, grants_gov=False)
+
+        assert [source.id_prefix for source in api_sources[-2:]] == [
+            "university_web",
+            "general_web",
+        ]
+        assert [source.id_prefix for source in cli_sources[-2:]] == [
+            "university_web",
+            "general_web",
+        ]
 
 
 class TestDegradation:

@@ -58,6 +58,8 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         ctx.retrieved = {o.id: o for o in found}
         ctx.report.scanned = len(found)
         ctx.report.sources_failed.extend(failures)
+        for source in sources:
+            ctx.report.notes.extend(getattr(source, "run_notes", []))
 
         failed = (
             "; ".join(f"{f.source} failed ({f.detail})" for f in failures)
@@ -81,15 +83,6 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         ctx.eligibility = results
         ctx.report.filtered_out = len(rejections)
         ctx.report.rejections.extend(rejections)
-        ctx.report.skips.extend(
-            SkipRecord(
-                opportunity_id=r.opportunity_id,
-                opportunity_title=r.opportunity_title,
-                stage="hard_filter",
-                reason=f"{r.check}: {r.detail}",
-            )
-            for r in rejections
-        )
         return (
             f"Dropped {len(rejections)} deterministically. {len(survivors)} remain "
             f"({sum(1 for r in results.values() if r.verdict == 'UNKNOWN')} with at "
@@ -116,9 +109,10 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         from agent.subagents.assessor import assess
 
         try:
+            assessor, assessor_version = ctx.agents.assessor_for_call()
             assessment = await assess(
-                ctx.agents.assessor,
-                ctx.agents.assessor_version,
+                assessor,
+                assessor_version,
                 opportunity,
                 ctx.profile,
                 eligibility,

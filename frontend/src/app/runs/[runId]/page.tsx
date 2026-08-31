@@ -44,7 +44,8 @@ export default async function RunDetailPage({
 
   if (!report) notFound();
 
-  const decisions = report.rejections.length + report.skips.length;
+  const judgedSkips = report.skips.filter((skip) => skip.stage !== "hard_filter");
+  const decisions = report.rejections.length + judgedSkips.length;
 
   return (
     <Page>
@@ -84,7 +85,7 @@ export default async function RunDetailPage({
         title="Judged, then held back"
         description="These cleared the filter but did not clear the Assessor or the escalation policy. The reason is the one recorded at the time, in full."
       >
-        <SkipList skips={report.skips} />
+        <SkipList skips={judgedSkips} />
       </Section>
 
       {report.notes.length > 0 || report.sources_failed.length > 0 ? (

@@ -39,12 +39,12 @@ from typing import Protocol
 
 from agent.budget import RunBudget
 from agent.config import REPO_ROOT, settings
-from agent.models import ApplicationForm, RunJob
+from agent.models import ApplicationForm, Opportunity, RunJob
 from agent.runtime import SubAgents
 from agent.scheduler import Lease, RunLock, ScheduledRunFailureLog
 from agent.sanitize import safe_detail
 from agent.scout import new_run_context, run_once
-from agent.tools.campus import CampusDiscoverySource
+from agent.tools.campus import CampusDiscoverySource, reviewed_web_sources
 from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
 
 log = logging.getLogger("kairos.jobs")
@@ -66,6 +66,7 @@ def new_job(
     source: str,
     use_demo_catalog: bool,
     include_grants_gov: bool,
+    target_opportunity_id: str | None = None,
 ) -> RunJob:
     """Build an unpersisted `RunJob` in the `queued` state.
 
@@ -82,6 +83,7 @@ def new_job(
         source=source,  # type: ignore[arg-type]
         use_demo_catalog=use_demo_catalog,
         include_grants_gov=include_grants_gov,
+        target_opportunity_id=target_opportunity_id,
     )
 
 
@@ -108,7 +110,19 @@ def load_forms() -> dict[str, ApplicationForm]:
     return forms
 
 
-def build_sources(job: RunJob):
+class PersistedOpportunitySource:
+    """A one-row source for answer-triggered reassessment."""
+
+    def __init__(self, opportunity: Opportunity) -> None:
+        self.opportunity = opportunity
+        self.name = opportunity.source
+
+    def fetch(self, since: datetime) -> list[Opportunity]:
+        del since
+        return [self.opportunity]
+
+
+def build_sources(job: RunJob, repo=None):
     """Assemble the discovery sources for one job, in priority order.
 
     Seed catalog always; Grants.gov only when the job asked for it; campus
@@ -116,6 +130,16 @@ def build_sources(job: RunJob):
     anything at all, and `allow_live_scrape=False` means it can only read rows
     a person already accepted. A job never crawls.
     """
+    if job.target_opportunity_id is not None:
+        if repo is None:
+            raise RuntimeError("targeted reassessment requires a repository")
+        opportunity = repo.get_opportunity(job.target_opportunity_id)
+        if opportunity is None:
+            raise RuntimeError(
+                f"no persisted opportunity {job.target_opportunity_id} to reassess"
+            )
+        return [PersistedOpportunitySource(opportunity)]
+
     config = settings()
     catalog = "opportunities.demo.json" if job.use_demo_catalog else "opportunities.seed.json"
     sources = [
@@ -139,6 +163,7 @@ def build_sources(job: RunJob):
     sources.append(
         CampusDiscoverySource(enabled=config.enable_browser, allow_live_scrape=False)
     )
+    sources.extend(reviewed_web_sources())
     return sources
 
 
@@ -189,7 +214,7 @@ async def execute_job(job: RunJob, repo, lease: Lease, failure_log: ScheduledRun
                 agents=SubAgents.build(),
             )
             ctx.forms = load_forms()
-            sources = build_sources(job)
+            sources = build_sources(job, repo)
         except Exception as exc:  # noqa: BLE001 — a start failure is a class of its own
             _fail(job, repo, failure_log, exc, failure_class="startup")
             return

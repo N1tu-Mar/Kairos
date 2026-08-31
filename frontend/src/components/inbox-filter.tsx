@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export type InboxView = "active" | "passive" | "all";
+export type InboxView = "active" | "needs_you" | "passive" | "all";
 
 /**
  * Read the inbox view out of a query-string value, defaulting on anything unrecognised.
@@ -10,7 +10,9 @@ export type InboxView = "active" | "passive" | "all";
  */
 export function parseInboxView(raw: string | string[] | undefined): InboxView {
   const value = Array.isArray(raw) ? raw[0] : raw;
-  return value === "passive" || value === "all" ? value : "active";
+  return value === "needs_you" || value === "passive" || value === "all"
+    ? value
+    : "active";
 }
 
 /**
@@ -30,6 +32,11 @@ export function InboxFilter({
       key: "active",
       label: "Recommendations",
       hint: "Surfaced and notified. These are the ones asking for your time.",
+    },
+    {
+      key: "needs_you",
+      label: "Needs You",
+      hint: "Current opportunities waiting on a fact only you can confirm.",
     },
     {
       key: "passive",

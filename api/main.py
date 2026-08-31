@@ -5,9 +5,10 @@ a user (Section 2), so almost everything here is a GET. The one POST exists
 to trigger a run manually during a demo, and it does exactly what the
 scheduler does.
 
-The three writes are narrow on purpose. `PUT /founders/{id}` replaces a
-profile wholesale, `PATCH /inbox/{item_id}` sets the one field a person owns,
-and neither can touch a recorded verdict. Nothing here edits a RunReport, a
+The writes are narrow on purpose. `PUT /founders/{id}` replaces a profile,
+`PATCH /inbox/{item_id}` changes founder-owned state, and the eligibility
+answer route saves founder-owned facts. None can touch a recorded verdict.
+Nothing here edits a RunReport, a
 Rejection, a SkipRecord or a Draft after the fact — those are what the run
 decided, and an audit trail you can edit is not one.
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from typing import Annotated, Literal
@@ -32,6 +34,8 @@ from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings
 from agent.models import (
+    EligibilityAnswerValue,
+    EligibilityQuestion,
     FounderProfile,
     InboxState,
     Opportunity,
@@ -151,6 +155,14 @@ class InboxStateUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     state: InboxState
+
+
+class EligibilityAnswerUpdate(BaseModel):
+    """The founder's editable answer to one eligibility requirement."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    answer: EligibilityAnswerValue
 
 
 @asynccontextmanager
@@ -605,7 +617,104 @@ def get_inbox(
     """
     owned(founder_id, actor)
     items = app.state.repo.list_inbox(founder_id, limit)
+    today = datetime.now(timezone.utc).date()
+    items = [
+        item
+        for item in items
+        if (
+            (opportunity := app.state.repo.get_opportunity(item.opportunity_id))
+            is None
+            or opportunity.deadline is None
+            or opportunity.deadline >= today
+        )
+    ]
     return items if include_passive else [i for i in items if not i.passive]
+
+
+@app.get("/founders/{founder_id}/eligibility-questions")
+def list_eligibility_questions(
+    founder_id: ResourceId,
+    status: Literal["pending", "answered", "all"] = "pending",
+    actor: Principal = Depends(principal),
+) -> list[EligibilityQuestion]:
+    """Founder-answerable uncertainty only; missing source facts do not belong here."""
+    owned(founder_id, actor)
+    questions = app.state.repo.list_eligibility_questions(founder_id, status)
+    if status == "pending":
+        today = datetime.now(timezone.utc).date()
+        questions = [
+            question
+            for question in questions
+            if question.deadline is None or question.deadline >= today
+        ]
+    return questions
+
+
+@app.put("/founders/{founder_id}/eligibility-questions/{question_id}/answer")
+async def answer_eligibility_question(
+    founder_id: ResourceId,
+    question_id: ResourceId,
+    update: EligibilityAnswerUpdate,
+    response: Response,
+    actor: Principal = Depends(principal),
+) -> EligibilityQuestion:
+    """Save an answer and queue a one-opportunity reassessment when possible."""
+    not_found = f"no eligibility question {question_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    question = app.state.repo.get_eligibility_question(question_id)
+    if question is None or question.founder_id != founder_id:
+        raise HTTPException(404, not_found)
+    updated = app.state.repo.answer_eligibility_question(question_id, update.answer)
+    if updated is None:  # pragma: no cover - only if the row vanished mid-request
+        raise HTTPException(404, not_found)
+    audit_event(
+        actor=actor.subject,
+        action="eligibility.answer",
+        resource=question_id,
+        method=actor.method,
+        answer=update.answer,
+    )
+
+    if update.answer == "not_sure":
+        response.headers["X-Kairos-Reassessment"] = "not-requested"
+        return updated
+
+    opportunity = app.state.repo.get_opportunity(question.opportunity_id)
+    if opportunity is None:
+        # Legacy/operator-created rows may not have a persisted source row.
+        app.state.repo.mark_eligibility_reassessed(
+            founder_id,
+            question.opportunity_id,
+            before=datetime.now(timezone.utc),
+        )
+        response.headers["X-Kairos-Reassessment"] = "unavailable"
+        return updated
+
+    lease = app.state.run_lock.acquire(
+        founder_id=founder_id,
+        run_kind=job_module.RUN_KIND,
+    )
+    if not lease.acquired:
+        response.headers["X-Kairos-Reassessment"] = "deferred"
+        return updated
+
+    job = job_module.new_job(
+        founder_id=founder_id,
+        idempotency_key=None,
+        source="eligibility_answer",
+        use_demo_catalog=False,
+        include_grants_gov=False,
+        target_opportunity_id=question.opportunity_id,
+    )
+    try:
+        app.state.repo.save_job(job)
+    except Exception:
+        lease.release()
+        raise
+    app.state.executor.submit(job, lease)
+    response.headers["X-Kairos-Reassessment"] = "queued"
+    response.headers["X-Kairos-Reassessment-Job"] = job.job_id
+    return updated
 
 
 @app.get("/founders/{founder_id}/runs")

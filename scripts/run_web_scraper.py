@@ -17,7 +17,10 @@ import logging
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from dotenv import load_dotenv
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
 
 from agent.scraping.agent import (  # noqa: E402
     GENERAL_LANE,
@@ -33,7 +36,21 @@ from agent.scraping.agent import (  # noqa: E402
     WebScraperConfig,
     lane_by_name,
 )
+from agent.scraping.fetch import PoliteFetcher  # noqa: E402
+from agent.scraping.firecrawl import (  # noqa: E402
+    FirecrawlClient,
+    FirecrawlConfigurationError,
+    FirecrawlFallbackFetcher,
+)
 from agent.scraping.pipeline import RAW_DIR  # noqa: E402
+
+
+def positive_int(value: str) -> int:
+    """An argparse integer that rejects zero before any provider is called."""
+    parsed = int(value)
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError("must be greater than zero")
+    return parsed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +75,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-results-per-query", type=int, default=10)
     parser.add_argument("--max-pages", type=int, default=25)
     parser.add_argument("--allow-js", action="store_true")
+    parser.add_argument(
+        "--firecrawl",
+        action="store_true",
+        help="use capped Firecrawl fallback for JavaScript shells and thin pages",
+    )
+    parser.add_argument(
+        "--max-firecrawl-pages",
+        type=positive_int,
+        default=5,
+        help="paid Firecrawl page-call cap across this invocation (default: 5)",
+    )
     parser.add_argument(
         "--include-weak-results",
         action="store_true",
@@ -155,8 +183,15 @@ def print_summary(lane: ScraperLane, path: Path, records, run) -> None:
     print(f"wrote {len(records)} {lane.name} candidate row(s) -> {path}")
 
 
-def main(argv: list[str] | None = None, *, search_client=None, fetcher=None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    search_client=None,
+    fetcher=None,
+    firecrawl_client=None,
+) -> int:
     """CLI entry. 0 when every requested lane completed, non-zero on a search-provider failure."""
+    load_dotenv(REPO_ROOT / ".env", override=False)
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -167,11 +202,33 @@ def main(argv: list[str] | None = None, *, search_client=None, fetcher=None) -> 
             file=sys.stderr,
         )
         return 2
+    if args.firecrawl and args.allow_js:
+        print(
+            "--firecrawl and --allow-js are separate fallback strategies; choose one.",
+            file=sys.stderr,
+        )
+        return 2
 
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+
+    if args.firecrawl:
+        try:
+            firecrawl_client = firecrawl_client or FirecrawlClient.from_env(args.raw_dir)
+        except FirecrawlConfigurationError as exc:
+            print(exc, file=sys.stderr)
+            print(
+                "Set FIRECRAWL_API_KEY before running with --firecrawl.",
+                file=sys.stderr,
+            )
+            return 2
+        fetcher = FirecrawlFallbackFetcher(
+            fetcher or PoliteFetcher(args.raw_dir),
+            firecrawl_client,
+            max_pages=args.max_firecrawl_pages,
+        )
 
     if search_client is None:
         try:

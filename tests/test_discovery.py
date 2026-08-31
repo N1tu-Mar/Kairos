@@ -76,14 +76,41 @@ def test_mapping_uses_only_verified_response_fields(search_hits, detail):
     assert opportunity.funder
 
 
-def test_grants_gov_eligibility_stays_unknown(search_hits, detail):
-    """Federal eligibility is prose. Prose does not become a structured rule."""
+def test_unrepresentable_grants_gov_eligibility_stays_unknown(search_hits, detail):
+    """An 'Others' category must not be narrowed from its prose."""
     opportunity = GrantsGovSource.to_opportunity(search_hits[0], detail)
     rules = opportunity.eligibility
 
     assert rules.degree_levels is None
     assert rules.citizenships is None
     assert rules.entity_types is None
+
+
+def test_structured_small_business_category_maps_to_supported_entity_types(search_hits):
+    detail = {
+        "synopsis": {
+            "applicantTypes": [{"id": "23", "description": "Small businesses"}]
+        }
+    }
+
+    opportunity = GrantsGovSource.to_opportunity(search_hits[0], detail)
+
+    assert opportunity.eligibility.entity_types == ["llc", "c_corp", "s_corp"]
+
+
+def test_mixed_grants_categories_stay_unknown_when_one_is_not_representable(search_hits):
+    detail = {
+        "synopsis": {
+            "applicantTypes": [
+                {"id": "23", "description": "Small businesses"},
+                {"id": "25", "description": "Others (see additional information)"},
+            ]
+        }
+    }
+
+    opportunity = GrantsGovSource.to_opportunity(search_hits[0], detail)
+
+    assert opportunity.eligibility.entity_types is None
 
 
 def test_eligibility_prose_is_kept_verbatim_as_a_criterion(search_hits, detail):

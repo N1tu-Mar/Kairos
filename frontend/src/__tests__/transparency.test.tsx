@@ -75,4 +75,22 @@ describe("SkipList", () => {
       screen.getByText("needs ~12h, the founder's ceiling is 8h"),
     ).toBeInTheDocument();
   });
+
+  it("does not present legacy hard-filter duplicates as judged skips", () => {
+    render(
+      <SkipList
+        skips={[
+          {
+            opportunity_id: "old-hard-filter-row",
+            opportunity_title: "Legacy rejection",
+            stage: "hard_filter",
+            reason: "GEOGRAPHY: restricted to California",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.queryByText("Legacy rejection")).not.toBeInTheDocument();
+    expect(screen.getByText("Nothing was skipped after judgment")).toBeInTheDocument();
+  });
 });

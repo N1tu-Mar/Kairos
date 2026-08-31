@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Protocol, TypeVar
+from typing import Literal, Protocol, TypeVar
 
 from sqlalchemy import Column, Text
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -23,6 +23,9 @@ from sqlmodel import Field, Session, SQLModel, create_engine, select
 from agent.models import (
     Draft,
     DraftField,
+    EligibilityAnswerValue,
+    EligibilityQuestion,
+    EligibilityQuestionStatus,
     FounderProfile,
     InboxItem,
     InboxState,
@@ -30,7 +33,7 @@ from agent.models import (
     RunJob,
     RunReport,
 )
-from agent.sanitize import redact
+from agent.sanitize import redact_json
 from agent.semantic import (
     DEFAULT_MATCHER,
     DEFAULT_THRESHOLD,
@@ -190,6 +193,18 @@ class AnswerRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class EligibilityQuestionRow(SQLModel, table=True):
+    """Founder-answerable eligibility uncertainty, upserted by stable id."""
+
+    __tablename__ = "eligibility_questions"
+    question_id: str = Field(primary_key=True)
+    founder_id: str = Field(index=True)
+    opportunity_id: str = Field(index=True)
+    status: str = Field(index=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
 # ── Interface ────────────────────────────────────────────────────────────────
 
 
@@ -222,6 +237,21 @@ class Repository(Protocol):
     # Opportunities: upserted by id, shared across founders.
     def save_opportunity(self, opportunity: Opportunity) -> None: ...
     def get_opportunity(self, opportunity_id: str) -> Opportunity | None: ...
+
+    # Eligibility clarifications: founder-owned, editable current state.
+    def save_eligibility_question(self, question: EligibilityQuestion) -> None: ...
+    def get_eligibility_question(self, question_id: str) -> EligibilityQuestion | None: ...
+    def list_eligibility_questions(
+        self,
+        founder_id: str,
+        status: EligibilityQuestionStatus | Literal["all"] = "pending",
+    ) -> list[EligibilityQuestion]: ...
+    def answer_eligibility_question(
+        self, question_id: str, answer: EligibilityAnswerValue
+    ) -> EligibilityQuestion | None: ...
+    def mark_eligibility_reassessed(
+        self, founder_id: str, opportunity_id: str, *, before: datetime
+    ) -> int: ...
 
     # Inbox: `has_surfaced` + the unique index on `save_inbox_item` are
     # the two halves of never notifying the same founder twice.
@@ -346,7 +376,7 @@ class SqliteRepository:
             )
             # Redact at the persistence boundary, not at display time
             # (Section 10.4).
-            row.payload = redact(profile.model_dump_json())
+            row.payload = redact_json(profile.model_dump_json())
             row.updated_at = _now()
             session.add(row)
             session.commit()
@@ -447,7 +477,7 @@ class SqliteRepository:
                 started_at=report.started_at,
                 payload="",
             )
-            row.payload = redact(report.model_dump_json())
+            row.payload = redact_json(report.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -492,7 +522,7 @@ class SqliteRepository:
             # `description_excerpt` is untrusted text from the open web. It was
             # sanitised at ingestion; redact again here because this is the
             # persistence boundary and the boundary is where it belongs.
-            row.payload = redact(opportunity.model_dump_json())
+            row.payload = redact_json(opportunity.model_dump_json())
             row.source = opportunity.source
             row.updated_at = _now()
             session.add(row)
@@ -503,6 +533,99 @@ class SqliteRepository:
         with Session(self.engine) as session:
             row = session.get(OpportunityRow, opportunity_id)
             return Opportunity.model_validate_json(row.payload) if row else None
+
+    # -- eligibility clarifications --
+
+    def save_eligibility_question(self, question: EligibilityQuestion) -> None:
+        """Upsert a stable question while preserving its original creation time."""
+        with Session(self.engine) as session:
+            row = session.get(EligibilityQuestionRow, question.question_id)
+            if row is None:
+                row = EligibilityQuestionRow(
+                    question_id=question.question_id,
+                    founder_id=question.founder_id,
+                    opportunity_id=question.opportunity_id,
+                    status=question.status,
+                    created_at=question.created_at,
+                    payload="",
+                )
+            row.founder_id = question.founder_id
+            row.opportunity_id = question.opportunity_id
+            row.status = question.status
+            row.payload = redact_json(question.model_dump_json())
+            session.add(row)
+            session.commit()
+
+    def get_eligibility_question(self, question_id: str) -> EligibilityQuestion | None:
+        """Load one clarification by id, or None."""
+        with Session(self.engine) as session:
+            row = session.get(EligibilityQuestionRow, question_id)
+            return EligibilityQuestion.model_validate_json(row.payload) if row else None
+
+    def list_eligibility_questions(
+        self,
+        founder_id: str,
+        status: EligibilityQuestionStatus | Literal["all"] = "pending",
+    ) -> list[EligibilityQuestion]:
+        """Newest clarifications for one founder, optionally filtered by state."""
+        with Session(self.engine) as session:
+            statement = select(EligibilityQuestionRow).where(
+                EligibilityQuestionRow.founder_id == founder_id
+            )
+            if status != "all":
+                statement = statement.where(EligibilityQuestionRow.status == status)
+            rows = session.exec(
+                statement.order_by(EligibilityQuestionRow.created_at.desc())
+            ).all()
+            return [EligibilityQuestion.model_validate_json(row.payload) for row in rows]
+
+    def answer_eligibility_question(
+        self, question_id: str, answer: EligibilityAnswerValue
+    ) -> EligibilityQuestion | None:
+        """Edit an answer; `not_sure` deliberately leaves the question pending."""
+        with Session(self.engine) as session:
+            row = session.get(EligibilityQuestionRow, question_id)
+            if row is None:
+                return None
+            question = EligibilityQuestion.model_validate_json(row.payload)
+            question.answer = answer
+            question.answer_updated_at = _now()
+            question.updated_at = question.answer_updated_at
+            question.reassessment_pending = answer in {"yes", "no"}
+            question.align_status_with_answer()
+            row.status = question.status
+            row.payload = redact_json(question.model_dump_json())
+            session.add(row)
+            session.commit()
+            return question
+
+    def mark_eligibility_reassessed(
+        self, founder_id: str, opportunity_id: str, *, before: datetime
+    ) -> int:
+        """Clear answers consumed by a run, without racing a newer edit."""
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(EligibilityQuestionRow).where(
+                    EligibilityQuestionRow.founder_id == founder_id,
+                    EligibilityQuestionRow.opportunity_id == opportunity_id,
+                )
+            ).all()
+            changed = 0
+            for row in rows:
+                question = EligibilityQuestion.model_validate_json(row.payload)
+                if (
+                    question.reassessment_pending
+                    and question.answer_updated_at is not None
+                    and question.answer_updated_at <= before
+                ):
+                    question.reassessment_pending = False
+                    question.updated_at = _now()
+                    row.payload = redact_json(question.model_dump_json())
+                    session.add(row)
+                    changed += 1
+            if changed:
+                session.commit()
+            return changed
 
     # -- inbox --
 
@@ -536,7 +659,7 @@ class SqliteRepository:
                     founder_id=item.founder_id,
                     opportunity_id=item.opportunity_id,
                     created_at=item.created_at,
-                    payload=redact(item.model_dump_json()),
+                    payload=redact_json(item.model_dump_json()),
                 )
             )
             session.commit()
@@ -580,7 +703,7 @@ class SqliteRepository:
                 return None
             item = InboxItem.model_validate_json(row.payload)
             item.state = state
-            row.payload = redact(item.model_dump_json())
+            row.payload = redact_json(item.model_dump_json())
             session.add(row)
             session.commit()
             return item
@@ -600,7 +723,7 @@ class SqliteRepository:
                 opportunity_id=draft.opportunity_id,
                 payload="",
             )
-            row.payload = redact(draft.model_dump_json())
+            row.payload = redact_json(draft.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -652,7 +775,7 @@ class SqliteRepository:
                 payload="",
             )
             row.status = job.status
-            row.payload = redact(job.model_dump_json())
+            row.payload = redact_json(job.model_dump_json())
             session.add(row)
             session.commit()
 
@@ -701,7 +824,7 @@ class SqliteRepository:
                 job.error = reason
                 job.finished_at = _now()
                 row.status = job.status
-                row.payload = redact(job.model_dump_json())
+                row.payload = redact_json(job.model_dump_json())
                 session.add(row)
                 orphaned.append(job)
             session.commit()
@@ -726,7 +849,7 @@ class SqliteRepository:
                 question_key=key,
                 payload="",
             )
-            row.payload = redact(field.model_dump_json())
+            row.payload = redact_json(field.model_dump_json())
             session.add(row)
             session.commit()
 

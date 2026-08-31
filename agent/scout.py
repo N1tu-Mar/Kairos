@@ -35,6 +35,7 @@ from agent.models import (
     FounderProfile,
     InboxItem,
     KnowledgeBase,
+    Opportunity,
     RunReport,
     SkipRecord,
 )
@@ -45,6 +46,31 @@ from agent.toolset import build_toolset
 from agent.tools.discovery import Source
 
 log = logging.getLogger("kairos.scout")
+
+_SOURCE_PRIORITY = {"seed": 3, "browser": 2, "grants_gov": 2}
+
+
+def assessment_priority(opportunity: Opportunity, today: date) -> tuple:
+    """Rank decision quality and urgency before possible award size."""
+    known_eligibility = sum(
+        value is not None for value in opportunity.eligibility.model_dump().values()
+    )
+    has_current_deadline = (
+        opportunity.deadline is not None and opportunity.deadline >= today
+    )
+    days_until_deadline = (
+        (opportunity.deadline - today).days if has_current_deadline else 10_000
+    )
+    return (
+        known_eligibility > 0,
+        known_eligibility,
+        _SOURCE_PRIORITY.get(opportunity.source, 0),
+        bool(opportunity.criteria),
+        min(len(opportunity.criteria), 5),
+        has_current_deadline or opportunity.rolling,
+        -days_until_deadline,
+        opportunity.best_award or 0,
+    )
 
 
 def new_run_context(
@@ -119,10 +145,16 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
         # 2. Deterministic gate. Cheap, and it decides most of the outcome.
         tools["filter_eligibility"]()
 
+        # Source-stated rules the profile cannot answer stay three-valued.
+        # Definite founder answers may resolve them before model judgment.
+        from agent.eligibility_clarifications import resolve_founder_answers
+
+        await resolve_founder_answers(ctx)
+
         # 3. Judge the survivors, most valuable first, until the cap.
         survivors = sorted(
             (ctx.retrieved[oid] for oid in ctx.eligibility if ctx.eligibility[oid].verdict != "INELIGIBLE"),
-            key=lambda o: (o.best_award or 0),
+            key=lambda o: assessment_priority(o, ctx.today),
             reverse=True,
         )
         assessed = 0
@@ -146,6 +178,10 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
                 break
             await tools["assess_fit"](opportunity.id)
             assessed += 1
+
+        from agent.eligibility_clarifications import persist_plausible_questions
+
+        persist_plausible_questions(ctx)
 
         # 4. Apply the escalation policy, then rank what survives it.
         candidates = []
@@ -256,6 +292,16 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
             report.surfaced += 1
     for draft in ctx.drafts.values():
         ctx.repo.save_draft(draft)
+
+    if not report.halted_reason:
+        for opportunity_id in ctx.applied_eligibility_answers:
+            mark_reassessed = getattr(ctx.repo, "mark_eligibility_reassessed", None)
+            if mark_reassessed is not None:
+                mark_reassessed(
+                    ctx.profile.founder_id,
+                    opportunity_id,
+                    before=report.started_at,
+                )
 
     report.usage = ctx.budget.usage
     report.finished_at = datetime.now(timezone.utc)

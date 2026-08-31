@@ -10,6 +10,8 @@ import {
 import { currentAccessToken } from "@/lib/supabase/server";
 import type {
   DraftResponse,
+  EligibilityAnswerValue,
+  EligibilityQuestion,
   FounderProfile,
   InboxItem,
   InboxState,
@@ -247,6 +249,15 @@ export function getInbox(
   return request(`/founders/${encodeURIComponent(id)}/inbox${query}`);
 }
 
+export function listEligibilityQuestions(
+  status: "pending" | "answered" | "all" = "pending",
+  id = founderId(),
+): Promise<EligibilityQuestion[]> {
+  return request(
+    `/founders/${encodeURIComponent(id)}/eligibility-questions?status=${status}`,
+  );
+}
+
 /**
  * Recent run reports, newest first. Capped by `limit`; {@link getRun} reaches older ones.
  */
@@ -430,6 +441,17 @@ export function setInboxState(
     method: "PATCH",
     body: { state },
   });
+}
+
+export function answerEligibilityQuestion(
+  questionId: string,
+  answer: EligibilityAnswerValue,
+  id = founderId(),
+): Promise<EligibilityQuestion> {
+  return request(
+    `/founders/${encodeURIComponent(id)}/eligibility-questions/${encodeURIComponent(questionId)}/answer`,
+    { method: "PUT", body: { answer } },
+  );
 }
 
 /**

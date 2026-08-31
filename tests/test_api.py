@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -137,6 +138,28 @@ def test_passive_items_can_be_excluded_from_the_inbox(client):
     assert len(everything) == 2
     assert len(announced) == 1
     assert announced[0]["kind"] == "APPLY"
+
+
+def test_past_deadline_opportunities_leave_the_founder_inbox(client):
+    expired = opportunity(id="expired", deadline=date.today() - timedelta(days=1))
+    current = opportunity(id="current", deadline=date.today() + timedelta(days=1))
+    app.state.repo.save_opportunity(expired)
+    app.state.repo.save_opportunity(current)
+    for opp in (expired, current):
+        app.state.repo.save_inbox_item(
+            InboxItem(
+                item_id=f"item_{opp.id}",
+                founder_id="founder_demo",
+                opportunity_id=opp.id,
+                kind="APPLY",
+                headline=opp.title,
+                summary="[DEMO] summary",
+            )
+        )
+
+    body = client.get("/founders/founder_demo/inbox").json()
+
+    assert [item["opportunity_id"] for item in body] == ["current"]
 
 
 def test_no_runs_yet_is_404_not_an_empty_success(client):
