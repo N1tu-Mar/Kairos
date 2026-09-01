@@ -115,6 +115,29 @@ def _bool(key: str, default: bool = False) -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+#: The only two authentication postures the process will start under.
+#: `local_shared` is a laptop (one bearer token, or an explicit open demo).
+#: `supabase` is a real deployment: every human request is a user JWT.
+AUTH_MODES = frozenset({"local_shared", "supabase"})
+
+
+def _auth_mode() -> str:
+    """`KAIROS_AUTH_MODE`, or `local_shared` when unset.
+
+    An unrecognised value is a startup error, not a guess. Silently picking
+    a mode is how a typo in production becomes the laptop posture.
+    """
+    raw = os.getenv("KAIROS_AUTH_MODE", "").strip().lower()
+    if not raw:
+        return "local_shared"
+    if raw not in AUTH_MODES:
+        allowed = ", ".join(sorted(AUTH_MODES))
+        raise ConfigError(
+            f"KAIROS_AUTH_MODE must be one of {allowed}, not {raw!r}."
+        )
+    return raw
+
+
 @dataclass(frozen=True)
 class ModelTier:
     """One Bedrock model plus the sampling discipline it runs under.
@@ -194,10 +217,20 @@ class Settings:
     #: set it supersedes `api_token` — it is the only one of the two that can
     #: tell founders apart. Tokens are stored hashed; see api/auth.py.
     credentials_file: str
+    #: Which identity story this process is telling. `local_shared` is a
+    #: laptop; `supabase` is a deployment. Production refuses to boot on
+    #: `local_shared` — see `validate_runtime_posture`.
+    auth_mode: str
+    #: EventBridge's credential. Distinct from `api_token` so a scheduler
+    #: secret cannot be reused as a dashboard-wide founder token. Empty
+    #: means no scheduled principal exists.
+    scheduler_token: str
+    #: The one founder the scheduler principal may trigger a run for.
+    scheduler_founder_id: str
     #: Supabase identity. `supabase_issuer` is `{project_url}/auth/v1` and is
     #: verified as the `iss` claim; exactly one of the two keys is supplied.
-    #: When an issuer and a key are both set they supersede every other
-    #: authenticator — they are the only one that identifies a real person.
+    #: When `auth_mode` is `supabase`, the issuer is required and JWTs are
+    #: verified through JWKS unless a static key was supplied instead.
     supabase_issuer: str
     supabase_jwt_secret: str
     supabase_public_key: str
@@ -287,6 +320,13 @@ def settings() -> Settings:
         # only outside production mode, where `/ready` fails without it.
         api_token=os.getenv("KAIROS_API_TOKEN", "").strip(),
         credentials_file=os.getenv("KAIROS_CREDENTIALS_FILE", "").strip(),
+        auth_mode=_auth_mode(),
+        # Service credential for EventBridge only. Never the dashboard token.
+        scheduler_token=os.getenv("KAIROS_SCHEDULER_TOKEN", "").strip(),
+        scheduler_founder_id=os.getenv(
+            "KAIROS_SCHEDULER_FOUNDER_ID", "founder_demo"
+        ).strip()
+        or "founder_demo",
         supabase_issuer=os.getenv("KAIROS_SUPABASE_ISSUER", "").strip(),
         supabase_jwt_secret=os.getenv("KAIROS_SUPABASE_JWT_SECRET", "").strip(),
         # PEM, newlines and all. Read from the environment as-is; a secret
@@ -298,3 +338,43 @@ def settings() -> Settings:
         allow_open_api=_bool("KAIROS_ALLOW_OPEN_API", False),
         environment=os.getenv("KAIROS_ENV", "local").strip().lower(),
     )
+
+
+def validate_runtime_posture(cfg: Settings) -> None:
+    """Refuse to boot a process that cannot be operated safely.
+
+    Called from the API lifespan (and from preflight) rather than from
+    `settings()` itself, so a readiness probe can still describe a
+    misconfigured production host instead of crashing the process that is
+    supposed to report it. A deployment that actually serves traffic must
+    not start in that state.
+
+    Production specifically:
+    *   `KAIROS_AUTH_MODE` must be `supabase` — local shared-token mode is
+        a laptop, and silently becoming one is the hole this exists to close.
+    *   `KAIROS_SUPABASE_ISSUER` must be set, so user JWTs have an `iss`
+        to verify against. Keys are fetched from JWKS unless a static key
+        was supplied.
+    *   Playwright must stay off. Headless Chromium in the API task can
+        reach link-local and VPC addresses that the HTTP guard never sees.
+    """
+    if cfg.auth_mode == "supabase" and not cfg.supabase_issuer:
+        raise ConfigError(
+            "KAIROS_AUTH_MODE=supabase requires KAIROS_SUPABASE_ISSUER "
+            "(the project URL plus /auth/v1). Without it every user JWT "
+            "is unverifiable."
+        )
+    if not cfg.production:
+        return
+    if cfg.auth_mode != "supabase":
+        raise ConfigError(
+            "production requires KAIROS_AUTH_MODE=supabase. "
+            "local_shared is a laptop posture and must not serve traffic."
+        )
+    if cfg.enable_browser:
+        raise ConfigError(
+            "production refuses KAIROS_ENABLE_BROWSER=true. Playwright is "
+            "not isolated from the task role or the VPC; keep it off until "
+            "scraping runs in a separate task with no AWS credentials and "
+            "no route to private addresses."
+        )
