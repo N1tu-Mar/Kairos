@@ -2,6 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isSupabaseAuth } from "@/lib/auth-mode";
+import {
+  authConfigured,
+  supabaseAnonKey,
+  supabaseUrl,
+  supabaseUrlProblem,
+} from "@/lib/supabase/config";
 
 /**
  * The lock on the front door.
@@ -54,7 +60,10 @@ function isPublic(pathname: string): boolean {
  * so that exception is deliberately limited to `next dev`.
  */
 export function contentSecurityPolicy(nonce: string): string {
-  const supabaseOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  // Only a value that parses as an origin. `connect-src` is a list of them,
+  // and a key spliced in is a malformed directive the browser may discard —
+  // which would quietly widen the policy rather than narrow it.
+  const supabaseOrigin = supabaseUrlProblem() ? "" : supabaseUrl();
   const developmentEval =
     process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
 
@@ -83,8 +92,11 @@ function setCsp(response: NextResponse, policy: string): NextResponse {
 }
 
 export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  // `authConfigured`, not a pair of truthiness checks: a publishable key
+  // pasted into the URL slot is truthy, and handing it to `createServerClient`
+  // throws on every request — turning the whole app, `/login` included, into a
+  // 500 with nothing to read.
+  const configured = authConfigured();
   const nonce = nonceForRequest();
   const policy = contentSecurityPolicy(nonce);
 
@@ -101,7 +113,7 @@ export async function middleware(request: NextRequest) {
   // Production / supabase mode must not silently become the laptop posture.
   // A generic 503 names neither Supabase nor the missing variable — those
   // belong in the operator's logs, not in a body a stranger can read.
-  if (isSupabaseAuth() && (!url || !key)) {
+  if (isSupabaseAuth() && !configured) {
     return setCsp(
       NextResponse.json({ detail: "service unavailable" }, { status: 503 }),
       policy,
@@ -109,11 +121,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Not configured: local single-founder mode, no sign-in, nothing gated.
-  if (!url || !key) return setCsp(nextResponse(), policy);
+  if (!configured) return setCsp(nextResponse(), policy);
 
   let response = nextResponse();
 
-  const supabase = createServerClient(url, key, {
+  const supabase = createServerClient(supabaseUrl(), supabaseAnonKey(), {
     cookies: {
       getAll() {
         return request.cookies.getAll();

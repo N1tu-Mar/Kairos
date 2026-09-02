@@ -252,3 +252,50 @@ describe("the redirect target", () => {
     expect(location.origin).toBe("https://kairos.example");
   });
 });
+
+describe("a Supabase URL that is really a key", () => {
+  /**
+   * The mistake this guards against: the publishable key pasted into both
+   * slots, because the Supabase dashboard shows them next to each other.
+   *
+   * Handing that string to `createServerClient` throws on every request, so
+   * every route in the app becomes a 500 — including `/login`, which is the
+   * one page that could have explained the problem.
+   */
+  it("does not gate on it, and does not throw", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "sb_publishable_JKB547zDuwugA4b");
+    vi.stubEnv("KAIROS_AUTH_MODE", "local_shared");
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/briefing"));
+
+    // Treated as unconfigured: local single-founder mode, nothing gated.
+    expect(response.status).toBe(200);
+  });
+
+  it("is a 503 in supabase mode, like any other missing value", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "sb_publishable_JKB547zDuwugA4b");
+    vi.stubEnv("KAIROS_AUTH_MODE", "supabase");
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/briefing"));
+
+    // Fail closed. A deployment that meant to have accounts and does not
+    // must not quietly serve the shared-token posture instead.
+    expect(response.status).toBe(503);
+  });
+
+  it("keeps the bad value out of the CSP", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "sb_publishable_JKB547zDuwugA4b");
+    vi.stubEnv("KAIROS_AUTH_MODE", "local_shared");
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/briefing"));
+
+    // `connect-src` is a list of origins. A key spliced into it is not an
+    // origin, and a malformed directive is one the browser may discard.
+    expect(response.headers.get("content-security-policy")).not.toContain(
+      "sb_publishable",
+    );
+  });
+});
