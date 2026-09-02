@@ -56,10 +56,11 @@ in a week that already has a problem set due.
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
 | Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
 | Decision loop | Deterministic eligibility filtering, founder clarification with exact answer reuse and opt-in capped semantic reuse, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
-| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. |
+| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. A founder arriving with no profile is onboarded by a **scripted, model-free intake chat**: every question is asked and every answer parsed by ordinary code, and prose lands in `knowledge_base` as a tagged chunk rather than in an eligibility field. |
+| Access | Three authenticators behind one seam. A shared `KAIROS_API_TOKEN` grants the single seeded founder and nothing more; a SHA-256-hashed credential file maps tokens to subjects and founder sets, re-read on mtime change so rotation needs no restart; **Supabase JWTs** (JWKS by default, `kid`-selected, issuer-checked) are the only one that identifies a person, with authorization still read from the `founder_members` table rather than any claim in the token. An unconfigured API fails closed — every request 401s unless `KAIROS_ALLOW_OPEN_API` is deliberately set. On the dashboard side, Next middleware refreshes the session and redirects to `/login`, closing a hole where the credential-holding proxy would answer anonymous callers. |
 | Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. Definite eligibility answers queue a one-opportunity reassessment. A run lease keyed by founder makes overlapping runs impossible; a busy lease safely defers the saved answer. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 1,044 Python tests pass with no expected failures remaining; 111 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-30. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
+| Verification | 1,044 Python tests pass with no expected failures remaining; 111 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-09-01. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -680,6 +681,7 @@ rather than recalling it, and every open TODO is dated in
 ```
 agent/
   models.py        Pydantic contracts. Three-valued eligibility throughout.
+  config.py        Settings. Blank is missing; a missing model ID raises at startup.
   guardrails.py    Escalation thresholds, the field blocklist, ship_gate().
   budget.py        Token ceiling, assessment cap, persisted daily USD cap.
   sanitize.py      The ingestion boundary for untrusted text.
@@ -687,20 +689,32 @@ agent/
   scout.py         The orchestrator. Deterministic run + Strands agent.
   toolset.py       The six tools, bound to one run.
   runtime.py       Per-run state.
-  subagents/       Assessor, Drafter, Auditor.
-  tools/           discovery.py, eligibility.py (pure Python).
+  eligibility_clarifications.py  The "Needs You" questions, and exact answer reuse.
+  semantic.py      Opt-in, capped semantic reuse of a previous answer.
+  dryrun.py        The no-Bedrock path. Stamps its own placeholder label on output.
+  scheduler.py     The local daily schedule standing in for EventBridge.
+  subagents/       Assessor, Drafter, Auditor, plus eligibility_reuse.
+  tools/           discovery.py, eligibility.py, campus.py, extraction.py (pure Python).
   scraping/        Evidence-first campus research; never writes runtime seed.
+                   robots.py + netguard.py gate every fetch; firecrawl.py is the
+                   opt-in, capped paid fallback.
   prompts/         System prompts as version-controlled .md.
 api/
-  main.py          FastAPI read surface.
+  main.py          FastAPI surface: briefings, inbox, runs, drafts, profile, skips.
+  auth.py          The Authenticator seam — shared token, credential file, Supabase.
+  jobs.py          Runs as durable jobs: leases, polling, orphan recovery.
   repository.py    Protocol + SQLite. DynamoDB is a port, not a rewrite.
+migrations/        Alembic revisions. The schema's only source of truth in production.
 data/              Candidates, verified seed, Rutgers review rows, demo data, forms.
 scripts/           Scout runner, seed verifier, Bedrock smoke check, eval, scraper.
 frontend/          Next.js dashboard. Reads the API; owns no business logic.
+  src/middleware.ts  Session refresh and the /login redirect. Steps aside locally.
+  src/app/api/     Thin proxy route handlers. One forwarded request each, no logic.
+  src/lib/api.ts   The only module that talks to FastAPI.
 infra/             Terraform: ECS Fargate + EFS + EventBridge schedule. Unapplied.
 tests/             Offline. Fixtures recorded from real API calls.
 backend_method_suites/  Per-method pytest suites, including the auth gate.
-docs/              Architecture diagrams (Mermaid source).
+docs/              Architecture diagrams (Mermaid source) and runbooks.
 ```
 
 ---
