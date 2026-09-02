@@ -8,60 +8,56 @@
   changes what the founder should do next, and nowhere else.
 */
 
+/*
+  One ground for the whole product.
+
+  The landing page and the dashboard used to be two worlds — night out front,
+  warm paper once you signed in. They are now the same surface, so signing in
+  is a door rather than a scene change.
+
+  Cold slate rather than neutral black, and brass rather than a bright accent.
+  The palette is named once here and consumed everywhere: nothing in the app
+  writes a colour of its own, which is what makes a change like this one file.
+*/
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  --paper: #faf8f4;
-  --surface: #ffffff;
-  --surface-sunk: #f4f1ea;
-  --ink: #1b1916;
-  --ink-soft: #4a453d;
-  --ink-muted: #736c61;
-  --rule: #e6e0d4;
-  --rule-strong: #d3cbba;
+  /* The ground, named for what it is. */
+  --night: #14161c;
+  --night-lift: #1b1e26;
+  --chalk: #eceae4;
+  --chalk-dim: #8d8b85;
+  --brass: #c8a253;
+  --gone: #454851;
 
-  --accent: #6b5b3e;
-  --accent-soft: #f0e9d8;
+  /* The dashboard's vocabulary, mapped onto that same ground. The names are
+     unchanged on purpose: every view already speaks in them, so re-theming
+     the product costs nothing but this block. */
+  --paper: var(--night);
+  --surface: var(--night-lift);
+  --surface-sunk: #191c23;
+  --ink: var(--chalk);
+  --ink-soft: #b9b7b1;
+  --ink-muted: var(--chalk-dim);
+  --rule: #2b2f37;
+  --rule-strong: #3a3f4a;
 
-  --ok: #3f6b4f;
-  --ok-soft: #e6efe7;
-  --warn: #8a6420;
-  --warn-soft: #f7eeda;
-  --alert: #96412f;
-  --alert-soft: #f8e8e2;
-  --info: #3f5a75;
-  --info-soft: #e6ecf2;
-  --neutral: #6b6459;
-  --neutral-soft: #eeeae1;
-}
+  --accent: var(--brass);
+  --accent-soft: #2a2723;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-
-    --paper: #15140f;
-    --surface: #1d1b16;
-    --surface-sunk: #22201a;
-    --ink: #f0ece2;
-    --ink-soft: #cfc8ba;
-    --ink-muted: #9a9284;
-    --rule: #322e26;
-    --rule-strong: #453f34;
-
-    --accent: #d8c496;
-    --accent-soft: #2b271d;
-
-    --ok: #8fbf9f;
-    --ok-soft: #1e2a21;
-    --warn: #d9b26a;
-    --warn-soft: #2c2418;
-    --alert: #e0937f;
-    --alert-soft: #2e1d17;
-    --info: #9bb6d0;
-    --info-soft: #1a222b;
-    --neutral: #a49b8c;
-    --neutral-soft: #26231d;
-  }
+  /* Status stays a signal, never decoration. Cooled to sit on slate — the
+     previous set was mixed over warm paper and goes muddy here. */
+  --ok: #7fbf9a;
+  --ok-soft: #17251d;
+  --warn: #d8b166;
+  --warn-soft: #2a2417;
+  --alert: #e08f7a;
+  --alert-soft: #2c1c19;
+  --info: #8fb4d6;
+  --info-soft: #182430;
+  --neutral: #9aa0ab;
+  --neutral-soft: #232730;
 }
 
 @theme inline {
@@ -92,10 +88,11 @@
   --font-display: var(--kairos-display), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--kairos-body), ui-sans-serif, system-ui, sans-serif;
 
-  --font-serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
-    Georgia, "Times New Roman", serif;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  /* `font-serif` is the display role now, not a serif. The class name is kept
+     because roughly fifteen views spell it, and renaming them is a mechanical
+     change better made when no branch is open on those files. */
+  --font-serif: var(--font-display);
+  --font-sans: var(--font-body);
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 }
@@ -111,6 +108,11 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brass);
+  color: var(--night);
 }
 
 /* Focus is never removed, only restyled. Keyboard users get a real ring. */
@@ -160,28 +162,8 @@ body {
    --------------------------------------------------------------------------- */
 
 .night {
-  color-scheme: dark;
-
-  --night: #14161c;
-  --night-lift: #1b1e26;
-  --chalk: #eceae4;
-  --chalk-dim: #8d8b85;
-  --brass: #c8a253;
-  --gone: #454851;
-
   background-color: var(--night);
   color: var(--chalk);
-  font-family: var(--font-body);
-}
-
-.night ::selection {
-  background: var(--brass);
-  color: var(--night);
-}
-
-.night :where(a, button):focus-visible {
-  outline: 2px solid var(--brass);
-  outline-offset: 3px;
 }
 
 /* --- The horizon ---------------------------------------------------------

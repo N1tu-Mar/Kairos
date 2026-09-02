@@ -33,7 +33,7 @@ export function PageHeader({
               {eyebrow}
             </p>
           ) : null}
-          <h1 className="font-serif text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
+          <h1 className="font-serif text-3xl leading-tight tracking-[-0.03em] text-ink sm:text-4xl">
             {title}
           </h1>
           {lede ? (
@@ -66,7 +66,7 @@ export function Section({
     <section className="mb-12">
       <div className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
         <div>
-          <h2 className="font-serif text-xl tracking-tight text-ink">{title}</h2>
+          <h2 className="font-serif text-xl tracking-[-0.025em] text-ink">{title}</h2>
           {description ? (
             <p className="mt-1 max-w-2xl text-sm leading-relaxed text-ink-muted">
               {description}

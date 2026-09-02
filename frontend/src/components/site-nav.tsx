@@ -38,7 +38,7 @@ export function SiteNav() {
             aria-current={active ? "page" : undefined}
             className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
               active
-                ? "bg-accent-soft font-medium text-ink"
+                ? "bg-accent-soft font-medium text-accent"
                 : "text-ink-muted hover:bg-sunk hover:text-ink"
             }`}
           >

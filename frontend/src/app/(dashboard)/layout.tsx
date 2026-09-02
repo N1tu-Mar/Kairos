@@ -15,7 +15,7 @@ export default function DashboardLayout({
 }) {
   return (
     <>
-      <div className="border-b border-rule bg-surface/70">
+      <div className="border-b border-rule">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <Link href="/briefing" className="flex items-baseline gap-2.5">
             <span className="font-serif text-lg tracking-tight text-ink">
