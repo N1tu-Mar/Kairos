@@ -14,6 +14,8 @@ import type {
   EligibilityAnswerValue,
   EligibilityQuestion,
   FounderProfile,
+  IntakeMessageCreate,
+  IntakeSessionView,
   InboxItem,
   InboxState,
   JobStatusResponse,
@@ -489,4 +491,29 @@ export function putProfile(profile: FounderProfile): Promise<FounderProfile> {
     method: "PUT",
     body: profile,
   });
+}
+
+/** Create the founder's intake session, or resume the existing active one. */
+export function createOrResumeIntake(
+  id = founderId(),
+): Promise<IntakeSessionView> {
+  return request(`/founders/${encodeURIComponent(id)}/intake/sessions`, {
+    method: "POST",
+  });
+}
+
+/** Submit one idempotent founder message and wait for its validated reply. */
+export function sendIntakeMessage(
+  sessionId: string,
+  message: IntakeMessageCreate,
+  id = founderId(),
+): Promise<IntakeSessionView> {
+  return request(
+    `/founders/${encodeURIComponent(id)}/intake/sessions/${encodeURIComponent(sessionId)}/messages`,
+    {
+      method: "POST",
+      body: message,
+      timeoutMs: 60_000,
+    },
+  );
 }

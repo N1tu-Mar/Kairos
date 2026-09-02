@@ -17,7 +17,7 @@ import json
 from datetime import datetime, timezone
 from typing import Literal, Protocol, TypeVar
 
-from sqlalchemy import Column, Text, update
+from sqlalchemy import Column, Text, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -285,6 +285,27 @@ class Repository(Protocol):
         expected_revision: int,
     ) -> bool: ...
     def save_intake_message(self, message: IntakeMessage) -> bool: ...
+    def begin_intake_turn(
+        self,
+        message: IntakeMessage,
+        *,
+        expected_revision: int,
+        rate_window_start: datetime,
+        founder_hour_limit: int,
+        session_turn_limit: int,
+    ) -> Literal[
+        "accepted", "duplicate", "stale", "busy", "inactive", "rate_limited", "turn_limit"
+    ]: ...
+    def finish_intake_turn(
+        self,
+        intake: IntakeSession,
+        assistant_message: IntakeMessage,
+        *,
+        expected_revision: int,
+    ) -> bool: ...
+    def abort_intake_turn(
+        self, session_id: str, message_id: str, *, expected_revision: int
+    ) -> bool: ...
     def get_intake_message_by_client_id(
         self, session_id: str, client_message_id: str
     ) -> IntakeMessage | None: ...
@@ -587,6 +608,183 @@ class SqliteRepository:
             except IntegrityError:
                 session.rollback()
                 return False
+
+    @staticmethod
+    def _message_row(message: IntakeMessage) -> IntakeMessageRow:
+        key = (
+            f"{message.session_id}::{message.client_message_id}"
+            if message.client_message_id
+            else None
+        )
+        return IntakeMessageRow(
+            message_id=message.message_id,
+            session_id=message.session_id,
+            founder_id=message.founder_id,
+            role=message.role,
+            idempotency_key=key,
+            created_at=message.created_at,
+            payload=redact_json(message.model_dump_json()),
+        )
+
+    def begin_intake_turn(
+        self,
+        message: IntakeMessage,
+        *,
+        expected_revision: int,
+        rate_window_start: datetime,
+        founder_hour_limit: int,
+        session_turn_limit: int,
+    ) -> Literal[
+        "accepted", "duplicate", "stale", "busy", "inactive", "rate_limited", "turn_limit"
+    ]:
+        """Atomically reserve a paid turn and persist its founder message."""
+        key = f"{message.session_id}::{message.client_message_id}"
+        with Session(self.engine) as session:
+            existing = session.exec(
+                select(IntakeMessageRow).where(IntakeMessageRow.idempotency_key == key)
+            ).first()
+            if existing is not None:
+                return "duplicate"
+
+            row = session.get(IntakeSessionRow, message.session_id)
+            if row is None or row.founder_id != message.founder_id:
+                return "stale"
+            intake = IntakeSession.model_validate_json(row.payload)
+            if intake.status != "active":
+                return "inactive"
+            if intake.pending_message_id is not None:
+                return "busy"
+            if intake.revision != expected_revision:
+                return "stale"
+
+            session_turns = session.exec(
+                select(func.count())
+                .select_from(IntakeMessageRow)
+                .where(
+                    IntakeMessageRow.session_id == message.session_id,
+                    IntakeMessageRow.role == "founder",
+                )
+            ).one()
+            if int(session_turns) >= session_turn_limit:
+                return "turn_limit"
+
+            founder_turns = session.exec(
+                select(func.count())
+                .select_from(IntakeMessageRow)
+                .where(
+                    IntakeMessageRow.founder_id == message.founder_id,
+                    IntakeMessageRow.role == "founder",
+                    IntakeMessageRow.created_at >= rate_window_start,
+                )
+            ).one()
+            if int(founder_turns) >= founder_hour_limit:
+                return "rate_limited"
+
+            now = _now()
+            reserved = intake.model_copy(
+                update={
+                    "pending_message_id": message.message_id,
+                    "revision": intake.revision + 1,
+                    "updated_at": now,
+                }
+            )
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == message.session_id,
+                    IntakeSessionRow.founder_id == message.founder_id,
+                    IntakeSessionRow.revision == expected_revision,
+                    IntakeSessionRow.status == "active",
+                )
+                .values(
+                    revision=reserved.revision,
+                    updated_at=now,
+                    payload=redact_json(reserved.model_dump_json()),
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                duplicate = session.exec(
+                    select(IntakeMessageRow).where(
+                        IntakeMessageRow.idempotency_key == key
+                    )
+                ).first()
+                return "duplicate" if duplicate is not None else "stale"
+            session.add(self._message_row(message))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                return "duplicate"
+            return "accepted"
+
+    def finish_intake_turn(
+        self,
+        intake: IntakeSession,
+        assistant_message: IntakeMessage,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        """Atomically publish the reply and resulting proposed facts."""
+        with Session(self.engine) as session:
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == intake.session_id,
+                    IntakeSessionRow.founder_id == intake.founder_id,
+                    IntakeSessionRow.revision == expected_revision,
+                    IntakeSessionRow.status == "active",
+                )
+                .values(
+                    revision=intake.revision,
+                    updated_at=intake.updated_at,
+                    payload=redact_json(intake.model_dump_json()),
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                return False
+            session.add(self._message_row(assistant_message))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                return False
+            return True
+
+    def abort_intake_turn(
+        self, session_id: str, message_id: str, *, expected_revision: int
+    ) -> bool:
+        """Release a failed model turn while retaining the founder message."""
+        with Session(self.engine) as session:
+            row = session.get(IntakeSessionRow, session_id)
+            if row is None or row.revision != expected_revision:
+                return False
+            intake = IntakeSession.model_validate_json(row.payload)
+            if intake.pending_message_id != message_id:
+                return False
+            now = _now()
+            released = intake.model_copy(
+                update={
+                    "pending_message_id": None,
+                    "revision": intake.revision + 1,
+                    "updated_at": now,
+                }
+            )
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == session_id,
+                    IntakeSessionRow.revision == expected_revision,
+                )
+                .values(
+                    revision=released.revision,
+                    updated_at=now,
+                    payload=redact_json(released.model_dump_json()),
+                )
+            )
+            session.commit()
+            return result.rowcount == 1
 
     def get_intake_message_by_client_id(
         self, session_id: str, client_message_id: str

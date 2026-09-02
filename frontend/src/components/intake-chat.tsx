@@ -1,613 +1,371 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
-  DegreeLevel,
-  EntityType,
   FounderProfile,
-  KnowledgeChunk,
-  Stage,
+  IntakeFieldState,
+  IntakeMessage,
+  IntakeSessionView,
 } from "@/lib/types";
 
-/**
- * Conversational intake for the facts Kairos needs before it can run.
- *
- * Two things made this necessary. A founder had no way to say what they are
- * building or how far along they are: `traction` and `knowledge_base` were on
- * the model and reachable through `PUT /founders/{id}`, but no screen wrote
- * either one. And a founder arriving with no profile at all had nowhere to
- * start, which meant the product could not be handed to a stranger.
- *
- * ## Why a script and not a model
- *
- * Every question here is asked by Python-free, model-free code, and every
- * answer is parsed by a `parse` function on its own step. No model call, no
- * key, no network beyond the single `PUT` at the end. That is not a shortcut
- * around a model; it is the same split the rest of the system runs on. The
- * eligibility filter compares structured facts, so structured facts are what
- * intake must produce, and a scripted question that returns
- * `{ok: false, message}` on bad input is a stricter guarantee of that than any
- * extraction prompt. It also means intake works with no credentials
- * configured, which is exactly the state a new user is in.
- *
- * ## Where free text is allowed to go
- *
- * Exactly one place. "What are you building" and anything else prose-shaped
- * becomes a `KnowledgeChunk` tagged `source: "onboarding_chat"` and lands in
- * `knowledge_base`, the closed world the Drafter may quote from. It never
- * reaches an eligibility field. That boundary is the defense against a
- * funding page talking the filter out of its answer, and moving intake to a
- * conversation must not soften it.
- */
+type Phase = "loading" | "ready" | "sending" | "error";
 
-// ── The script ───────────────────────────────────────────────────────────────
+const REQUIRED_FIELD_COUNT = 11;
+const INTRO =
+  "Tell me what you’re building in your own words. Share as much context as you have—I’ll pull out the useful facts and ask one follow-up at a time.";
 
-/** What a step does with the text the founder typed. */
-type ParseResult =
-  | { ok: true; value: unknown; echo: string }
-  | { ok: false; message: string };
-
-interface Step {
-  /** Stable key. Also the field it writes, where the two coincide. */
-  id: string;
-  /** What Kairos asks. */
-  question: string;
-  /** Shown under the question. Examples and units go here, not in the question. */
-  hint?: string;
-  /** Offered as buttons. The founder may still type instead. */
-  choices?: string[];
-  /** Optional steps accept "skip" and record nothing. */
-  skippable?: boolean;
-  /** Validate and convert. The `echo` is what the transcript shows back. */
-  parse: (raw: string) => ParseResult;
-}
-
-/** Whole number at or above `min`, for team size, hours and counts. */
-function wholeNumber(min: number, label: string) {
-  return (raw: string): ParseResult => {
-    const cleaned = raw.replace(/[,$\s]/g, "");
-    const value = Number(cleaned);
-    if (!Number.isFinite(value) || !Number.isInteger(value) || value < min) {
-      return {
-        ok: false,
-        message: `${label} needs to be a whole number of at least ${min}. Try again.`,
-      };
-    }
-    return { ok: true, value, echo: String(value) };
-  };
-}
-
-/** One of a fixed set, matched case-insensitively and space-or-underscore agnostic. */
-function oneOf<T extends string>(options: readonly T[]) {
-  return (raw: string): ParseResult => {
-    const needle = raw.trim().toLowerCase().replace(/[\s-]+/g, "_");
-    const hit = options.find((option) => option === needle);
-    if (!hit) {
-      return { ok: false, message: `Pick one of: ${options.join(", ")}.` };
-    }
-    return { ok: true, value: hit, echo: hit };
-  };
-}
-
-/** Yes or no, in the several shapes people actually type it. */
-function yesNo(raw: string): ParseResult {
-  const needle = raw.trim().toLowerCase();
-  if (["y", "yes", "yeah", "yep", "true", "ok"].includes(needle)) {
-    return { ok: true, value: true, echo: "yes" };
+function newClientMessageId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `web-${crypto.randomUUID()}`;
   }
-  if (["n", "no", "nope", "false"].includes(needle)) {
-    return { ok: true, value: false, echo: "no" };
-  }
-  return { ok: false, message: "Yes or no." };
+  return `web-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Non-empty text, capped at the length the backend model accepts. */
-function text(max: number, label: string) {
-  return (raw: string): ParseResult => {
-    const value = raw.trim();
-    if (!value) return { ok: false, message: `${label} cannot be empty.` };
-    if (value.length > max) {
-      return { ok: false, message: `${label} has to be under ${max} characters.` };
-    }
-    return { ok: true, value, echo: value };
-  };
+async function responseError(response: Response, fallback: string): Promise<string> {
+  const body = (await response.json().catch(() => null)) as
+    | { error?: unknown }
+    | null;
+  return typeof body?.error === "string" ? body.error : fallback;
 }
 
-const DEGREE_CHOICES = ["undergrad", "masters", "phd", "postdoc"] as const;
-const ENTITY_CHOICES = ["none", "llc", "c_corp", "s_corp", "nonprofit"] as const;
-const STAGE_CHOICES = ["idea", "prototype", "mvp", "pilot", "revenue"] as const;
-
-/**
- * The questions, in order.
- *
- * Ordered so the easy identity questions come first and the ones that need a
- * founder to think — funding range, hours they will spend — come once they are
- * already several answers in. The eligibility fields are all required because
- * a guessed default here is how somebody gets told they qualify for something
- * they do not.
- */
-const SCRIPT: Step[] = [
-  {
-    id: "full_name",
-    question: "What should I call you?",
-    skippable: true,
-    parse: text(200, "Your name"),
-  },
-  {
-    id: "institution",
-    question: "Where do you study?",
-    hint: "The full name, as a funder would write it.",
-    parse: text(300, "Institution"),
-  },
-  {
-    id: "major",
-    question: "What are you studying?",
-    skippable: true,
-    parse: text(200, "Major"),
-  },
-  {
-    id: "degree_level",
-    question: "What level?",
-    choices: [...DEGREE_CHOICES],
-    parse: oneOf(DEGREE_CHOICES),
-  },
-  {
-    id: "citizenship",
-    question: "What is your citizenship or visa status?",
-    hint: "As the funders' rules state it. Most programs care a great deal about this one.",
-    choices: ["us_citizen", "permanent_resident", "f1_visa", "other"],
-    parse: text(100, "Citizenship"),
-  },
-  {
-    id: "building",
-    question: "What are you building?",
-    hint: "A few sentences. This is the only answer Kairos may quote from when it drafts, so write it the way you would say it out loud.",
-    parse: text(4_000, "That answer"),
-  },
-  {
-    id: "stage",
-    question: "How far along is it?",
-    choices: [...STAGE_CHOICES],
-    parse: oneOf(STAGE_CHOICES),
-  },
-  {
-    id: "entity_type",
-    question: "Have you formed a legal entity?",
-    hint: "Plenty of programs are open to teams that have not. Answer none if that is you.",
-    choices: [...ENTITY_CHOICES],
-    parse: oneOf(ENTITY_CHOICES),
-  },
-  {
-    id: "team_size",
-    question: "How many people are on the team, including you?",
-    parse: wholeNumber(1, "Team size"),
-  },
-  {
-    id: "traction.users",
-    question: "How many users do you have?",
-    hint: "A number. Zero is a real answer and a useful one. Skip if it does not apply.",
-    skippable: true,
-    parse: wholeNumber(0, "That"),
-  },
-  {
-    id: "traction.pitches",
-    question: "How many times have you pitched this?",
-    hint: "Competitions, demo days, investor meetings.",
-    skippable: true,
-    parse: wholeNumber(0, "That"),
-  },
-  {
-    id: "traction.revenue_usd",
-    question: "Any revenue yet, in dollars?",
-    skippable: true,
-    parse: wholeNumber(0, "That"),
-  },
-  {
-    id: "funding_floor",
-    question: "What is the smallest award worth your time, in dollars?",
-    hint: "Below this, Kairos will not surface it.",
-    parse: wholeNumber(0, "The floor"),
-  },
-  {
-    id: "funding_ceiling",
-    question: "And the largest you would realistically go after?",
-    parse: wholeNumber(0, "The ceiling"),
-  },
-  {
-    id: "equity_ok",
-    question: "Would you take money that costs you equity?",
-    choices: ["yes", "no"],
-    parse: yesNo,
-  },
-  {
-    id: "has_faculty_advisor",
-    question: "Do you have a faculty advisor?",
-    hint: "Some campus programs require one. Kairos will tell you which.",
-    choices: ["yes", "no"],
-    parse: yesNo,
-  },
-  {
-    id: "max_application_hours",
-    question: "How many hours will you spend on one application?",
-    hint: "Kairos uses this to drop the ones that would cost more than they are worth to you.",
-    parse: wholeNumber(1, "Hours"),
-  },
-  {
-    id: "geographies",
-    question: "Where can you claim residency or study?",
-    hint: "Comma-separated tokens, e.g. US-NJ, US.",
-    skippable: true,
-    parse: (raw: string): ParseResult => {
-      const list = raw
-        .split(",")
-        .map((token) => token.trim())
-        .filter(Boolean);
-      if (list.length === 0) return { ok: false, message: "Give at least one, or skip." };
-      return { ok: true, value: list, echo: list.join(", ") };
-    },
-  },
-];
-
-// ── Assembling a profile out of the answers ──────────────────────────────────
-
-type Answers = Record<string, unknown>;
-
-/**
- * Build the profile to send.
- *
- * Merged over `existing` when there is one, so re-running intake corrects a
- * profile rather than resetting the fields it never asked about. Prose becomes
- * a knowledge chunk here and nowhere else.
- */
-function toProfile(
-  answers: Answers,
-  existing: FounderProfile | null,
-  founderId: string,
-): FounderProfile {
-  const traction: Record<string, number> = { ...(existing?.traction ?? {}) };
-  for (const key of ["users", "pitches", "revenue_usd"]) {
-    const value = answers[`traction.${key}`];
-    if (typeof value === "number") traction[key] = value;
-  }
-
-  const knowledge: KnowledgeChunk[] = [...(existing?.knowledge_base ?? [])];
-  const building = answers.building;
-  if (typeof building === "string" && building) {
-    knowledge.push({
-      chunk_id: `onboarding_${Date.now().toString(36)}`,
-      text: building,
-      // Named so a later reader can tell a founder's own words from a
-      // scraped page. Provenance is the whole point of a chunk.
-      source: "onboarding_chat",
-      confidence: 1,
-      created_at: new Date().toISOString(),
-    });
-  }
-
-  const pick = <T,>(key: string, fallback: T): T =>
-    (answers[key] as T | undefined) ?? fallback;
-
-  return {
-    founder_id: founderId,
-    full_name: pick<string | null>("full_name", existing?.full_name ?? null),
-    degree_level: pick<DegreeLevel>("degree_level", existing?.degree_level ?? "undergrad"),
-    institution: pick("institution", existing?.institution ?? ""),
-    major: pick<string | null>("major", existing?.major ?? null),
-    citizenship: pick("citizenship", existing?.citizenship ?? ""),
-    entity_type: pick<EntityType>("entity_type", existing?.entity_type ?? "none"),
-    team_size: pick("team_size", existing?.team_size ?? 1),
-    stage: pick<Stage>("stage", existing?.stage ?? "idea"),
-    traction,
-    funding_range: [
-      pick("funding_floor", existing?.funding_range[0] ?? 0),
-      pick("funding_ceiling", existing?.funding_range[1] ?? 0),
-    ],
-    equity_ok: pick("equity_ok", existing?.equity_ok ?? false),
-    has_faculty_advisor: pick(
-      "has_faculty_advisor",
-      existing?.has_faculty_advisor ?? false,
-    ),
-    max_application_hours: pick(
-      "max_application_hours",
-      existing?.max_application_hours ?? 8,
-    ),
-    geographies: pick("geographies", existing?.geographies ?? []),
-    reuse_eligibility_answers: existing?.reuse_eligibility_answers ?? false,
-    knowledge_base: knowledge,
-  };
+function labelFor(field: string): string {
+  return field.replaceAll("_", " ");
 }
 
-// ── The conversation ─────────────────────────────────────────────────────────
-
-interface Turn {
-  who: "kairos" | "you";
-  text: string;
+function displayValue(value: unknown): string {
+  if (Array.isArray(value)) return value.join(" – ");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value ?? "");
 }
 
-type Status =
-  | { phase: "asking" }
-  | { phase: "saving" }
-  | { phase: "saved" }
-  | { phase: "error"; message: string };
-
-/** One captured answer, shown in the live panel beside the conversation. */
-function Captured({ label, value }: { label: string; value: string }) {
+function ChatMessage({ message }: { message: IntakeMessage }) {
+  const founder = message.role === "founder";
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-rule/60 py-1.5 last:border-b-0">
-      <span className="text-xs uppercase tracking-[0.1em] text-ink-muted">{label}</span>
-      <span className="text-right text-sm text-ink">{value}</span>
+    <div className={founder ? "flex justify-end" : "flex justify-start"}>
+      <div
+        className={
+          founder
+            ? "max-w-[85%] rounded-2xl rounded-br-sm bg-accent px-4 py-3 text-sm leading-relaxed text-surface"
+            : "max-w-[90%] rounded-2xl rounded-bl-sm border border-rule bg-surface px-4 py-3 text-sm leading-relaxed text-ink"
+        }
+      >
+        <span className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] opacity-70">
+          {founder ? "You" : "Kairos"}
+        </span>
+        <p className="whitespace-pre-wrap break-words">{message.text}</p>
+      </div>
     </div>
   );
 }
 
-/**
- * The intake conversation, plus a live view of what it has recorded.
- *
- * The panel on the right is not decoration. A founder is answering questions
- * that decide which funding they are shown, so they get to watch the record
- * being written and see it in the same words the filter will use. A chat that
- * hides what it extracted is a chat you cannot correct.
- */
-export function IntakeChat({
-  profile,
-  founderId,
-}: {
-  profile: FounderProfile | null;
-  /**
-   * Passed in rather than read from `@/lib/config`. That module is
-   * `server-only` because it also holds the backend address, which the
-   * browser must never learn. The founder id is not in that category — it is
-   * already on screen on the profile page — so it crosses as a prop and the
-   * address stays behind the proxy.
-   */
-  founderId: string;
-}) {
-  const router = useRouter();
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answers>({});
+function FactSummary({ view }: { view: IntakeSessionView }) {
+  const facts = Object.values(view.session.fields).filter(
+    (fact): fact is IntakeFieldState => Boolean(fact),
+  );
+  const proposed = facts.filter((fact) => fact.status === "proposed");
+  const confirmed = facts.filter((fact) => fact.status === "confirmed");
+  const completed = Math.max(0, REQUIRED_FIELD_COUNT - view.missing_required.length);
+  const progress = Math.round((completed / REQUIRED_FIELD_COUNT) * 100);
+
+  return (
+    <aside className="rounded-xl border border-rule bg-surface p-5 sm:p-6">
+      <div className="flex items-baseline justify-between gap-4">
+        <h3 className="font-serif text-lg tracking-tight text-ink">Founder context</h3>
+        <span className="font-mono text-xs text-ink-muted">{progress}%</span>
+      </div>
+      <div
+        className="mt-3 h-1.5 overflow-hidden rounded-full bg-rule"
+        role="progressbar"
+        aria-label="Required founder facts captured"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progress}
+      >
+        <div className="h-full rounded-full bg-accent" style={{ width: `${progress}%` }} />
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-ink-muted">
+        The assistant can propose facts. Eligibility-sensitive facts are not saved
+        to your profile until you confirm them.
+      </p>
+
+      {proposed.length > 0 ? (
+        <div className="mt-5">
+          <h4 className="text-[11px] font-medium uppercase tracking-[0.12em] text-warn">
+            Needs your confirmation · {proposed.length}
+          </h4>
+          <dl className="mt-2 space-y-2">
+            {proposed.map((fact) => (
+              <div key={fact.field} className="rounded-md border border-rule px-3 py-2">
+                <dt className="text-[11px] capitalize text-ink-muted">
+                  {labelFor(fact.field)}
+                </dt>
+                <dd className="mt-0.5 break-words text-sm text-ink">
+                  {displayValue(fact.value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="rounded-md bg-canvas px-3 py-2">
+          <span className="block font-serif text-xl text-ink">{confirmed.length}</span>
+          <span className="text-[11px] uppercase tracking-[0.1em] text-ink-muted">
+            Confirmed
+          </span>
+        </div>
+        <div className="rounded-md bg-canvas px-3 py-2">
+          <span className="block font-serif text-xl text-ink">
+            {view.missing_required.length}
+          </span>
+          <span className="text-[11px] uppercase tracking-[0.1em] text-ink-muted">
+            Still needed
+          </span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+export function IntakeChat({ founderId }: { profile: FounderProfile | null; founderId: string }) {
+  const [view, setView] = useState<IntakeSessionView | null>(null);
+  const [phase, setPhase] = useState<Phase>("loading");
   const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState<Status>({ phase: "asking" });
-  const [turns, setTurns] = useState<Turn[]>([
-    {
-      who: "kairos",
-      text:
-        profile === null
-          ? "Before I can look for anything, I need to know a few things about you. Nothing here is a guess: every answer is compared literally against what each funder says they require."
-          : "Answering again replaces what I have on file. Anything you skip stays as it is.",
-    },
-    { who: "kairos", text: SCRIPT[0].question },
-  ]);
+  const [optimisticText, setOptimisticText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const retry = useRef<{ id: string; text: string } | null>(null);
   const inFlight = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
 
-  const step: Step | undefined = SCRIPT[index];
-  const done = index >= SCRIPT.length;
-  const saving = status.phase === "saving";
+  const loadSession = useCallback(async (quiet = false) => {
+    if (!quiet) setPhase("loading");
+    try {
+      const response = await fetch("/api/intake", { method: "POST" });
+      if (!response.ok) {
+        throw new Error(
+          await responseError(response, "The founder interview could not be loaded."),
+        );
+      }
+      const loaded = (await response.json()) as IntakeSessionView;
+      setView(loaded);
+      if (!quiet) {
+        setError(null);
+        setPhase("ready");
+      }
+      return loaded;
+    } catch (caught) {
+      if (!quiet) {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : "The founder interview could not be loaded.",
+        );
+        setPhase("error");
+      }
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
-    // Optional-called: jsdom has no layout, so `scrollIntoView` is undefined
-    // there, and a missing scroll is not worth throwing over anywhere else.
+    const timer = window.setTimeout(() => void loadSession(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadSession]);
+
+  useEffect(() => {
+    if (!view?.turn_pending || phase === "sending") return;
+    const timer = window.setTimeout(() => void loadSession(true), 1_500);
+    return () => window.clearTimeout(timer);
+  }, [loadSession, phase, view?.turn_pending]);
+
+  const visibleMessages = useMemo(() => view?.messages ?? [], [view?.messages]);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "nearest" });
-  }, [turns]);
+  }, [optimisticText, visibleMessages]);
 
-  const captured = useMemo(() => {
-    const rows: { label: string; value: string }[] = [];
-    for (const entry of SCRIPT) {
-      const value = answers[entry.id];
-      if (value === undefined) continue;
-      rows.push({
-        label: entry.id.replace("traction.", "").replace(/_/g, " "),
-        value: Array.isArray(value) ? value.join(", ") : String(value),
-      });
-    }
-    return rows;
-  }, [answers]);
-
-  /** Record one answer and move on. Advancing is the only way `index` grows. */
-  function accept(id: string, value: unknown, echo: string) {
-    const nextIndex = index + 1;
-    const next = SCRIPT[nextIndex];
-    setAnswers((prev) => ({ ...prev, [id]: value }));
-    setTurns((prev) => [
-      ...prev,
-      { who: "you", text: echo },
-      ...(next ? [{ who: "kairos" as const, text: next.question }] : []),
-    ]);
-    setIndex(nextIndex);
-    setDraft("");
-  }
-
-  /** Parse what was typed. A rejection is a turn in the conversation, not an alert. */
-  function submit(raw: string) {
-    if (!step || saving) return;
-    const trimmed = raw.trim();
-    if (!trimmed) return;
-
-    if (step.skippable && trimmed.toLowerCase() === "skip") {
-      accept(step.id, undefined, "skip");
-      return;
-    }
-
-    const result = step.parse(trimmed);
-    if (!result.ok) {
-      setTurns((prev) => [
-        ...prev,
-        { who: "you", text: trimmed },
-        { who: "kairos", text: result.message },
-      ]);
-      setDraft("");
-      return;
-    }
-    accept(step.id, result.value, result.echo);
-  }
-
-  /**
-   * Send the assembled profile.
-   *
-   * One whole-object `PUT`, the same contract the profile editor uses: these
-   * are the fields the filter compares against and a half-applied set of them
-   * is the one outcome worth ruling out. On success the page refreshes so the
-   * stored profile is what renders, not the request.
-   */
-  async function save() {
-    if (inFlight.current) return;
+  async function sendMessage() {
+    const text = draft.trim();
+    if (!view || !text || inFlight.current || view.session.status !== "active") return;
     inFlight.current = true;
-    setStatus({ phase: "saving" });
+    setPhase("sending");
+    setError(null);
+    setOptimisticText(text);
+    setDraft("");
+    const pending =
+      retry.current?.text === text
+        ? retry.current
+        : { id: newClientMessageId(), text };
+    retry.current = pending;
+
     try {
-      const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(toProfile(answers, profile, founderId)),
-      });
+      const response = await fetch(
+        `/api/intake/${encodeURIComponent(view.session.session_id)}/messages`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            text,
+            client_message_id: pending.id,
+            expected_revision: view.session.revision,
+          }),
+        },
+      );
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body?.error ?? "The profile could not be saved.");
+        throw new Error(await responseError(response, "The message could not be sent."));
       }
-      setStatus({ phase: "saved" });
-      router.refresh();
-    } catch (error) {
-      setStatus({
-        phase: "error",
-        message: error instanceof Error ? error.message : "The profile could not be saved.",
-      });
+      setView((await response.json()) as IntakeSessionView);
+      retry.current = null;
+      setPhase("ready");
+    } catch (caught) {
+      setDraft(text);
+      setError(
+        caught instanceof Error ? caught.message : "The message could not be sent.",
+      );
+      setPhase("error");
+      // Re-sync the revision without changing the idempotency key. Retrying
+      // the same text can never create a second model charge.
+      await loadSession(true);
     } finally {
+      setOptimisticText(null);
       inFlight.current = false;
     }
   }
 
+  if (phase === "loading" && !view) {
+    return (
+      <div className="rounded-xl border border-rule bg-surface p-6" role="status">
+        <p className="text-sm text-ink-muted">Opening your founder interview…</p>
+      </div>
+    );
+  }
+
+  if (!view) {
+    return (
+      <div className="rounded-xl border border-alert/40 bg-surface p-6">
+        <p className="text-sm text-alert" role="alert">
+          {error ?? "The founder interview could not be loaded."}
+        </p>
+        <button
+          type="button"
+          onClick={() => void loadSession()}
+          className="mt-3 rounded-md border border-rule px-4 py-2 text-sm text-ink hover:border-accent"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const disabled = phase === "sending" || view.turn_pending;
+
   return (
-    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-      <div className="rounded-lg border border-rule bg-surface p-5 sm:p-6">
-        <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
-          {turns.map((turn, position) => (
-            <p
-              key={position}
-              className={
-                turn.who === "kairos"
-                  ? "text-sm leading-relaxed text-ink"
-                  : "text-sm leading-relaxed text-accent"
-              }
-            >
-              <span className="mr-2 text-xs uppercase tracking-[0.1em] text-ink-muted">
-                {turn.who === "kairos" ? "Kairos" : "You"}
-              </span>
-              {turn.text}
-            </p>
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
+      <section className="flex min-h-[34rem] flex-col overflow-hidden rounded-xl border border-rule bg-surface">
+        <header className="flex items-center justify-between border-b border-rule px-5 py-4">
+          <div>
+            <h3 className="font-serif text-lg tracking-tight text-ink">Founder interview</h3>
+            <p className="text-xs text-ink-muted">Powered by the private Kairos agent</p>
+          </div>
+          <span className="flex items-center gap-2 text-xs text-ink-muted">
+            <span className="h-2 w-2 rounded-full bg-ok" aria-hidden="true" />
+            Session saved
+          </span>
+        </header>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          {visibleMessages.length === 0 ? (
+            <div className="flex justify-start">
+              <div className="max-w-[90%] rounded-2xl rounded-bl-sm border border-rule bg-surface px-4 py-3 text-sm leading-relaxed text-ink">
+                <span className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] text-ink-muted">
+                  Kairos
+                </span>
+                <p>{INTRO}</p>
+              </div>
+            </div>
+          ) : null}
+          {visibleMessages.map((message) => (
+            <ChatMessage key={message.message_id} message={message} />
           ))}
+          {optimisticText ? (
+            <div className="flex justify-end">
+              <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-accent px-4 py-3 text-sm text-surface opacity-80">
+                {optimisticText}
+              </div>
+            </div>
+          ) : null}
+          {disabled ? (
+            <div className="flex items-center gap-2 text-xs text-ink-muted" role="status">
+              <span className="flex gap-1" aria-hidden="true">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:150ms]" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent [animation-delay:300ms]" />
+              </span>
+              Kairos is thinking…
+            </div>
+          ) : null}
           <div ref={endRef} />
         </div>
 
-        {step ? (
-          <div className="mt-4 border-t border-rule pt-4">
-            {step.hint ? (
-              <p className="mb-2 text-xs leading-relaxed text-ink-muted">{step.hint}</p>
-            ) : null}
-
-            {step.choices ? (
-              <div className="mb-2 flex flex-wrap gap-2">
-                {step.choices.map((choice) => (
-                  <button
-                    key={choice}
-                    type="button"
-                    onClick={() => submit(choice)}
-                    className="rounded-full border border-rule px-3 py-1 text-xs text-ink-soft hover:border-accent hover:text-ink"
-                  >
-                    {choice.replace(/_/g, " ")}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                submit(draft);
+        <div className="border-t border-rule p-4 sm:p-5">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void sendMessage();
+            }}
+          >
+            <label htmlFor={`intake-message-${founderId}`} className="sr-only">
+              Message Kairos about your startup
+            </label>
+            <textarea
+              id={`intake-message-${founderId}`}
+              value={draft}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                if (retry.current?.text !== event.target.value.trim()) retry.current = null;
               }}
-              className="flex gap-2"
-            >
-              <input
-                type="text"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={step.skippable ? "Type an answer, or skip" : "Type an answer"}
-                aria-label={step.question}
-                className="w-full rounded-md border border-rule bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-              />
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void sendMessage();
+                }
+              }}
+              maxLength={8_000}
+              rows={3}
+              disabled={disabled || view.session.status !== "active"}
+              placeholder="Describe your startup, paste a short brief, or answer Kairos…"
+              className="w-full resize-none rounded-lg border border-rule bg-canvas px-4 py-3 text-sm leading-relaxed text-ink placeholder:text-ink-muted focus:border-accent focus:outline-none disabled:opacity-60"
+            />
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <p className="text-[11px] text-ink-muted">
+                Enter to send · Shift+Enter for a new line
+              </p>
               <button
                 type="submit"
-                className="rounded-md border border-accent px-4 py-2 text-sm text-accent hover:bg-accent hover:text-surface"
+                disabled={disabled || !draft.trim() || view.session.status !== "active"}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-surface hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Send
+                {phase === "sending" ? "Sending…" : "Send"}
               </button>
-            </form>
-          </div>
-        ) : (
-          <div className="mt-4 border-t border-rule pt-4">
-            {status.phase === "saved" ? (
-              <p className="text-sm text-ok">
-                Saved. Kairos has what it needs; start a run below.
+            </div>
+          </form>
+          <div aria-live="polite" aria-atomic="true">
+            {error ? (
+              <p className="mt-3 text-sm text-alert" role="alert">
+                {error} Your message is safe to retry.
               </p>
-            ) : (
-              <>
-                <p className="mb-3 text-sm leading-relaxed text-ink-soft">
-                  That is everything. Check the record on the right, then save it.
-                </p>
-                <button
-                  type="button"
-                  onClick={save}
-                  disabled={saving}
-                  className="rounded-md border border-accent px-4 py-2 text-sm text-accent hover:bg-accent hover:text-surface disabled:opacity-50"
-                >
-                  {saving ? "Saving..." : "Save my profile"}
-                </button>
-                {status.phase === "error" ? (
-                  <p className="mt-2 text-sm text-alert">{status.message}</p>
-                ) : null}
-              </>
-            )}
+            ) : null}
           </div>
-        )}
-      </div>
-
-      <div className="rounded-lg border border-rule bg-surface p-5 sm:p-6">
-        <h3 className="font-serif text-base tracking-tight text-ink">
-          What Kairos has recorded
-        </h3>
-        <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-          Every one of these is compared literally against a funder&rsquo;s stated
-          rules. What you wrote about the work goes to the knowledge base instead,
-          where a draft may quote it.
-        </p>
-        <div className="mt-3">
-          {captured.length === 0 ? (
-            <p className="text-sm text-ink-muted">Nothing yet.</p>
-          ) : (
-            captured.map((row) => (
-              <Captured key={row.label} label={row.label} value={row.value} />
-            ))
-          )}
         </div>
-        <p className="mt-4 text-xs text-ink-muted">
-          {done
-            ? `${captured.length} answers. Nothing is stored until you save.`
-            : `Question ${Math.min(index + 1, SCRIPT.length)} of ${SCRIPT.length}.`}
-        </p>
-      </div>
+      </section>
+
+      <FactSummary view={view} />
     </div>
   );
 }
 
-/**
- * The intake section as the briefing renders it.
- *
- * A founder with no profile gets the conversation immediately and expanded,
- * because nothing else on the page can do anything for them yet. A founder who
- * already has one gets a single line and a button: their profile is not a
- * thing they need to re-answer every time they open the dashboard, but it is a
- * thing they should always be one click from correcting.
- */
 export function IntakeSection({
   profile,
   founderId,
@@ -619,24 +377,18 @@ export function IntakeSection({
 
   if (!open) {
     return (
-      <div className="rounded-lg border border-rule bg-surface p-5 sm:p-6">
+      <div className="rounded-xl border border-rule bg-surface p-5 sm:p-6">
         <p className="text-sm leading-relaxed text-ink-soft">
-          {profile
-            ? `Kairos is matching against ${profile.institution}, ${profile.stage} stage, team of ${profile.team_size}.`
-            : "Kairos has nothing to match against yet."}
-          {profile && Object.keys(profile.traction).length === 0
-            ? " It has no traction numbers for you, which is the first thing a reviewer asks about."
-            : ""}
-          {profile && profile.knowledge_base.length === 0
-            ? " It also has nothing on record about what you are building, so a draft would have nothing to quote."
-            : ""}
+          Kairos is matching against {profile?.institution}, {profile?.stage} stage,
+          team of {profile?.team_size}. Open the interview to add context naturally;
+          the agent will only ask for what is still missing.
         </p>
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="mt-3 rounded-md border border-rule px-4 py-2 text-sm text-ink-soft hover:border-accent hover:text-ink"
         >
-          Tell Kairos more
+          Continue founder interview
         </button>
       </div>
     );

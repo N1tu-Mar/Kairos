@@ -30,6 +30,25 @@ export type InboxKind =
 export type InboxState = "new" | "opened" | "dismissed" | "applied";
 export type EligibilityAnswerValue = "yes" | "no" | "not_sure";
 export type EligibilityQuestionStatus = "pending" | "answered";
+export type IntakeFieldStatus = "missing" | "proposed" | "confirmed";
+export type IntakeSessionStatus = "active" | "completed" | "abandoned";
+export type IntakeMessageRole = "founder" | "assistant";
+export type IntakeFieldName =
+  | "startup_description"
+  | "full_name"
+  | "degree_level"
+  | "institution"
+  | "major"
+  | "citizenship"
+  | "entity_type"
+  | "team_size"
+  | "stage"
+  | "traction"
+  | "funding_range"
+  | "equity_ok"
+  | "has_faculty_advisor"
+  | "max_application_hours"
+  | "geographies";
 
 export const FIELD_STATUSES: FieldStatus[] = [
   "KNOWN",
@@ -231,6 +250,77 @@ export interface FounderProfile {
   geographies: string[];
   reuse_eligibility_answers: boolean;
   knowledge_base: KnowledgeChunk[];
+}
+
+// Conversational founder intake
+
+export interface IntakeEvidence {
+  source_type: "message" | "document" | "existing_profile";
+  source_id: string;
+  location: string | null;
+  excerpt: string | null;
+}
+
+export interface IntakeFieldState {
+  field: IntakeFieldName;
+  status: IntakeFieldStatus;
+  value: unknown;
+  confidence: number | null;
+  evidence: IntakeEvidence[];
+  proposed_at: string | null;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+}
+
+export interface IntakeSession {
+  session_id: string;
+  founder_id: string;
+  status: IntakeSessionStatus;
+  revision: number;
+  pending_message_id: string | null;
+  fields: Partial<Record<IntakeFieldName, IntakeFieldState>>;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+}
+
+export interface IntakeMessage {
+  message_id: string;
+  session_id: string;
+  founder_id: string;
+  role: IntakeMessageRole;
+  text: string;
+  client_message_id: string | null;
+  in_reply_to: string | null;
+  created_at: string;
+}
+
+export interface IntakeDocument {
+  document_id: string;
+  session_id: string;
+  founder_id: string;
+  filename: string;
+  media_type: string;
+  byte_size: number;
+  status: "processing" | "ready" | "rejected";
+  chunks: unknown[];
+  error: string | null;
+  created_at: string;
+}
+
+export interface IntakeSessionView {
+  session: IntakeSession;
+  messages: IntakeMessage[];
+  documents: IntakeDocument[];
+  missing_required: string[];
+  ready_to_complete: boolean;
+  turn_pending: boolean;
+}
+
+export interface IntakeMessageCreate {
+  text: string;
+  client_message_id: string;
+  expected_revision: number;
 }
 
 // ── Run report ───────────────────────────────────────────────────────────────
