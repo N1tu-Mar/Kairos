@@ -210,6 +210,23 @@ export interface KnowledgeChunk {
   created_at: string;
 }
 
+/**
+ * `GET /me` — who this session is, and which founder it may render.
+ *
+ * `founder_id` is the one to show; `founder_ids` is the whole set, which has
+ * more than one member only when somebody holds a cofounder's membership too.
+ * `null` is a real answer: signed in, granted nothing yet.
+ */
+export interface Identity {
+  /** The identity provider's opaque user id. Never an email address. */
+  subject: string;
+  founder_id: string | null;
+  founder_ids: string[];
+  can_write: boolean;
+  /** `supabase_jwt`, `shared_token`, `token_file`, or `open`. */
+  method: string;
+}
+
 export interface FounderProfile {
   founder_id: string;
   /** What to call this founder. Never read by the eligibility filter. */

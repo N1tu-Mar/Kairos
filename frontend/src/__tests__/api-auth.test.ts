@@ -45,8 +45,22 @@ describe("supabase mode", () => {
   });
 
   it("sends the user access token rather than KAIROS_API_TOKEN", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({ job_id: "job_1" }), { status: 202 }),
+    // A founder-scoped call now resolves its founder from `/me` first, so the
+    // stub has to answer that as well. Both calls are asserted below: the
+    // shared secret must appear on neither.
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (url) =>
+      String(url).endsWith("/me")
+        ? new Response(
+            JSON.stringify({
+              subject: "user-abc",
+              founder_id: "founder_demo",
+              founder_ids: ["founder_demo"],
+              can_write: true,
+              method: "supabase_jwt",
+            }),
+            { status: 200 },
+          )
+        : new Response(JSON.stringify({ job_id: "job_1" }), { status: 202 }),
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.doMock("@/lib/supabase/server", () => ({
