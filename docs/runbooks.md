@@ -369,8 +369,8 @@ aws events update-connection --name kairos-production-backend \
 aws ecs update-service --cluster kairos-production \
   --service kairos-production-backend --force-new-deployment
 
-# 4. Update the frontend host (Vercel → Settings → Environment Variables →
-#    KAIROS_API_TOKEN) and redeploy it.
+# 4. Do not put this value in Vercel. Humans use Supabase JWTs;
+#    EventBridge is the only caller of the scheduler token.
 
 unset NEW
 ```

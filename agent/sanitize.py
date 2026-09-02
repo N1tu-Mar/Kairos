@@ -196,7 +196,7 @@ _SECRET_SCRUBS: list[tuple[str, re.Pattern[str]]] = [
     (
         r"\1=[REDACTED]",
         re.compile(
-            r"(?i)\b(authorization|kairos_api_token|kairos_credentials_file"
+            r"(?i)\b(authorization|kairos_api_token|kairos_scheduler_token|kairos_credentials_file"
             r"|aws_secret_access_key|aws_session_token|api[_-]?key|token|secret"
             r"|password)\b\s*[=:]\s*\S+"
         ),

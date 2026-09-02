@@ -45,6 +45,20 @@ variable "founder_id" {
   default     = "founder_demo"
 }
 
+variable "supabase_issuer" {
+  description = <<-EOT
+    Supabase JWT issuer: the project URL plus /auth/v1, with no trailing
+    slash. Required in production. Example:
+
+      https://abcdefghijklm.supabase.co/auth/v1
+
+    The task verifies user access tokens against this `iss` and fetches
+    signing keys from `{issuer}/.well-known/jwks.json`. It is not a secret.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "run_schedule" {
   description = "EventBridge Scheduler cron. Default: 07:00 UTC daily, before a founder's morning."
   type        = string
