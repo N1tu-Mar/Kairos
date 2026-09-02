@@ -545,6 +545,56 @@ def ready(response: Response) -> dict:
     return {"status": "ready" if ok else "not_ready", "checks": checks}
 
 
+class Identity(BaseModel):
+    """Who the caller is, and which founder their dashboard should render.
+
+    The frontend used to answer the second question from `KAIROS_FOUNDER_ID`,
+    a single server-side variable. That is right for one founder and silently
+    wrong for two: both people sign in as themselves and are shown the same
+    inbox. This model is what replaces it.
+
+    `founder_id` is the one to render, and it is chosen here rather than in
+    the frontend so the choice is made once and is deterministic — the same
+    session picks the same founder on every request, which iterating a
+    `frozenset` would not guarantee. `founder_ids` carries the whole set for
+    the cofounder case, where one person holds several.
+
+    `subject` is the identity provider's opaque user id, never an email.
+    `method` lets the dashboard tell an anonymous local session apart from
+    somebody actually signed in.
+    """
+
+    subject: str
+    founder_id: str | None
+    founder_ids: list[str]
+    can_write: bool
+    method: str
+
+
+@app.get("/me")
+def me(actor: Principal = Depends(principal)) -> Identity:
+    """What this session owns.
+
+    Deliberately takes no founder id. A `/me/{founder_id}` would tell any
+    holder of any credential whether an id exists, which is the enumeration
+    that `owned()` answers 404 rather than 403 to prevent. This route can
+    only ever describe its own caller, so there is nothing to authorize.
+
+    A principal with no founders is a real answer, not an error: it is what a
+    verified person looks like when auto-provisioning is off and no operator
+    has granted them anything yet. The dashboard shows them a request-access
+    page rather than an empty inbox.
+    """
+    owned_ids = sorted(actor.founder_ids)
+    return Identity(
+        subject=actor.subject,
+        founder_id=owned_ids[0] if owned_ids else None,
+        founder_ids=owned_ids,
+        can_write=actor.can_write,
+        method=actor.method,
+    )
+
+
 @app.get("/founders/{founder_id}")
 def get_founder(founder_id: ResourceId, actor: Principal = Depends(principal)) -> FounderProfile:
     """One founder profile. Ownership-checked, and 404 for a founder that is not yours."""
