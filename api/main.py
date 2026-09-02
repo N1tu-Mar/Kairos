@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from typing import Annotated, Literal
@@ -33,13 +33,22 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings, validate_runtime_posture, ConfigError
+from agent.budget import BudgetExceeded, UnenforceableSpendCap
 from agent.intake import (
     IntakeIncomplete,
+    apply_model_proposals,
     is_complete as intake_is_complete,
     missing_required,
+    new_intake_id,
     new_session,
     profile_from_session,
     update_field,
+)
+from agent.prompting import Abstention, Throttled
+from agent.sanitize import clean
+from agent.subagents.intake_interviewer import (
+    concise_reply,
+    interview as run_intake_interview,
 )
 from agent.models import (
     EligibilityAnswerValue,
@@ -199,6 +208,16 @@ class IntakeRevision(BaseModel):
     expected_revision: int = PydanticField(ge=0)
 
 
+class IntakeMessageCreate(BaseModel):
+    """One idempotent founder turn sent from the chat composer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = PydanticField(min_length=1, max_length=8_000)
+    client_message_id: str = PydanticField(min_length=1, max_length=MAX_ID_LENGTH)
+    expected_revision: int = PydanticField(ge=0)
+
+
 class IntakeSessionView(BaseModel):
     """Everything the chat needs, already scoped to one founder."""
 
@@ -209,6 +228,7 @@ class IntakeSessionView(BaseModel):
     documents: list[IntakeDocument]
     missing_required: list[str]
     ready_to_complete: bool
+    turn_pending: bool
 
 
 @asynccontextmanager
@@ -268,6 +288,9 @@ async def lifespan(app: FastAPI):
     # After the repository, not before: Supabase authorization reads its
     # memberships from it, so the authenticator cannot be built first.
     app.state.authenticator = build_authenticator(config, app.state.repo)
+    # Kept on app state so offline tests can provide a deterministic fake.
+    # The real callable lazily constructs the Bedrock agent on the first turn.
+    app.state.intake_interviewer = run_intake_interview
 
     # The async job machinery. The lease TTL is double the run timeout so a
     # live run's lease can never expire out from under it.
@@ -681,6 +704,7 @@ def _intake_view(intake: IntakeSession) -> IntakeSessionView:
         documents=app.state.repo.list_intake_documents(intake.session_id),
         missing_required=missing_required(intake),
         ready_to_complete=intake_is_complete(intake),
+        turn_pending=intake.pending_message_id is not None,
     )
 
 
@@ -715,6 +739,125 @@ def get_intake_session(
     return _intake_view(_intake_for_founder(founder_id, session_id))
 
 
+@app.post("/founders/{founder_id}/intake/sessions/{session_id}/messages")
+async def send_intake_message(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    turn: IntakeMessageCreate,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    """Persist one founder turn, call Bedrock once, and publish proposals."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    founder_text = clean(turn.text)
+    if not founder_text:
+        raise HTTPException(400, "message contains no readable text")
+    message = IntakeMessage(
+        message_id=new_intake_id("message"),
+        session_id=session_id,
+        founder_id=founder_id,
+        role="founder",
+        text=founder_text,
+        client_message_id=turn.client_message_id,
+    )
+    outcome = app.state.repo.begin_intake_turn(
+        message,
+        expected_revision=turn.expected_revision,
+        rate_window_start=datetime.now(timezone.utc) - timedelta(hours=1),
+        founder_hour_limit=10,
+        session_turn_limit=30,
+    )
+    if outcome == "duplicate":
+        current = _intake_for_founder(founder_id, session_id)
+        if current.pending_message_id is not None:
+            raise HTTPException(
+                409, "this message is still being processed", headers={"Retry-After": "1"}
+            )
+        return _intake_view(current)
+    if outcome == "rate_limited":
+        audit_event(
+            actor=actor.subject,
+            action="rate_limit.rejected",
+            resource=session_id,
+            method=actor.method,
+            limit="intake_model_turns",
+        )
+        raise HTTPException(
+            429,
+            "founder chat limit reached; try again later",
+            headers={"Retry-After": "3600"},
+        )
+    if outcome == "turn_limit":
+        raise HTTPException(409, "this intake session has reached its 30-turn limit")
+    if outcome == "busy":
+        raise HTTPException(
+            409, "another message is still being processed", headers={"Retry-After": "1"}
+        )
+    if outcome == "inactive":
+        raise HTTPException(409, "only an active intake session accepts messages")
+    if outcome != "accepted":
+        raise HTTPException(409, "intake session revision is stale")
+
+    reserved = _intake_for_founder(founder_id, session_id)
+    try:
+        result = await app.state.intake_interviewer(
+            reserved,
+            app.state.repo.list_intake_messages(session_id),
+            app.state.repo.list_intake_documents(session_id),
+        )
+    except (BudgetExceeded, UnenforceableSpendCap):
+        app.state.repo.abort_intake_turn(
+            session_id, message.message_id, expected_revision=reserved.revision
+        )
+        raise HTTPException(429, "chat spending limit reached; try again later") from None
+    except (Abstention, Throttled):
+        app.state.repo.abort_intake_turn(
+            session_id, message.message_id, expected_revision=reserved.revision
+        )
+        raise HTTPException(503, "the interview assistant is temporarily unavailable") from None
+    except Exception:  # noqa: BLE001 - raw provider details must never cross boundaries
+        # Deliberately omit exception text and traceback: provider errors can
+        # echo prompts, credentials, or document text.
+        log.error("intake model turn failed", extra={"session_id": session_id})
+        app.state.repo.abort_intake_turn(
+            session_id, message.message_id, expected_revision=reserved.revision
+        )
+        raise HTTPException(503, "the interview assistant is temporarily unavailable") from None
+
+    changed = apply_model_proposals(
+        reserved, result.proposals, source_id=message.message_id
+    )
+    now = datetime.now(timezone.utc)
+    changed.pending_message_id = None
+    changed.revision = reserved.revision + 1
+    changed.updated_at = now
+    assistant = IntakeMessage(
+        message_id=new_intake_id("message"),
+        session_id=session_id,
+        founder_id=founder_id,
+        role="assistant",
+        text=concise_reply(result.assistant_message),
+        client_message_id=f"reply:{turn.client_message_id}",
+        in_reply_to=message.message_id,
+        created_at=now,
+    )
+    if not app.state.repo.finish_intake_turn(
+        changed, assistant, expected_revision=reserved.revision
+    ):
+        app.state.repo.abort_intake_turn(
+            session_id, message.message_id, expected_revision=reserved.revision
+        )
+        raise HTTPException(409, "intake session changed while the reply was generated")
+    audit_event(
+        actor=actor.subject,
+        action="intake.message",
+        resource=session_id,
+        method=actor.method,
+    )
+    return _intake_view(changed)
+
+
 @app.patch("/founders/{founder_id}/intake/sessions/{session_id}/fields/{field}")
 def update_intake_field(
     founder_id: ResourceId,
@@ -726,6 +869,8 @@ def update_intake_field(
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
     intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before editing facts")
     if intake.revision != update.expected_revision:
         raise HTTPException(409, "intake session revision is stale")
     try:
@@ -762,6 +907,8 @@ def complete_intake_session(
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
     intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before completing")
     if intake.revision != revision.expected_revision:
         raise HTTPException(409, "intake session revision is stale")
     try:
@@ -805,6 +952,8 @@ def abandon_intake_session(
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
     intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before abandoning")
     if intake.status != "active":
         raise HTTPException(409, "only an active intake session can be abandoned")
     if intake.revision != revision.expected_revision:
