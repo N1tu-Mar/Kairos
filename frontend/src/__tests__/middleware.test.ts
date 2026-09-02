@@ -130,15 +130,44 @@ describe("when Supabase is not configured", () => {
   it("steps aside, leaving the documented local single-founder mode", async () => {
     // Not a hole being reintroduced: this is the laptop posture, the same one
     // KAIROS_ALLOW_OPEN_API is for on the backend. It is reachable only by
-    // leaving both variables unset, which no deployment does by accident.
+    // leaving both variables unset *and* not being a Vercel deploy.
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
     vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+    vi.stubEnv("KAIROS_AUTH_MODE", "local_shared");
+    vi.stubEnv("VERCEL_ENV", "");
     withUser(null);
     const { middleware } = await import("@/middleware");
 
     const response = await middleware(await request("/inbox"));
 
     expect(response.headers.get("location")).toBeNull();
+    expect(response.status).not.toBe(503);
+  });
+
+  it("returns a generic 503 in supabase mode when the public variables are missing", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+    vi.stubEnv("KAIROS_AUTH_MODE", "supabase");
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/inbox"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ detail: "service unavailable" });
+  });
+
+  it("does not honour local_shared on a Vercel production deploy", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "");
+    vi.stubEnv("KAIROS_AUTH_MODE", "local_shared");
+    vi.stubEnv("VERCEL_ENV", "production");
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/api/runs"));
+
+    expect(response.status).toBe(503);
   });
 });
 

@@ -48,6 +48,43 @@ audit_log = logging.getLogger("kairos.audit")
 #: profile `api/main.py` seeds from `data/demo_founder.json`.
 DEMO_FOUNDER_ID = "founder_demo"
 
+# ── Scopes ───────────────────────────────────────────────────────────────────
+#
+# A shared token used to mean "this holder may do anything the founder can".
+# EventBridge needs a credential that can start a scheduled run and *only*
+# that — otherwise a leaked scheduler secret is a full founder session.
+# Scopes are the closed set that makes that distinction checkable per
+# endpoint rather than by reading `method` strings at every call site.
+
+SCOPE_FOUNDER_READ = "founder:read"
+SCOPE_FOUNDER_WRITE = "founder:write"
+SCOPE_RUN_TRIGGER = "run:trigger"
+SCOPE_RUN_CANCEL = "run:cancel"
+SCOPE_INBOX_WRITE = "inbox:write"
+SCOPE_ELIGIBILITY_ANSWER = "eligibility:answer"
+
+#: Everything a signed-in founder (or the local shared token) may do.
+USER_SCOPES = frozenset(
+    {
+        SCOPE_FOUNDER_READ,
+        SCOPE_FOUNDER_WRITE,
+        SCOPE_RUN_TRIGGER,
+        SCOPE_RUN_CANCEL,
+        SCOPE_INBOX_WRITE,
+        SCOPE_ELIGIBILITY_ANSWER,
+    }
+)
+
+#: EventBridge may create a scheduled run and nothing else.
+SCHEDULER_SCOPES = frozenset({SCOPE_RUN_TRIGGER})
+
+
+def scopes_for_user(*, can_write: bool) -> frozenset[str]:
+    """Read-only memberships keep `founder:read` and lose every write scope."""
+    if can_write:
+        return USER_SCOPES
+    return frozenset({SCOPE_FOUNDER_READ})
+
 
 class AuthError(Exception):
     """Authentication failed. Never says which part of the credential was wrong."""
@@ -60,6 +97,11 @@ class Principal:
     `founder_ids` is a closed set, not a filter applied later. An empty set
     is a principal that may read nothing — a valid state for a revoked
     credential, and safer than the alternative interpretation.
+
+    `scopes` is the closed set of actions this principal may perform even
+    on a founder they own. A scheduler principal owns one founder and still
+    cannot read the profile: ownership without the matching scope is a 404,
+    same as a stranger.
     """
 
     subject: str
@@ -68,6 +110,7 @@ class Principal:
     #: How the principal was established. Recorded on audit events so
     #: "the shared demo token did this" is distinguishable from a real user.
     method: str = "unknown"
+    scopes: frozenset[str] = field(default_factory=lambda: frozenset(USER_SCOPES))
 
     def owns(self, founder_id: str) -> bool:
         """Whether this principal may touch `founder_id`.
@@ -78,6 +121,15 @@ class Principal:
         """
         return founder_id in self.founder_ids
 
+    def has_scope(self, scope: str) -> bool:
+        """Whether this principal may perform `scope`, regardless of ownership."""
+        return scope in self.scopes
+
+    @property
+    def is_scheduler(self) -> bool:
+        """EventBridge's service principal. Narrow on purpose — see SCHEDULER_SCOPES."""
+        return self.method == "scheduler_token"
+
 
 #: The principal for a deployment running with no credential configured at
 #: all — the localhost demo. Named so it is obvious in an audit log.
@@ -86,6 +138,7 @@ ANONYMOUS_LOCAL = Principal(
     founder_ids=frozenset({DEMO_FOUNDER_ID}),
     can_write=True,
     method="open",
+    scopes=USER_SCOPES,
 )
 
 
@@ -178,6 +231,7 @@ class SharedTokenAuthenticator:
             founder_ids=frozenset({self.founder_id}),
             can_write=True,
             method="shared_token",
+            scopes=USER_SCOPES,
         )
 
 
@@ -352,6 +406,7 @@ class StaticTokenFileAuthenticator:
             founder_ids=credential.founder_ids,
             can_write=credential.can_write,
             method="token_file",
+            scopes=scopes_for_user(can_write=credential.can_write),
         )
 
 
@@ -550,46 +605,149 @@ class SupabaseJWTAuthenticator:
 
         # Authorization is a database fact, re-read per request so revocation
         # does not wait for the token to expire.
+        can_write = self.repository.can_write(subject)
         return Principal(
             subject=subject,
             founder_ids=self.repository.founder_ids_for(subject),
-            can_write=self.repository.can_write(subject),
+            can_write=can_write,
             method="supabase_jwt",
+            scopes=scopes_for_user(can_write=can_write),
         )
+
+
+class SchedulerTokenAuthenticator:
+    """EventBridge's service credential. Matches or declines, never falls through.
+
+    Distinct from `SharedTokenAuthenticator` on purpose: that principal is a
+    founder. This one may start a scheduled run for one configured founder
+    and is refused by every other endpoint through `SCHEDULER_SCOPES`.
+
+    `try_authenticate` returns `None` when the header is not this secret, so
+    a user JWT is not rejected just because a scheduler token is also
+    configured. A match is constant-time.
+    """
+
+    def __init__(self, token: str, founder_id: str = DEMO_FOUNDER_ID) -> None:
+        self.token = token
+        self.founder_id = founder_id
+
+    def try_authenticate(self, authorization: str | None) -> Principal | None:
+        """Return the scheduler principal, or None if this is not that secret."""
+        if not self.token:
+            return None
+        try:
+            supplied = _bearer(authorization)
+        except AuthError:
+            return None
+        if not secrets.compare_digest(supplied.encode(), self.token.encode()):
+            return None
+        return Principal(
+            subject="scheduler",
+            founder_ids=frozenset({self.founder_id}),
+            can_write=True,
+            method="scheduler_token",
+            scopes=SCHEDULER_SCOPES,
+        )
+
+    def authenticate(self, authorization: str | None) -> Principal:
+        """Protocol adapter: match or raise, for tests that use this alone."""
+        principal = self.try_authenticate(authorization)
+        if principal is None:
+            raise AuthError("invalid credential")
+        return principal
+
+
+class GateAuthenticator:
+    """Scheduler secret first (if configured), then the human authenticator.
+
+    Trying the scheduler token with `compare_digest` and skipping on mismatch
+    keeps a user JWT from being treated as a failed scheduler login. The
+    human authenticator then does its own verification.
+    """
+
+    def __init__(
+        self,
+        user: Authenticator,
+        scheduler: SchedulerTokenAuthenticator | None = None,
+    ) -> None:
+        self.user = user
+        self.scheduler = scheduler
+
+    def authenticate(self, authorization: str | None) -> Principal:
+        """Resolve a credential, preferring the scheduler secret when it matches."""
+        if self.scheduler is not None:
+            principal = self.scheduler.try_authenticate(authorization)
+            if principal is not None:
+                return principal
+        return self.user.authenticate(authorization)
 
 
 def build_authenticator(config, repository=None) -> Authenticator:
     """Pick an authenticator from configuration, strongest identity first.
 
-    1.  **Supabase** — the only one that identifies a *person*, and the only
-        one whose authorization comes from a table an operator controls
-        rather than from whoever holds a secret. Needs `repository`, since
-        that is where the memberships live.
-    2.  **Credential file** — hashed tokens, several founders, revocation.
-        Proves possession of a secret, not identity.
-    3.  **Shared token** — one secret, one founder, honest about it.
+    `KAIROS_AUTH_MODE` chooses the human identity story:
+
+    1.  **`supabase`** — user JWTs verified through JWKS (or a static key).
+        Authorization still comes from `founder_members`, never from a
+        claim inside the token.
+    2.  **`local_shared`** — credential file if set, otherwise the shared
+        token (or the explicit open-API opt-in).
+
+    A configured `KAIROS_SCHEDULER_TOKEN` is wrapped in front of whichever
+    of those is chosen, so EventBridge does not need a user session.
 
     Configured-but-unusable is a startup failure, not a silent demotion: a
-    deployment that set a Supabase issuer and no key has made a mistake, and
-    falling back to a shared token would hide it behind a working API.
+    deployment that set `auth_mode=supabase` and no issuer has made a
+    mistake, and falling back to a shared token would hide it.
     """
-    if config.supabase_issuer:
+    if getattr(config, "auth_mode", "local_shared") == "supabase":
+        if not config.supabase_issuer:
+            raise ValueError(
+                "KAIROS_AUTH_MODE=supabase requires KAIROS_SUPABASE_ISSUER"
+            )
         if repository is None:
             raise ValueError(
                 "Supabase authentication needs a repository to read memberships from"
             )
-        return SupabaseJWTAuthenticator(
+        user: Authenticator = SupabaseJWTAuthenticator(
             repository=repository,
             issuer=config.supabase_issuer,
             jwt_secret=config.supabase_jwt_secret,
             public_key=config.supabase_public_key,
         )
-    if config.credentials_file:
-        return StaticTokenFileAuthenticator(config.credentials_file)
-    return SharedTokenAuthenticator(
-        config.api_token,
-        allow_open=config.allow_open_api,
-        environment=config.environment,
+    elif config.supabase_issuer:
+        # Issuer set without supabase mode: still honour it, so an operator
+        # who configured JWTs but forgot the mode flag is not silently
+        # running on a shared token. Production boot still requires the
+        # mode flag via `validate_runtime_posture`.
+        if repository is None:
+            raise ValueError(
+                "Supabase authentication needs a repository to read memberships from"
+            )
+        user = SupabaseJWTAuthenticator(
+            repository=repository,
+            issuer=config.supabase_issuer,
+            jwt_secret=config.supabase_jwt_secret,
+            public_key=config.supabase_public_key,
+        )
+    elif config.credentials_file:
+        user = StaticTokenFileAuthenticator(config.credentials_file)
+    else:
+        user = SharedTokenAuthenticator(
+            config.api_token,
+            allow_open=config.allow_open_api,
+            environment=config.environment,
+        )
+
+    scheduler_token = getattr(config, "scheduler_token", "") or ""
+    if not scheduler_token:
+        return user
+    return GateAuthenticator(
+        user,
+        SchedulerTokenAuthenticator(
+            scheduler_token,
+            getattr(config, "scheduler_founder_id", "") or DEMO_FOUNDER_ID,
+        ),
     )
 
 
@@ -605,12 +763,27 @@ class Forbidden(Exception):
     """
 
 
-def authorize(principal: Principal, founder_id: str, *, write: bool = False) -> None:
-    """Ownership check. Every founder-scoped path calls this."""
+def authorize(
+    principal: Principal,
+    founder_id: str,
+    *,
+    write: bool = False,
+    scope: str | None = None,
+) -> None:
+    """Ownership and scope check. Every founder-scoped path calls this.
+
+    `scope` defaults to `founder:write` on writes and `founder:read`
+    otherwise, so a call site that forgets to name a narrower action is
+    still not an open write for a scheduler principal. Named scopes
+    (`run:trigger`, `inbox:write`, …) override that default.
+    """
+    needed = scope or (SCOPE_FOUNDER_WRITE if write else SCOPE_FOUNDER_READ)
     if not principal.owns(founder_id):
         raise Forbidden(f"{principal.subject} may not access {founder_id}")
     if write and not principal.can_write:
         raise Forbidden(f"{principal.subject} holds a read-only credential")
+    if not principal.has_scope(needed):
+        raise Forbidden(f"{principal.subject} lacks scope {needed}")
 
 
 # ── Audit ────────────────────────────────────────────────────────────────────
@@ -631,6 +804,7 @@ AUDITED_ACTIONS = frozenset(
         "run.cancel",
         "inbox.state_change",
         "auth.rejected",
+        "rate_limit.rejected",
     }
 )
 

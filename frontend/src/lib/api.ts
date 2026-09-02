@@ -7,6 +7,7 @@ import {
   founderId,
   readTimeoutMs,
 } from "@/lib/config";
+import { isSupabaseAuth } from "@/lib/auth-mode";
 import { currentAccessToken } from "@/lib/supabase/server";
 import type {
   DraftResponse,
@@ -43,7 +44,11 @@ export type ApiErrorKind =
   | "malformed"
   // The dashboard's own configuration is wrong, so no request was attempted.
   // Distinct from `unreachable`, which means a request was made and failed.
-  | "misconfigured";
+  | "misconfigured"
+  // Supabase mode with no usable session. Must not fall through to the
+  // shared backend token — that is the production hole this kind exists
+  // to keep closed.
+  | "unauthorized";
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -79,6 +84,8 @@ export class ApiError extends Error {
         // The one case where naming the variable is the entire fix. It names
         // the setting, never its value.
         return `${this.message} Fix it in frontend/.env.local, then restart the dev server.`;
+      case "unauthorized":
+        return "Sign in to continue.";
       case "unreachable":
         return "Could not reach the Kairos API. Is the FastAPI backend running?";
       case "timeout":
@@ -105,6 +112,8 @@ export function httpStatusFor(error: ApiError): number {
     // The dashboard is broken, not the backend. 500, not 502.
     case "misconfigured":
       return 500;
+    case "unauthorized":
+      return 401;
     default:
       return error.status ?? 502;
   }
@@ -145,21 +154,33 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
+  const headers: Record<string, string> = {};
+  if (body) headers["content-type"] = "application/json";
+  // Supabase mode: the *user's* access token, or no request at all.
+  // Falling back to KAIROS_API_TOKEN here is how an unauthenticated
+  // visitor used to trigger paid runs — the proxy held the backend
+  // credential and attached it on their behalf.
+  //
+  // This runs *before* the fetch try/catch so an ApiError is not swallowed
+  // into "unreachable".
+  const sessionToken = await currentAccessToken();
+  if (isSupabaseAuth()) {
+    if (!sessionToken) {
+      throw new ApiError(
+        "unauthorized",
+        "A signed-in session is required",
+        path,
+        401,
+      );
+    }
+    headers.authorization = `Bearer ${sessionToken}`;
+  } else {
+    const token = sessionToken || apiToken();
+    if (token) headers.authorization = `Bearer ${token}`;
+  }
+
   let response: Response;
   try {
-    const headers: Record<string, string> = {};
-    if (body) headers["content-type"] = "application/json";
-    // The *user's* token when someone is signed in, and the shared token only
-    // in the local single-founder mode where no identity provider exists.
-    //
-    // This is the difference the login work exists to make. With a shared
-    // token the proxy acted for the founder on behalf of whoever asked it to,
-    // so the backend's authorization never saw a real caller. With a session
-    // token FastAPI verifies the signature, reads that subject's rows in
-    // `founder_members`, and a dashboard with no session for a founder cannot
-    // act as one.
-    const token = (await currentAccessToken()) || apiToken();
-    if (token) headers.authorization = `Bearer ${token}`;
     response = await fetch(url, {
       method,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
@@ -169,6 +190,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       cache: "no-store",
     });
   } catch (error) {
+    if (error instanceof ApiError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
       throw new ApiError("timeout", `Timed out after ${timeoutMs}ms`, path);
     }

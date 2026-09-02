@@ -46,6 +46,11 @@ def method_suite_env(monkeypatch, tmp_path):
     # an absent token fails closed, so open mode has to be asked for by name.
     monkeypatch.delenv("KAIROS_API_TOKEN", raising=False)
     monkeypatch.delenv("KAIROS_CREDENTIALS_FILE", raising=False)
+    monkeypatch.delenv("KAIROS_SCHEDULER_TOKEN", raising=False)
+    monkeypatch.delenv("KAIROS_AUTH_MODE", raising=False)
+    monkeypatch.delenv("KAIROS_SUPABASE_ISSUER", raising=False)
+    monkeypatch.delenv("KAIROS_SUPABASE_JWT_SECRET", raising=False)
+    monkeypatch.delenv("KAIROS_SUPABASE_PUBLIC_KEY", raising=False)
     monkeypatch.setenv("KAIROS_ALLOW_OPEN_API", "1")
     config.settings.cache_clear()
     yield

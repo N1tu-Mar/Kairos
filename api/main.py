@@ -32,12 +32,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
-from agent.config import REPO_ROOT, settings
+from agent.config import REPO_ROOT, settings, validate_runtime_posture, ConfigError
+from agent.intake import (
+    IntakeIncomplete,
+    is_complete as intake_is_complete,
+    missing_required,
+    new_session,
+    profile_from_session,
+    update_field,
+)
 from agent.models import (
     EligibilityAnswerValue,
     EligibilityQuestion,
     FounderProfile,
     InboxState,
+    IntakeDocument,
+    IntakeMessage,
+    IntakeSession,
     Opportunity,
     RunJob,
     RunReport,
@@ -50,6 +61,11 @@ from api.auth import (
     AuthError,
     Forbidden,
     Principal,
+    SCOPE_ELIGIBILITY_ANSWER,
+    SCOPE_FOUNDER_READ,
+    SCOPE_INBOX_WRITE,
+    SCOPE_RUN_CANCEL,
+    SCOPE_RUN_TRIGGER,
     audit_event,
     authorize,
     build_authenticator,
@@ -165,6 +181,36 @@ class EligibilityAnswerUpdate(BaseModel):
     answer: EligibilityAnswerValue
 
 
+class IntakeFieldUpdate(BaseModel):
+    """One explicit founder decision about one captured fact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["confirm", "correct", "reject"]
+    expected_revision: int = PydanticField(ge=0)
+    value: object | None = None
+
+
+class IntakeRevision(BaseModel):
+    """Optimistic revision required for terminal session transitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = PydanticField(ge=0)
+
+
+class IntakeSessionView(BaseModel):
+    """Everything the chat needs, already scoped to one founder."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session: IntakeSession
+    messages: list[IntakeMessage]
+    documents: list[IntakeDocument]
+    missing_required: list[str]
+    ready_to_complete: bool
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Build everything the process needs, once, before the first request.
@@ -180,10 +226,21 @@ async def lifespan(app: FastAPI):
     disturbing this one.
     """
     config = settings()
+    try:
+        # Production with local auth, incomplete Supabase, or Playwright
+        # enabled must not serve. A readiness probe can still describe a
+        # host that was started in local mode and later had KAIROS_ENV
+        # flipped; a process that *boots* as production has to be safe.
+        validate_runtime_posture(config)
+    except ConfigError:
+        log.exception("refusing to start: runtime posture is unsafe")
+        raise
     if (
-        not config.supabase_issuer
+        config.auth_mode != "supabase"
+        and not config.supabase_issuer
         and not config.api_token
         and not config.credentials_file
+        and not config.scheduler_token
     ):
         if config.allow_open_api:
             log.warning(
@@ -330,6 +387,7 @@ def owned(
     actor: Principal,
     *,
     write: bool = False,
+    scope: str | None = None,
     not_found: str | None = None,
 ) -> None:
     """Authorize, translating a refusal into 404.
@@ -339,9 +397,12 @@ def owned(
     ownership. Not-found and not-yours must be indistinguishable, which means
     the *message* has to match too: `not_found` lets a caller supply the
     exact wording that endpoint uses for a genuinely missing resource.
+
+    `scope` is the action this path performs. A scheduler principal owns one
+    founder but still 404s here unless the path is `run:trigger`.
     """
     try:
-        authorize(actor, founder_id, write=write)
+        authorize(actor, founder_id, write=write, scope=scope)
     except Forbidden:
         raise HTTPException(
             404, not_found or f"no profile for {founder_id}"
@@ -518,7 +579,12 @@ def ready(response: Response) -> dict:
     # Production mode is opt-in and strict. In local single-founder mode an
     # open API and zero prices are the documented demo posture, not a fault.
     if config.production:
-        if config.api_token or config.credentials_file:
+        supabase_ok = config.auth_mode == "supabase" and bool(config.supabase_issuer)
+        if (
+            supabase_ok
+            or config.api_token
+            or config.credentials_file
+        ):
             checks["authentication"] = "ok"
         else:
             checks["authentication"] = "missing"
@@ -573,6 +639,9 @@ def put_founder(
     body. Without the second check a principal could replace their own
     profile with a document naming someone else's founder id.
     """
+    # Profile replace is a founder write. The scheduler token has no such
+    # scope, so EventBridge cannot edit a knowledge base it is only meant
+    # to run against.
     owned(founder_id, actor, write=True)
     if profile.founder_id != founder_id:
         raise HTTPException(
@@ -595,6 +664,170 @@ def put_founder(
     if stored is None:  # pragma: no cover - only reachable if the write vanished
         raise HTTPException(500, "profile was not persisted")
     return stored
+
+
+def _intake_for_founder(founder_id: str, session_id: str) -> IntakeSession:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    intake = app.state.repo.get_intake_session(session_id)
+    if intake is None or intake.founder_id != founder_id:
+        raise HTTPException(404, not_found)
+    return intake
+
+
+def _intake_view(intake: IntakeSession) -> IntakeSessionView:
+    return IntakeSessionView(
+        session=intake,
+        messages=app.state.repo.list_intake_messages(intake.session_id),
+        documents=app.state.repo.list_intake_documents(intake.session_id),
+        missing_required=missing_required(intake),
+        ready_to_complete=intake_is_complete(intake),
+    )
+
+
+@app.post("/founders/{founder_id}/intake/sessions")
+def create_or_resume_intake_session(
+    founder_id: ResourceId, actor: Principal = Depends(principal)
+) -> IntakeSessionView:
+    """Return the founder's active interview, creating one when absent."""
+    owned(founder_id, actor, write=True)
+    intake = app.state.repo.get_active_intake_session(founder_id)
+    if intake is None:
+        intake = app.state.repo.create_intake_session(
+            new_session(founder_id, app.state.repo.get_profile(founder_id))
+        )
+        audit_event(
+            actor=actor.subject,
+            action="intake.session_create",
+            resource=intake.session_id,
+            method=actor.method,
+        )
+    return _intake_view(intake)
+
+
+@app.get("/founders/{founder_id}/intake/sessions/{session_id}")
+def get_intake_session(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, not_found=not_found)
+    return _intake_view(_intake_for_founder(founder_id, session_id))
+
+
+@app.patch("/founders/{founder_id}/intake/sessions/{session_id}/fields/{field}")
+def update_intake_field(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    field: ResourceId,
+    update: IntakeFieldUpdate,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.revision != update.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        changed = update_field(
+            intake,
+            field=field,
+            action=update.action,
+            actor=actor.subject,
+            value=update.value,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    if not app.state.repo.save_intake_session(
+        changed, expected_revision=update.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action=f"intake.field_{update.action}",
+        resource=session_id,
+        method=actor.method,
+        field=field,
+    )
+    return _intake_view(changed)
+
+
+@app.post("/founders/{founder_id}/intake/sessions/{session_id}/complete")
+def complete_intake_session(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    revision: IntakeRevision,
+    actor: Principal = Depends(principal),
+) -> FounderProfile:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.revision != revision.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        profile = profile_from_session(
+            intake, app.state.repo.get_profile(founder_id)
+        )
+    except IntakeIncomplete as exc:
+        raise HTTPException(409, f"required intake fields are missing: {exc}") from None
+    now = datetime.now(timezone.utc)
+    completed = intake.model_copy(
+        update={
+            "status": "completed",
+            "revision": intake.revision + 1,
+            "updated_at": now,
+            "completed_at": now,
+        }
+    )
+    if not app.state.repo.complete_intake_session(
+        completed, profile, expected_revision=revision.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action="intake.complete",
+        resource=session_id,
+        method=actor.method,
+    )
+    stored = app.state.repo.get_profile(founder_id)
+    if stored is None:  # pragma: no cover - transaction wrote it
+        raise HTTPException(500, "profile was not persisted")
+    return stored
+
+
+@app.delete("/founders/{founder_id}/intake/sessions/{session_id}")
+def abandon_intake_session(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    revision: IntakeRevision,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.status != "active":
+        raise HTTPException(409, "only an active intake session can be abandoned")
+    if intake.revision != revision.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    now = datetime.now(timezone.utc)
+    abandoned = intake.model_copy(
+        update={
+            "status": "abandoned",
+            "revision": intake.revision + 1,
+            "updated_at": now,
+        }
+    )
+    if not app.state.repo.save_intake_session(
+        abandoned, expected_revision=revision.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action="intake.abandon",
+        resource=session_id,
+        method=actor.method,
+    )
+    return _intake_view(abandoned)
 
 
 @app.get("/founders/{founder_id}/inbox")
@@ -660,7 +893,13 @@ async def answer_eligibility_question(
 ) -> EligibilityQuestion:
     """Save an answer and queue a one-opportunity reassessment when possible."""
     not_found = f"no eligibility question {question_id} for {founder_id}"
-    owned(founder_id, actor, write=True, not_found=not_found)
+    owned(
+        founder_id,
+        actor,
+        write=True,
+        scope=SCOPE_ELIGIBILITY_ANSWER,
+        not_found=not_found,
+    )
     question = app.state.repo.get_eligibility_question(question_id)
     if question is None or question.founder_id != founder_id:
         raise HTTPException(404, not_found)
@@ -790,8 +1029,11 @@ def get_opportunity(
     published catalogue. Which opportunities a *founder* was shown is founder
     data, and that lives in the inbox, which is scoped. Authentication is
     still required — an unauthenticated caller has no business enumerating
-    the catalogue.
+    the catalogue. A scheduler principal is authenticated and still 404s:
+    listing programmes is a founder-read, not `run:trigger`.
     """
+    if not actor.has_scope(SCOPE_FOUNDER_READ):
+        raise HTTPException(404, f"no opportunity {opportunity_id}")
     opportunity = app.state.repo.get_opportunity(opportunity_id)
     if opportunity is None:
         raise HTTPException(404, f"no opportunity {opportunity_id}")
@@ -810,6 +1052,8 @@ def get_scraper_candidates(
     come from scraper candidate files and keep their `NEEDS_HUMAN_REVIEW`,
     `ACCEPTED`, or `REJECTED` status exactly as written there.
     """
+    if not actor.has_scope(SCOPE_FOUNDER_READ):
+        raise HTTPException(404, "no scraper candidates")
     names = SCRAPER_CANDIDATE_LANES.keys() if lane == "both" else (lane,)
     return {name: _scraper_candidate_group(name, limit) for name in names}
 
@@ -838,6 +1082,7 @@ def patch_inbox_item(
         item.founder_id,
         actor,
         write=True,
+        scope=SCOPE_INBOX_WRITE,
         not_found=f"no inbox item {item_id}",
     )
 
@@ -908,10 +1153,19 @@ async def trigger_run(
     The connection no longer spans the run. A run takes minutes; sockets,
     load balancers and browsers all have opinions about minutes.
     """
-    owned(founder_id, actor, write=True)
+    owned(founder_id, actor, write=True, scope=SCOPE_RUN_TRIGGER)
     profile = app.state.repo.get_profile(founder_id)
     if profile is None:
         raise HTTPException(404, f"no profile for {founder_id}")
+
+    # A scheduler credential is not a founder. Force the recorded source
+    # so a crafted body cannot pretend EventBridge was a person, and refuse
+    # the synthetic demo catalog — that path exists for a laptop click, not
+    # for a nightly production invocation.
+    if actor.is_scheduler:
+        if trigger.use_demo_catalog:
+            raise HTTPException(400, "scheduled runs cannot use the demo catalog")
+        trigger = trigger.model_copy(update={"source": "scheduled"})
 
     # Idempotency is checked before the lease, so a retry of a key that
     # already landed returns the original job rather than colliding with the
@@ -1025,6 +1279,7 @@ def cancel_job(
         founder_id,
         actor,
         write=True,
+        scope=SCOPE_RUN_CANCEL,
         not_found=f"no job {job_id} for {founder_id}",
     )
     job = app.state.repo.get_job(job_id)

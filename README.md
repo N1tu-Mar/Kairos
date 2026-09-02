@@ -56,11 +56,11 @@ in a week that already has a problem set due.
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
 | Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
 | Decision loop | Deterministic eligibility filtering, founder clarification with exact answer reuse and opt-in capped semantic reuse, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
-| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. A founder arriving with no profile is onboarded by a **scripted, model-free intake chat**: every question is asked and every answer parsed by ordinary code, and prose lands in `knowledge_base` as a tagged chunk rather than in an eligibility field. |
+| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. A founder arriving with no profile is onboarded by a **scripted, model-free intake chat**: every question is asked and every answer parsed by ordinary code, and prose lands in `knowledge_base` as a tagged chunk rather than in an eligibility field. Behind it, `agent/intake.py` is a persisted, provider-free state machine — field states, evidence and messages behind `/founders/{id}/intake/sessions`, where a model may propose a value but only deterministic code confirms one. The dashboard's chat does not call it yet; it still writes the profile in a single `PUT`. |
 | Access | Three authenticators behind one seam. A shared `KAIROS_API_TOKEN` grants the single seeded founder and nothing more; a SHA-256-hashed credential file maps tokens to subjects and founder sets, re-read on mtime change so rotation needs no restart; **Supabase JWTs** (JWKS by default, `kid`-selected, issuer-checked) are the only one that identifies a person, with authorization still read from the `founder_members` table rather than any claim in the token. An unconfigured API fails closed — every request 401s unless `KAIROS_ALLOW_OPEN_API` is deliberately set. On the dashboard side, Next middleware refreshes the session and redirects to `/login`, closing a hole where the credential-holding proxy would answer anonymous callers. |
 | Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. Definite eligibility answers queue a one-opportunity reassessment. A run lease keyed by founder makes overlapping runs impossible; a busy lease safely defers the saved answer. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 1,044 Python tests pass with no expected failures remaining; 111 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-09-01. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
+| Verification | 1,082 Python tests pass with no expected failures remaining; 116 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-09-02. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -266,6 +266,17 @@ demo; the API logs which posture it is in at startup. If you set a token, the
 frontend must carry the same value in `frontend/.env.local`. It is server-only
 there and never reaches the browser.
 
+That shared token is a laptop posture, and `KAIROS_AUTH_MODE` names it out
+loud. `local_shared` is the default and the only mode in which the token is
+honoured at all; `supabase` requires a signed-in user's JWT on every backend
+call and never falls back to the token. Both sides read it, and a Vercel
+production or preview deploy is `supabase` whatever the variable says.
+`validate_runtime_posture()` in `agent/config.py` refuses to let a production
+backend boot on anything else, and also demands `KAIROS_SUPABASE_ISSUER` and
+refuses `KAIROS_ENABLE_BROWSER=true`. **Never set `KAIROS_API_TOKEN` in
+Vercel** — a missing Supabase session used to fall back to it and act as the
+founder for whoever loaded the page.
+
 **Supabase sign-in is optional.** Leave `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` empty and the middleware steps aside, keeping
 the dashboard in single-founder local mode. Set them — with
@@ -279,6 +290,7 @@ redirects to `/login` until a session exists, with authorization read from the
 | Every API call 401s | No credential configured and `KAIROS_ALLOW_OPEN_API` unset |
 | Dashboard renders an API error state | Backend down, or its token not mirrored into `frontend/.env.local` |
 | Dashboard redirects to `/login` | The Supabase variables are set — sign in, or clear them |
+| Dashboard 503s instead of loading | `KAIROS_AUTH_MODE=supabase` with the `NEXT_PUBLIC_SUPABASE_*` variables missing — it fails closed rather than falling back to the shared token |
 | Frontend breaks in ways that look like source bugs | Stale `node_modules`; re-run `npm ci` |
 
 ### Bedrock model IDs
@@ -324,7 +336,7 @@ uv run python scripts/check_lockfiles.py --fix   # see docs/runbooks.md §13
 ### Everything else you can run
 
 ```bash
-# the full test suite — no AWS account, no network, ~65 seconds
+# the full test suite — no AWS account, no network, ~85 seconds
 uv run pytest
 
 # the frontend's checks, from frontend/
@@ -479,8 +491,8 @@ Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
 
-Current local result (2026-09-01): **1,044 Python tests passed in ~65s, no
-xfail remaining; 111 frontend tests passed; typecheck, lint and the production
+Current local result (2026-09-02): **1,082 Python tests passed in ~85s, no
+xfail remaining; 116 frontend tests passed; typecheck, lint and the production
 build passed.** The three previously-planned behaviours — semantic recall and
 the two scheduler/overlap ones — are implemented, and their tests converted
 from `xfail` rather than being rewritten to match whatever got built.

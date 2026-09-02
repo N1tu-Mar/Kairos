@@ -99,8 +99,9 @@ All server-side. None of them are exposed to the browser.
 | Variable | Default | Purpose |
 |---|---|---|
 | `KAIROS_API_URL` | `http://127.0.0.1:8000` | Base URL of the FastAPI backend. |
-| `KAIROS_FOUNDER_ID` | `founder_demo` | Which founder this dashboard reads. There is no auth in this repository; the dashboard is single-founder by design. |
-| `KAIROS_API_TOKEN` | *(empty)* | Bearer token forwarded to the backend when it has `KAIROS_API_TOKEN` set. Server-only; empty means the backend is running open (localhost demo). |
+| `KAIROS_FOUNDER_ID` | `founder_demo` | Which founder this dashboard reads. |
+| `KAIROS_AUTH_MODE` | `local_shared` | `local_shared` (laptop) or `supabase` (deployment). Vercel production/preview always uses `supabase`. |
+| `KAIROS_API_TOKEN` | *(empty)* | Shared backend token, **only** in `local_shared` mode. Never set this in Vercel production. |
 | `KAIROS_API_TIMEOUT_MS` | `10000` | Timeout for every call to the backend. All of them are short now — starting a run creates a job and returns, and the dashboard polls for the result. The run's own ceiling is the backend's `KAIROS_RUN_TIMEOUT_S`. |
 
 **Never prefix any of these with `NEXT_PUBLIC_`.** That prefix makes a value

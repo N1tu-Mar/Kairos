@@ -94,6 +94,48 @@ def check_config(production: bool) -> list[Check]:
             results.append(check(f"model.{label}", PASS, "set"))
 
     # Credentials.
+    if settings.auth_mode == "supabase":
+        if settings.supabase_issuer:
+            results.append(check("auth.mode", PASS, "supabase user JWTs"))
+        else:
+            results.append(
+                check(
+                    "auth.mode",
+                    FAIL,
+                    "KAIROS_AUTH_MODE=supabase but KAIROS_SUPABASE_ISSUER is empty",
+                )
+            )
+    elif production:
+        results.append(
+            check(
+                "auth.mode",
+                FAIL,
+                "production requires KAIROS_AUTH_MODE=supabase; local_shared is a laptop",
+            )
+        )
+    else:
+        results.append(check("auth.mode", PASS, "local_shared"))
+
+    if settings.enable_browser and production:
+        results.append(
+            check(
+                "browser",
+                FAIL,
+                "production refuses KAIROS_ENABLE_BROWSER — Playwright is not isolated",
+            )
+        )
+
+    if settings.scheduler_token:
+        results.append(check("auth.scheduler", PASS, "scheduler token configured"))
+    elif production:
+        results.append(
+            check(
+                "auth.scheduler",
+                WARN,
+                "no KAIROS_SCHEDULER_TOKEN — EventBridge cannot trigger a run",
+            )
+        )
+
     if settings.credentials_file:
         path = Path(settings.credentials_file)
         if not path.exists():

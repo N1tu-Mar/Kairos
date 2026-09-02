@@ -257,7 +257,7 @@ def _sanitize_detail(detail: str) -> str:
     """
     cleaned = re.sub(r"(?i)bearer\s+[a-z0-9._\-]+", "Bearer [REDACTED]", detail)
     cleaned = re.sub(
-        r"(?i)(kairos_api_token|authorization)\s*[=:]\s*\S+",
+        r"(?i)(kairos_api_token|kairos_scheduler_token|authorization)\s*[=:]\s*\S+",
         r"\1=[REDACTED]",
         cleaned,
     )
