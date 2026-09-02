@@ -209,8 +209,13 @@ uv sync
 cp .env.example .env        # then fill in the two BEDROCK_MODEL_* values (below)
 
 uv run fastapi dev api/main.py
-# http://127.0.0.1:8000 · OpenAPI at /docs · /health is liveness, /ready readiness
+# http://127.0.0.1:8000 — /health is liveness, /ready readiness
 ```
+
+`/health` and `/ready` are the only unauthenticated endpoints. Everything
+else, `/docs` included, needs whatever credential the API is configured with —
+so a 401 from the OpenAPI page means auth is working, not that the server is
+broken.
 
 **Terminal 2 — the dashboard**
 
