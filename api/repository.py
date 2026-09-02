@@ -17,7 +17,8 @@ import json
 from datetime import datetime, timezone
 from typing import Literal, Protocol, TypeVar
 
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Text, update
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from agent.models import (
@@ -29,6 +30,9 @@ from agent.models import (
     FounderProfile,
     InboxItem,
     InboxState,
+    IntakeDocument,
+    IntakeMessage,
+    IntakeSession,
     Opportunity,
     RunJob,
     RunReport,
@@ -205,6 +209,45 @@ class EligibilityQuestionRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class IntakeSessionRow(SQLModel, table=True):
+    """One founder interview, with one active session allowed per founder."""
+
+    __tablename__ = "intake_sessions"
+    session_id: str = Field(primary_key=True)
+    founder_id: str = Field(index=True)
+    active_founder_id: str | None = Field(default=None, unique=True)
+    status: str = Field(index=True)
+    revision: int = Field(index=True)
+    created_at: datetime = Field(index=True)
+    updated_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
+class IntakeMessageRow(SQLModel, table=True):
+    """A chat turn; idempotency_key prevents charging a retried founder turn twice."""
+
+    __tablename__ = "intake_messages"
+    message_id: str = Field(primary_key=True)
+    session_id: str = Field(index=True)
+    founder_id: str = Field(index=True)
+    role: str = Field(index=True)
+    idempotency_key: str | None = Field(default=None, unique=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
+class IntakeDocumentRow(SQLModel, table=True):
+    """Sanitized extraction metadata; original file bytes are never stored."""
+
+    __tablename__ = "intake_documents"
+    document_id: str = Field(primary_key=True)
+    session_id: str = Field(index=True)
+    founder_id: str = Field(index=True)
+    status: str = Field(index=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
 # ── Interface ────────────────────────────────────────────────────────────────
 
 
@@ -226,6 +269,30 @@ class Repository(Protocol):
 
     def save_profile(self, profile: FounderProfile) -> None: ...
     def get_profile(self, founder_id: str) -> FounderProfile | None: ...
+
+    # Conversational intake: founder-owned current state with optimistic writes.
+    def create_intake_session(self, intake: IntakeSession) -> IntakeSession: ...
+    def get_intake_session(self, session_id: str) -> IntakeSession | None: ...
+    def get_active_intake_session(self, founder_id: str) -> IntakeSession | None: ...
+    def save_intake_session(
+        self, intake: IntakeSession, *, expected_revision: int
+    ) -> bool: ...
+    def complete_intake_session(
+        self,
+        intake: IntakeSession,
+        profile: FounderProfile,
+        *,
+        expected_revision: int,
+    ) -> bool: ...
+    def save_intake_message(self, message: IntakeMessage) -> bool: ...
+    def get_intake_message_by_client_id(
+        self, session_id: str, client_message_id: str
+    ) -> IntakeMessage | None: ...
+    def list_intake_messages(self, session_id: str) -> list[IntakeMessage]: ...
+    def save_intake_document(self, document: IntakeDocument) -> None: ...
+    def get_intake_document(self, document_id: str) -> IntakeDocument | None: ...
+    def list_intake_documents(self, session_id: str) -> list[IntakeDocument]: ...
+    def delete_intake_document(self, document_id: str) -> bool: ...
 
     # Runs: append-only history. `latest_run`/`list_runs` are capped,
     # `get_run` is the only way back to an old one.
@@ -386,6 +453,201 @@ class SqliteRepository:
         with Session(self.engine) as session:
             row = session.get(ProfileRow, founder_id)
             return FounderProfile.model_validate_json(row.payload) if row else None
+
+    # -- conversational intake --
+
+    @staticmethod
+    def _intake_row(intake: IntakeSession) -> IntakeSessionRow:
+        return IntakeSessionRow(
+            session_id=intake.session_id,
+            founder_id=intake.founder_id,
+            active_founder_id=(intake.founder_id if intake.status == "active" else None),
+            status=intake.status,
+            revision=intake.revision,
+            created_at=intake.created_at,
+            updated_at=intake.updated_at,
+            payload=redact_json(intake.model_dump_json()),
+        )
+
+    def create_intake_session(self, intake: IntakeSession) -> IntakeSession:
+        """Insert a session or return the active session that won a race."""
+        with Session(self.engine) as session:
+            session.add(self._intake_row(intake))
+            try:
+                session.commit()
+                return intake
+            except IntegrityError:
+                session.rollback()
+                row = session.exec(
+                    select(IntakeSessionRow).where(
+                        IntakeSessionRow.active_founder_id == intake.founder_id
+                    )
+                ).first()
+                if row is None:
+                    raise
+                return IntakeSession.model_validate_json(row.payload)
+
+    def get_intake_session(self, session_id: str) -> IntakeSession | None:
+        with Session(self.engine) as session:
+            row = session.get(IntakeSessionRow, session_id)
+            return IntakeSession.model_validate_json(row.payload) if row else None
+
+    def get_active_intake_session(self, founder_id: str) -> IntakeSession | None:
+        with Session(self.engine) as session:
+            row = session.exec(
+                select(IntakeSessionRow).where(
+                    IntakeSessionRow.active_founder_id == founder_id
+                )
+            ).first()
+            return IntakeSession.model_validate_json(row.payload) if row else None
+
+    def save_intake_session(
+        self, intake: IntakeSession, *, expected_revision: int
+    ) -> bool:
+        """Compare-and-swap one session revision; stale clients lose cleanly."""
+        with Session(self.engine) as session:
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == intake.session_id,
+                    IntakeSessionRow.founder_id == intake.founder_id,
+                    IntakeSessionRow.revision == expected_revision,
+                )
+                .values(
+                    active_founder_id=(
+                        intake.founder_id if intake.status == "active" else None
+                    ),
+                    status=intake.status,
+                    revision=intake.revision,
+                    updated_at=intake.updated_at,
+                    payload=redact_json(intake.model_dump_json()),
+                )
+            )
+            session.commit()
+            return result.rowcount == 1
+
+    def complete_intake_session(
+        self,
+        intake: IntakeSession,
+        profile: FounderProfile,
+        *,
+        expected_revision: int,
+    ) -> bool:
+        """Commit completion and the resulting profile in one transaction."""
+        with Session(self.engine) as session:
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == intake.session_id,
+                    IntakeSessionRow.founder_id == intake.founder_id,
+                    IntakeSessionRow.revision == expected_revision,
+                    IntakeSessionRow.status == "active",
+                )
+                .values(
+                    active_founder_id=None,
+                    status=intake.status,
+                    revision=intake.revision,
+                    updated_at=intake.updated_at,
+                    payload=redact_json(intake.model_dump_json()),
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                return False
+            profile_row = session.get(ProfileRow, profile.founder_id)
+            if profile_row is None:
+                profile_row = ProfileRow(founder_id=profile.founder_id, payload="")
+            profile_row.payload = redact_json(profile.model_dump_json())
+            profile_row.updated_at = _now()
+            session.add(profile_row)
+            session.commit()
+            return True
+
+    def save_intake_message(self, message: IntakeMessage) -> bool:
+        with Session(self.engine) as session:
+            key = (
+                f"{message.session_id}::{message.client_message_id}"
+                if message.client_message_id
+                else None
+            )
+            session.add(
+                IntakeMessageRow(
+                    message_id=message.message_id,
+                    session_id=message.session_id,
+                    founder_id=message.founder_id,
+                    role=message.role,
+                    idempotency_key=key,
+                    created_at=message.created_at,
+                    payload=redact_json(message.model_dump_json()),
+                )
+            )
+            try:
+                session.commit()
+                return True
+            except IntegrityError:
+                session.rollback()
+                return False
+
+    def get_intake_message_by_client_id(
+        self, session_id: str, client_message_id: str
+    ) -> IntakeMessage | None:
+        with Session(self.engine) as session:
+            row = session.exec(
+                select(IntakeMessageRow).where(
+                    IntakeMessageRow.idempotency_key
+                    == f"{session_id}::{client_message_id}"
+                )
+            ).first()
+            return IntakeMessage.model_validate_json(row.payload) if row else None
+
+    def list_intake_messages(self, session_id: str) -> list[IntakeMessage]:
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(IntakeMessageRow)
+                .where(IntakeMessageRow.session_id == session_id)
+                .order_by(IntakeMessageRow.created_at, IntakeMessageRow.message_id)
+            ).all()
+            return [IntakeMessage.model_validate_json(row.payload) for row in rows]
+
+    def save_intake_document(self, document: IntakeDocument) -> None:
+        with Session(self.engine) as session:
+            row = session.get(IntakeDocumentRow, document.document_id)
+            if row is None:
+                row = IntakeDocumentRow(
+                    document_id=document.document_id,
+                    session_id=document.session_id,
+                    founder_id=document.founder_id,
+                    status=document.status,
+                    created_at=document.created_at,
+                    payload="",
+                )
+            row.status = document.status
+            row.payload = redact_json(document.model_dump_json())
+            session.add(row)
+            session.commit()
+
+    def get_intake_document(self, document_id: str) -> IntakeDocument | None:
+        with Session(self.engine) as session:
+            row = session.get(IntakeDocumentRow, document_id)
+            return IntakeDocument.model_validate_json(row.payload) if row else None
+
+    def list_intake_documents(self, session_id: str) -> list[IntakeDocument]:
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(IntakeDocumentRow)
+                .where(IntakeDocumentRow.session_id == session_id)
+                .order_by(IntakeDocumentRow.created_at, IntakeDocumentRow.document_id)
+            ).all()
+            return [IntakeDocument.model_validate_json(row.payload) for row in rows]
+
+    def delete_intake_document(self, document_id: str) -> bool:
+        with Session(self.engine) as session:
+            row = session.get(IntakeDocumentRow, document_id)
+            if row is None:
+                return False
+            session.delete(row)
+            session.commit()
+            return True
 
     # -- membership --
 

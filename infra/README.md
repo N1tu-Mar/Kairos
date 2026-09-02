@@ -1,9 +1,12 @@
 # Kairos on AWS
 
 Terraform for the backend. The frontend stays on Vercel — it is a Next.js
-app and that is what Vercel is for; only `KAIROS_API_URL` and
-`KAIROS_API_TOKEN` connect the two, both set server-side in the Vercel
-dashboard, never `NEXT_PUBLIC_*`.
+app and that is what Vercel is for; only `KAIROS_API_URL` connects the dashboard to the backend, set server-side in
+the Vercel dashboard, never `NEXT_PUBLIC_*`. Production authenticates humans
+with Supabase (`KAIROS_AUTH_MODE=supabase` plus the two `NEXT_PUBLIC_SUPABASE_*`
+variables). Do **not** put `KAIROS_API_TOKEN` in Vercel: that shared backend
+credential is how an unsigned visitor used to act as the founder. EventBridge
+holds a separate `KAIROS_SCHEDULER_TOKEN` in Secrets Manager.
 
 ```
 EventBridge Scheduler ──▶ ALB ──▶ ECS Fargate (1 task: FastAPI + pipeline) ──▶ Bedrock
@@ -123,6 +126,7 @@ price_classify_in_per_mtok   = "0.80"
 price_classify_out_per_mtok  = "4.00"
 alarm_email                  = "you@example.com"
 image_tag                    = "sha-abc1234"   # not "latest"
+supabase_issuer              = "https://<project-ref>.supabase.co/auth/v1"
 ```
 
 Then build, migrate, and push:
@@ -142,12 +146,18 @@ aws ecs update-service --cluster kairos-production \
   --service kairos-production-backend --force-new-deployment
 ```
 
-Point the frontend at it (Vercel → Settings → Environment Variables):
+Point the frontend at it (Vercel → Settings → Environment Variables).
+Production must **not** set `KAIROS_API_TOKEN`:
 
 ```
-KAIROS_API_URL   = <terraform output backend_url>
-KAIROS_API_TOKEN = <aws secretsmanager get-secret-value --secret-id <arn> --query SecretString --output text>
+KAIROS_API_URL                  = <terraform output backend_url>
+KAIROS_AUTH_MODE                = supabase
+NEXT_PUBLIC_SUPABASE_URL        = https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY   = <Supabase anon key — public by design>
 ```
+
+The scheduler token stays in Secrets Manager and is sent only by EventBridge.
+If it is ever copied into Vercel, every page proxy can spend it.
 
 ## What the outputs tell you
 
@@ -191,17 +201,12 @@ without it.
 
 ## Identity
 
-The Terraform provisions one shared bearer token, which is honest about what
-it is: it proves somebody holds the secret, never which founder they are, and
-it grants exactly the one seeded founder.
-
-For more than one founder, `api/auth.py` reads a JSON credential file
-(`KAIROS_CREDENTIALS_FILE`) mapping hashed tokens to subjects and founder
-ids, with revocation and expiry, re-read on mtime change so rotation needs no
-restart. Mount it from Secrets Manager as a second secret. A real identity
-provider (OIDC/JWT) plugs into the same `Authenticator` protocol — that is a
-product decision, so the interface is built and the adapter is documented
-rather than faked.
+The Terraform provisions EventBridge with a scheduler-only bearer token
+(`KAIROS_SCHEDULER_TOKEN`), which can create a scheduled run for one founder
+and is refused by every other endpoint. Humans authenticate with Supabase
+user JWTs (`KAIROS_AUTH_MODE=supabase`, `KAIROS_SUPABASE_ISSUER`). Production
+refuses to plan without the issuer, and the dashboard must never hold the
+scheduler secret.
 
 ## Deliberate shortcuts, written down
 

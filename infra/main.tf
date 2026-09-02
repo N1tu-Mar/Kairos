@@ -4,8 +4,9 @@
 # SQLite and the run state live on EFS, which is why desired_count is 1 and
 # must stay 1 until the storage story changes (infra/README.md).
 # EventBridge Scheduler triggers the daily run by calling the same
-# POST /founders/{id}/runs endpoint a person uses, authenticated with the
-# same bearer token, so there is exactly one code path into a run.
+# POST /founders/{id}/runs endpoint a person uses, authenticated with a
+# scheduler-only bearer token. That credential cannot read profiles or
+# trigger a demo-catalog run. Human traffic uses Supabase user JWTs.
 #
 # `var.environment` is the switch that separates a demo from a deployment.
 # Production requires HTTPS, keeps the task off a public IP, and refuses to
@@ -96,6 +97,25 @@ resource "terraform_data" "production_scopes_bedrock" {
         Resource = "*", which is permission to invoke every model in the
         account — including ones nobody has priced. See the variable's
         description for the discovery commands.
+      EOT
+    }
+  }
+}
+
+resource "terraform_data" "production_requires_supabase" {
+  count = local.production ? 1 : 0
+
+  lifecycle {
+    precondition {
+      condition     = var.supabase_issuer != ""
+      error_message = <<-EOT
+        environment = "production" requires supabase_issuer.
+
+        Production authenticates humans with Supabase user JWTs
+        (KAIROS_AUTH_MODE=supabase). A shared KAIROS_API_TOKEN in the
+        frontend is how an unauthenticated visitor used to act as the
+        founder. Set supabase_issuer to the project URL plus /auth/v1,
+        for example https://abcdefghijklm.supabase.co/auth/v1.
       EOT
     }
   }
@@ -239,29 +259,52 @@ resource "aws_ecr_lifecycle_policy" "backend" {
   })
 }
 
-# ── The API token: generated here, read by both the task and the scheduler ──
+# ── Scheduler token: EventBridge only, never the dashboard ───────────────────
+#
+# Humans authenticate with Supabase JWTs. This secret is the one credential
+# EventBridge holds, scoped in code to `run:trigger` for one founder. It
+# must not be copied into Vercel.
+
+resource "random_password" "scheduler_token" {
+  length  = 43
+  special = false
+}
+
+resource "aws_secretsmanager_secret" "scheduler_token" {
+  name                    = "${local.name}/scheduler-token"
+  recovery_window_in_days = local.production ? 30 : 0
+}
+
+resource "aws_secretsmanager_secret_version" "scheduler_token" {
+  secret_id     = aws_secretsmanager_secret.scheduler_token.id
+  secret_string = random_password.scheduler_token.result
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+# Demo-only shared token for the laptop-like `local_shared` posture. Production
+# does not create this secret and must not put any equivalent in Vercel.
 
 resource "random_password" "api_token" {
+  count   = local.production ? 0 : 1
   length  = 43
   special = false
 }
 
 resource "aws_secretsmanager_secret" "api_token" {
-  # A rotated secret keeps its ARN, and the task reads it by ARN at start,
-  # so rotation is a secret-version change plus a task restart — no
-  # Terraform apply, no ARN churn anywhere downstream.
+  count                   = local.production ? 0 : 1
   name                    = "${local.name}/api-token"
-  recovery_window_in_days = local.production ? 30 : 0
+  recovery_window_in_days = 0
 }
 
 resource "aws_secretsmanager_secret_version" "api_token" {
-  secret_id     = aws_secretsmanager_secret.api_token.id
-  secret_string = random_password.api_token.result
+  count         = local.production ? 0 : 1
+  secret_id     = aws_secretsmanager_secret.api_token[0].id
+  secret_string = random_password.api_token[0].result
 
   lifecycle {
-    # Rotation happens outside Terraform (docs/runbooks.md). Without this,
-    # the next apply would helpfully reset the secret back to the value in
-    # state and lock out everything already using the rotated one.
     ignore_changes = [secret_string]
   }
 }
@@ -454,15 +497,18 @@ resource "aws_iam_role_policy_attachment" "execution_managed" {
 }
 
 resource "aws_iam_role_policy" "execution_secrets" {
-  name = "read-api-token"
+  name = "read-auth-secrets"
   role = aws_iam_role.execution.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["secretsmanager:GetSecretValue"]
-        Resource = [aws_secretsmanager_secret.api_token.arn]
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = concat(
+          [aws_secretsmanager_secret.scheduler_token.arn],
+          aws_secretsmanager_secret.api_token[*].arn,
+        )
       },
       {
         Effect   = "Allow"
@@ -571,6 +617,10 @@ resource "aws_ecs_task_definition" "backend" {
     environment = [
       { name = "AWS_REGION", value = var.aws_region },
       { name = "KAIROS_ENV", value = var.environment },
+      { name = "KAIROS_AUTH_MODE", value = local.production ? "supabase" : "local_shared" },
+      { name = "KAIROS_SUPABASE_ISSUER", value = var.supabase_issuer },
+      { name = "KAIROS_SCHEDULER_FOUNDER_ID", value = var.founder_id },
+      { name = "KAIROS_ENABLE_BROWSER", value = "false" },
       { name = "BEDROCK_MODEL_REASONING", value = var.bedrock_model_reasoning },
       { name = "BEDROCK_MODEL_CLASSIFY", value = var.bedrock_model_classify },
       { name = "KAIROS_DB_URL", value = "sqlite:////data/kairos.db" },
@@ -585,9 +635,20 @@ resource "aws_ecs_task_definition" "backend" {
     # Read by ARN at container start, so rotating the secret's value and
     # restarting the task is the whole rotation procedure — no new ARN, no
     # Terraform apply, nothing else to update.
-    secrets = [
-      { name = "KAIROS_API_TOKEN", valueFrom = aws_secretsmanager_secret.api_token.arn },
-    ]
+    secrets = concat(
+      [
+        {
+          name      = "KAIROS_SCHEDULER_TOKEN"
+          valueFrom = aws_secretsmanager_secret.scheduler_token.arn
+        },
+      ],
+      local.production ? [] : [
+        {
+          name      = "KAIROS_API_TOKEN"
+          valueFrom = aws_secretsmanager_secret.api_token[0].arn
+        },
+      ],
+    )
 
     logConfiguration = {
       logDriver = "awslogs"
@@ -970,7 +1031,7 @@ resource "aws_cloudwatch_event_connection" "backend" {
   auth_parameters {
     api_key {
       key   = "Authorization"
-      value = "Bearer ${random_password.api_token.result}"
+      value = "Bearer ${random_password.scheduler_token.result}"
     }
   }
 

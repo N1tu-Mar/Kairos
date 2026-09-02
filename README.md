@@ -372,6 +372,11 @@ shared and capped across both lanes, never bypasses robots or network-safety
 failures, and archives the exact extraction markdown, raw HTML, local fetch
 decision, and provider metadata under the configured raw-data directory.
 
+`KAIROS_API_TOKEN` in `.env` is empty by default. The API refuses every
+request unless `KAIROS_ALLOW_OPEN_API=1` (laptop demo) or a real credential
+is configured. Production requires `KAIROS_AUTH_MODE=supabase` and never
+puts the backend token in Vercel.
+
 ### Curating the catalog
 
 Seed rows are **generated, not written**. Add a candidate to

@@ -97,6 +97,11 @@ def _settings(monkeypatch, **env: str):
         "KAIROS_ALLOW_OPEN_API",
         "KAIROS_ENV",
         "KAIROS_CREDENTIALS_FILE",
+        "KAIROS_AUTH_MODE",
+        "KAIROS_SCHEDULER_TOKEN",
+        "KAIROS_SUPABASE_ISSUER",
+        "KAIROS_SUPABASE_JWT_SECRET",
+        "KAIROS_SUPABASE_PUBLIC_KEY",
     ):
         monkeypatch.delenv(key, raising=False)
     for key, value in env.items():

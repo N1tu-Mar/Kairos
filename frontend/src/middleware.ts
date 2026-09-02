@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isSupabaseAuth } from "@/lib/auth-mode";
+
 /**
  * The lock on the front door.
  *
@@ -19,10 +21,11 @@ import { NextResponse, type NextRequest } from "next/server";
  * 2.  **Redirect anyone without a session** to `/login`, except for the
  *     handful of paths that must stay reachable to sign in at all.
  *
- * When Supabase is not configured the dashboard stays in its documented
- * single-founder local mode and this middleware steps aside. That mode is for
- * a laptop — the same posture, and the same warning, as the backend's
- * `KAIROS_ALLOW_OPEN_API`.
+ * When auth mode is `local_shared` and Supabase is not configured the
+ * dashboard stays in its documented single-founder laptop mode and this
+ * middleware steps aside. Production and Vercel preview deploys never take
+ * that path: missing public variables become a generic 503 instead of an
+ * unauthenticated proxy holding the backend token.
  */
 
 /** Paths that must work while signed out, or signing in is impossible. */
@@ -87,6 +90,16 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set(CSP_HEADER, policy);
     return NextResponse.next({ request: { headers: requestHeaders } });
   };
+
+  // Production / supabase mode must not silently become the laptop posture.
+  // A generic 503 names neither Supabase nor the missing variable — those
+  // belong in the operator's logs, not in a body a stranger can read.
+  if (isSupabaseAuth() && (!url || !key)) {
+    return setCsp(
+      NextResponse.json({ detail: "service unavailable" }, { status: 503 }),
+      policy,
+    );
+  }
 
   // Not configured: local single-founder mode, no sign-in, nothing gated.
   if (!url || !key) return setCsp(nextResponse(), policy);

@@ -75,6 +75,21 @@ def test_ready_detects_an_unwritable_state_directory(api_client, monkeypatch, tm
     assert response.json()["checks"]["state_storage"] == "unwritable"
 
 
+def test_ready_passes_production_when_supabase_is_configured(api_client, monkeypatch):
+    """A user JWT issuer is a configured authenticator; the shared token is not required."""
+    monkeypatch.setenv("KAIROS_ENV", "production")
+    monkeypatch.setenv("KAIROS_AUTH_MODE", "supabase")
+    monkeypatch.setenv(
+        "KAIROS_SUPABASE_ISSUER", "https://abcdefghijklm.supabase.co/auth/v1"
+    )
+    monkeypatch.delenv("KAIROS_API_TOKEN", raising=False)
+    monkeypatch.setenv("KAIROS_DAILY_USD_CAP", "0")
+    config.settings.cache_clear()
+
+    body = api_client.get("/ready").json()
+    assert body["checks"]["authentication"] == "ok"
+
+
 def test_ready_fails_production_without_a_token(api_client, monkeypatch):
     monkeypatch.setenv("KAIROS_ENV", "production")
     monkeypatch.delenv("KAIROS_API_TOKEN", raising=False)

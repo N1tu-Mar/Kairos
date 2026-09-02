@@ -71,9 +71,8 @@ export function founderId(): string {
 
 /**
  * Bearer token the backend expects when `KAIROS_API_TOKEN` is set there.
- * Server-only, like everything in this module: the browser talks to the
- * Route Handlers, never to FastAPI, so the credential never ships to it.
- * Empty means the backend is running open (localhost demo).
+ * Server-only. Used only in `local_shared` mode; supabase mode never
+ * attaches this, even if the session is missing.
  */
 export function apiToken(): string {
   return env("KAIROS_API_TOKEN", "");

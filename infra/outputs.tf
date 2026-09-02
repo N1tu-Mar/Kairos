@@ -54,16 +54,23 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.backend.repository_url
 }
 
-output "api_token_secret_arn" {
+output "scheduler_token_secret_arn" {
   description = <<-EOT
-    Secrets Manager ARN holding KAIROS_API_TOKEN. The ARN, not the value —
-    read it once to configure the frontend host, and never commit what comes
-    back:
+    Secrets Manager ARN holding KAIROS_SCHEDULER_TOKEN. EventBridge reads
+    this; the dashboard must not. The ARN, not the value:
 
       aws secretsmanager get-secret-value --secret-id <arn> \
         --query SecretString --output text
   EOT
-  value       = aws_secretsmanager_secret.api_token.arn
+  value = aws_secretsmanager_secret.scheduler_token.arn
+}
+
+output "api_token_secret_arn" {
+  description = <<-EOT
+    Demo-only Secrets Manager ARN holding KAIROS_API_TOKEN. Empty in
+    production — never place this value in Vercel on a real deployment.
+  EOT
+  value = try(aws_secretsmanager_secret.api_token[0].arn, "")
 }
 
 output "log_group" {

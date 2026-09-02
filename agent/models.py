@@ -30,6 +30,27 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 DegreeLevel = Literal["undergrad", "masters", "phd", "postdoc"]
 EntityType = Literal["none", "llc", "c_corp", "s_corp", "nonprofit"]
 Stage = Literal["idea", "prototype", "mvp", "pilot", "revenue"]
+IntakeFieldName = Literal[
+    "startup_description",
+    "full_name",
+    "degree_level",
+    "institution",
+    "major",
+    "citizenship",
+    "entity_type",
+    "team_size",
+    "stage",
+    "traction",
+    "funding_range",
+    "equity_ok",
+    "has_faculty_advisor",
+    "max_application_hours",
+    "geographies",
+]
+IntakeFieldStatus = Literal["missing", "proposed", "confirmed"]
+IntakeSessionStatus = Literal["active", "completed", "abandoned"]
+IntakeMessageRole = Literal["founder", "assistant"]
+IntakeDocumentStatus = Literal["processing", "ready", "rejected"]
 
 #: Three-valued eligibility. `UNKNOWN` never silently passes and never
 #: silently fails — it becomes a question for the founder (Section 11.3).
@@ -185,6 +206,109 @@ class FounderProfile(Frozen):
     def max_award(self) -> int:
         """Top of the funding range the founder said they want."""
         return self.funding_range[1]
+
+
+# ── Conversational founder intake ────────────────────────────────────────────────
+
+
+class IntakeEvidence(Frozen):
+    """A bounded pointer to the founder-controlled source of one proposal."""
+
+    source_type: Literal["message", "document", "existing_profile"]
+    source_id: str = Field(min_length=1, max_length=200)
+    location: str | None = Field(default=None, max_length=200)
+    excerpt: str | None = Field(default=None, max_length=500)
+
+
+class IntakeFieldState(Mutable):
+    """One candidate profile fact and whether a founder approved it.
+
+    `value` is deliberately JSON-shaped here. The deterministic intake layer
+    validates it against `field` before this record may be persisted; keeping
+    the transport union here avoids Pydantic coercing `1` into `True` (or the
+    inverse) merely because both are members of a broad scalar union.
+    """
+
+    field: IntakeFieldName
+    status: IntakeFieldStatus = "missing"
+    value: object | None = None
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    evidence: list[IntakeEvidence] = Field(default_factory=list, max_length=20)
+    proposed_at: datetime | None = None
+    confirmed_at: datetime | None = None
+    confirmed_by: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def state_is_coherent(self) -> IntakeFieldState:
+        if self.status == "missing":
+            if self.value is not None or self.confirmed_at is not None:
+                raise ValueError("a missing intake field cannot carry a value")
+        elif self.value is None:
+            raise ValueError("a proposed or confirmed intake field requires a value")
+        if self.status == "confirmed":
+            if self.confirmed_at is None or not self.confirmed_by:
+                raise ValueError("a confirmed intake field requires confirmation metadata")
+        elif self.confirmed_at is not None or self.confirmed_by is not None:
+            raise ValueError("only confirmed intake fields carry confirmation metadata")
+        return self
+
+
+class IntakeSession(Mutable):
+    """Persisted state for one founder interview."""
+
+    session_id: str = Field(min_length=1, max_length=200)
+    founder_id: str = Field(min_length=1, max_length=200)
+    status: IntakeSessionStatus = "active"
+    revision: int = Field(default=0, ge=0)
+    fields: dict[str, IntakeFieldState] = Field(default_factory=dict, max_length=50)
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+    completed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def field_keys_match(self) -> IntakeSession:
+        for key, value in self.fields.items():
+            if key != value.field:
+                raise ValueError(f"intake field key {key!r} does not match {value.field!r}")
+        if self.status == "completed" and self.completed_at is None:
+            raise ValueError("a completed intake session requires completed_at")
+        return self
+
+
+class IntakeMessage(Frozen):
+    """One bounded chat turn. Message bodies never belong in audit logs."""
+
+    message_id: str = Field(min_length=1, max_length=200)
+    session_id: str = Field(min_length=1, max_length=200)
+    founder_id: str = Field(min_length=1, max_length=200)
+    role: IntakeMessageRole
+    text: str = Field(min_length=1, max_length=8_000)
+    client_message_id: str | None = Field(default=None, min_length=1, max_length=200)
+    created_at: datetime = Field(default_factory=_now)
+
+
+class IntakeDocumentChunk(Frozen):
+    """Sanitized extracted text retained after the raw upload is deleted."""
+
+    chunk_id: str = Field(min_length=1, max_length=200)
+    location: str = Field(min_length=1, max_length=200)
+    text: str = Field(min_length=1, max_length=20_000)
+    truncated: bool = False
+
+
+class IntakeDocument(Frozen):
+    """Metadata and bounded extracted content; never the original file bytes."""
+
+    document_id: str = Field(min_length=1, max_length=200)
+    session_id: str = Field(min_length=1, max_length=200)
+    founder_id: str = Field(min_length=1, max_length=200)
+    filename: str = Field(min_length=1, max_length=200)
+    media_type: str = Field(min_length=1, max_length=100)
+    byte_size: int = Field(ge=0, le=10 * 1024 * 1024)
+    status: IntakeDocumentStatus
+    chunks: list[IntakeDocumentChunk] = Field(default_factory=list, max_length=100)
+    error: str | None = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=_now)
 
 
 # ── Opportunity ──────────────────────────────────────────────────────────────
