@@ -474,13 +474,13 @@ Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
 
-Current local result (2026-08-27): **843 Python tests passed, no xfail
-remaining; 55 frontend tests passed; typecheck, lint and the production build
-passed.** The three previously-planned behaviours — semantic recall and the
-two scheduler/overlap ones — are implemented, and their tests converted from
-`xfail` rather than being rewritten to match whatever got built.
+Current local result (2026-09-01): **1,044 Python tests passed in ~65s, no
+xfail remaining; 111 frontend tests passed; typecheck, lint and the production
+build passed.** The three previously-planned behaviours — semantic recall and
+the two scheduler/overlap ones — are implemented, and their tests converted
+from `xfail` rather than being rewritten to match whatever got built.
 
-Migrations have their own 20 tests, run against a fresh database *and* a
+Migrations have their own 18 tests, run against a fresh database *and* a
 representative existing one built the way every deployed database was built,
 with live rows that have to survive adoption.
 
