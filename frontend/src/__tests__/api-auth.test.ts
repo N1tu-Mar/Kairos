@@ -45,7 +45,9 @@ describe("supabase mode", () => {
   });
 
   it("sends the user access token rather than KAIROS_API_TOKEN", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ job_id: "job_1" }), { status: 202 }));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ job_id: "job_1" }), { status: 202 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     vi.doMock("@/lib/supabase/server", () => ({
       currentAccessToken: async () => "user-jwt",
@@ -58,8 +60,9 @@ describe("supabase mode", () => {
       include_grants_gov: false,
     });
 
-    const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer user-jwt");
+    const call = fetchMock.mock.calls[0]!;
+    const headers = new Headers(call[1]?.headers);
+    expect(headers.get("authorization")).toBe("Bearer user-jwt");
     expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("must-not-be-sent");
   });
 });
@@ -67,7 +70,9 @@ describe("supabase mode", () => {
 describe("local_shared mode", () => {
   it("may still attach the shared token on a laptop", async () => {
     process.env.KAIROS_AUTH_MODE = "local_shared";
-    const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     vi.doMock("@/lib/supabase/server", () => ({
       currentAccessToken: async () => "",
@@ -76,7 +81,8 @@ describe("local_shared mode", () => {
 
     await getHealth();
 
-    const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
-    expect(headers.authorization).toBe("Bearer must-not-be-sent");
+    const call = fetchMock.mock.calls[0]!;
+    const headers = new Headers(call[1]?.headers);
+    expect(headers.get("authorization")).toBe("Bearer must-not-be-sent");
   });
 });
