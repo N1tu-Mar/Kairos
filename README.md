@@ -279,7 +279,80 @@ redirects to `/login` until a session exists, with authorization read from the
 | Every API call 401s | No credential configured and `KAIROS_ALLOW_OPEN_API` unset |
 | Dashboard renders an API error state | Backend down, or its token not mirrored into `frontend/.env.local` |
 | Dashboard redirects to `/login` | The Supabase variables are set — sign in, or clear them |
+| `/login` says "Sign-in is not configured" | One of the two `NEXT_PUBLIC_` values is empty, or the URL slot holds a key. The page names which |
+| Every route 500s after setting the Supabase variables | The publishable key was pasted into `NEXT_PUBLIC_SUPABASE_URL`. It wants `https://<project-ref>.supabase.co` |
+| Signed in, but the profile is still the synthetic demo one | `KAIROS_AUTH_MODE` is still `local_shared`, so the founder comes from `KAIROS_FOUNDER_ID` rather than `GET /me` |
 | Frontend breaks in ways that look like source bugs | Stale `node_modules`; re-run `npm ci` |
+
+### Turning sign-in on
+
+Sign-in is Supabase Auth, and Supabase brokers Google and GitHub. The Google
+client id and secret go **into Supabase**, never into the Next app — there is
+no Google SDK in this repository, and the legacy Google Sign-In JS library is
+deprecated and not what this uses.
+
+**1. In Supabase.** Authentication → Sign In / Providers → enable Google and
+GitHub. Each wants an OAuth app of its own:
+
+| Provider | Where the client id and secret come from |
+|---|---|
+| Google | console.cloud.google.com → APIs & Services → Credentials → Create OAuth client ID → Web application |
+| GitHub | github.com/settings/developers → New OAuth App |
+
+The provider's own *Authorised redirect URI* is **Supabase's** callback, not
+this app's. Supabase prints the exact value on the provider page:
+
+```
+https://<project-ref>.supabase.co/auth/v1/callback
+```
+
+**2. Still in Supabase.** Authentication → URL Configuration → Redirect URLs.
+These are **this app's** callback, one line per origin people sign in from:
+
+```
+http://localhost:3000/auth/callback
+https://<your-app>.vercel.app/auth/callback
+https://<your-app>-*.vercel.app/auth/callback
+```
+
+A missing entry here is the usual cause of "requested path is invalid" after a
+consent screen.
+
+**3. `frontend/.env.local`.** The URL is a URL; the key is a key. Pasting the
+key into both slots is the easy mistake, and `/login` will say so.
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+KAIROS_AUTH_MODE=supabase
+KAIROS_API_TOKEN=
+```
+
+`KAIROS_API_TOKEN` is emptied deliberately: in `supabase` mode the proxy sends
+the *user's* access token and never falls back to a shared one.
+
+**4. `.env`, the backend.**
+
+```
+KAIROS_AUTH_MODE=supabase
+KAIROS_SUPABASE_ISSUER=https://<project-ref>.supabase.co/auth/v1
+KAIROS_AUTO_PROVISION_FOUNDER=true
+```
+
+Signing keys come from the issuer's JWKS endpoint and are cached, so rotation
+needs no redeploy. The process refuses to boot on `supabase` with no issuer,
+which is the intended failure rather than a backend that trusts unsigned
+requests.
+
+**What a first sign-in does.** `api/provisioning.py` gives a verified identity
+with no membership row a founder of its own, and creates no profile — so the
+dashboard opens intake, which is where a real profile comes from. That is why
+signing in stops showing the synthetic `founder_demo`.
+
+This is a demo posture: anyone who completes a Google sign-in gets a workspace.
+Restrict who may sign in **at the provider** before this is public, or set
+`KAIROS_AUTO_PROVISION_FOUNDER=false` and grant memberships with
+`scripts/link_founder.py`.
 
 ### Bedrock model IDs
 
