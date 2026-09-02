@@ -48,7 +48,7 @@ afterEach(() => {
 
 describe("an anonymous visitor", () => {
   it.each([
-    "/",
+    "/briefing",
     "/inbox",
     "/runs",
     "/drafts",
@@ -103,6 +103,29 @@ describe("an anonymous visitor", () => {
     const response = await middleware(await request("/login"));
 
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("can read the landing page, which holds no founder data", async () => {
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/"));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("gets nothing else from opening the root, which is the whole risk of listing it", async () => {
+    // `/` is a prefix of every path on the site. The public-path check only
+    // treats an entry as a prefix when the next character is a separator, so
+    // listing the root opens the root alone — but that is a property worth a
+    // test rather than a comment, because getting it wrong unlocks the site.
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    for (const path of ["/briefing", "/profile", "/api/runs"]) {
+      const response = await middleware(await request(path));
+      expect(response.headers.get("location")).toContain("/login");
+    }
   });
 });
 

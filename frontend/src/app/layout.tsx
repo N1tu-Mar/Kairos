@@ -1,8 +1,30 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Bricolage_Grotesque, Instrument_Sans } from "next/font/google";
 
-import { SiteNav } from "@/components/site-nav";
 import "./globals.css";
+
+/**
+ * Two faces, self-hosted by `next/font` so they load from this origin and
+ * satisfy the `font-src 'self'` line in the CSP.
+ *
+ * Bricolage carries the display sizes; its width axis is what keeps a long
+ * headline from turning into three limp lines. Instrument Sans does every
+ * running word. Numbers, dates and money use the system monospace stack
+ * already declared in `globals.css` — tabular figures are the one place a
+ * third face would have earned its download, and it does not.
+ */
+const display = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--kairos-display",
+  display: "swap",
+  axes: ["opsz", "wdth"],
+});
+
+const body = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--kairos-body",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Kairos",
@@ -11,10 +33,13 @@ export const metadata: Metadata = {
 };
 
 /**
- * The document shell: fonts, global styles and the site navigation.
+ * The document shell.
  *
- * Every page renders inside this, so anything that must appear on all
- * screens belongs here rather than being repeated per page.
+ * Deliberately thin: fonts, global styles, the skip link. Chrome belongs to
+ * whichever section you are in — the dashboard's navigation lives in
+ * `(dashboard)/layout.tsx`, and the landing page and the sign-in screen
+ * carry their own. A shared shell here is what made the marketing page
+ * inherit a signed-in navigation bar it had no business showing.
  */
 export default function RootLayout({
   children,
@@ -22,7 +47,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-dvh bg-paper text-ink antialiased">
         <a
           href="#main"
@@ -30,36 +55,7 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-
-        <div className="border-b border-rule bg-surface/70">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-            <Link href="/" className="flex items-baseline gap-2.5">
-              <span className="font-serif text-lg tracking-tight text-ink">
-                Kairos
-              </span>
-              <span className="hidden text-xs text-ink-muted sm:inline">
-                the opportune moment
-              </span>
-            </Link>
-            <SiteNav />
-          </div>
-        </div>
-
-        <main id="main">{children}</main>
-
-        <footer className="border-t border-rule">
-          <div className="mx-auto w-full max-w-5xl px-5 py-8 text-xs leading-relaxed text-ink-muted sm:px-8">
-            <p>
-              Kairos prepares applications. It never submits one, because
-              submission is a decision and a person makes it.
-            </p>
-            <p className="mt-2">
-              Rows marked <span className="font-mono">[DEMO]</span> are
-              synthetic records from the demo catalog. They are not real
-              funding opportunities.
-            </p>
-          </div>
-        </footer>
+        {children}
       </body>
     </html>
   );
