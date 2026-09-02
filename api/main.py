@@ -33,11 +33,22 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings, validate_runtime_posture, ConfigError
+from agent.intake import (
+    IntakeIncomplete,
+    is_complete as intake_is_complete,
+    missing_required,
+    new_session,
+    profile_from_session,
+    update_field,
+)
 from agent.models import (
     EligibilityAnswerValue,
     EligibilityQuestion,
     FounderProfile,
     InboxState,
+    IntakeDocument,
+    IntakeMessage,
+    IntakeSession,
     Opportunity,
     RunJob,
     RunReport,
@@ -168,6 +179,36 @@ class EligibilityAnswerUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     answer: EligibilityAnswerValue
+
+
+class IntakeFieldUpdate(BaseModel):
+    """One explicit founder decision about one captured fact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["confirm", "correct", "reject"]
+    expected_revision: int = PydanticField(ge=0)
+    value: object | None = None
+
+
+class IntakeRevision(BaseModel):
+    """Optimistic revision required for terminal session transitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = PydanticField(ge=0)
+
+
+class IntakeSessionView(BaseModel):
+    """Everything the chat needs, already scoped to one founder."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    session: IntakeSession
+    messages: list[IntakeMessage]
+    documents: list[IntakeDocument]
+    missing_required: list[str]
+    ready_to_complete: bool
 
 
 @asynccontextmanager
@@ -623,6 +664,170 @@ def put_founder(
     if stored is None:  # pragma: no cover - only reachable if the write vanished
         raise HTTPException(500, "profile was not persisted")
     return stored
+
+
+def _intake_for_founder(founder_id: str, session_id: str) -> IntakeSession:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    intake = app.state.repo.get_intake_session(session_id)
+    if intake is None or intake.founder_id != founder_id:
+        raise HTTPException(404, not_found)
+    return intake
+
+
+def _intake_view(intake: IntakeSession) -> IntakeSessionView:
+    return IntakeSessionView(
+        session=intake,
+        messages=app.state.repo.list_intake_messages(intake.session_id),
+        documents=app.state.repo.list_intake_documents(intake.session_id),
+        missing_required=missing_required(intake),
+        ready_to_complete=intake_is_complete(intake),
+    )
+
+
+@app.post("/founders/{founder_id}/intake/sessions")
+def create_or_resume_intake_session(
+    founder_id: ResourceId, actor: Principal = Depends(principal)
+) -> IntakeSessionView:
+    """Return the founder's active interview, creating one when absent."""
+    owned(founder_id, actor, write=True)
+    intake = app.state.repo.get_active_intake_session(founder_id)
+    if intake is None:
+        intake = app.state.repo.create_intake_session(
+            new_session(founder_id, app.state.repo.get_profile(founder_id))
+        )
+        audit_event(
+            actor=actor.subject,
+            action="intake.session_create",
+            resource=intake.session_id,
+            method=actor.method,
+        )
+    return _intake_view(intake)
+
+
+@app.get("/founders/{founder_id}/intake/sessions/{session_id}")
+def get_intake_session(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, not_found=not_found)
+    return _intake_view(_intake_for_founder(founder_id, session_id))
+
+
+@app.patch("/founders/{founder_id}/intake/sessions/{session_id}/fields/{field}")
+def update_intake_field(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    field: ResourceId,
+    update: IntakeFieldUpdate,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.revision != update.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        changed = update_field(
+            intake,
+            field=field,
+            action=update.action,
+            actor=actor.subject,
+            value=update.value,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    if not app.state.repo.save_intake_session(
+        changed, expected_revision=update.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action=f"intake.field_{update.action}",
+        resource=session_id,
+        method=actor.method,
+        field=field,
+    )
+    return _intake_view(changed)
+
+
+@app.post("/founders/{founder_id}/intake/sessions/{session_id}/complete")
+def complete_intake_session(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    revision: IntakeRevision,
+    actor: Principal = Depends(principal),
+) -> FounderProfile:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.revision != revision.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        profile = profile_from_session(
+            intake, app.state.repo.get_profile(founder_id)
+        )
+    except IntakeIncomplete as exc:
+        raise HTTPException(409, f"required intake fields are missing: {exc}") from None
+    now = datetime.now(timezone.utc)
+    completed = intake.model_copy(
+        update={
+            "status": "completed",
+            "revision": intake.revision + 1,
+            "updated_at": now,
+            "completed_at": now,
+        }
+    )
+    if not app.state.repo.complete_intake_session(
+        completed, profile, expected_revision=revision.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action="intake.complete",
+        resource=session_id,
+        method=actor.method,
+    )
+    stored = app.state.repo.get_profile(founder_id)
+    if stored is None:  # pragma: no cover - transaction wrote it
+        raise HTTPException(500, "profile was not persisted")
+    return stored
+
+
+@app.delete("/founders/{founder_id}/intake/sessions/{session_id}")
+def abandon_intake_session(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    revision: IntakeRevision,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.status != "active":
+        raise HTTPException(409, "only an active intake session can be abandoned")
+    if intake.revision != revision.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    now = datetime.now(timezone.utc)
+    abandoned = intake.model_copy(
+        update={
+            "status": "abandoned",
+            "revision": intake.revision + 1,
+            "updated_at": now,
+        }
+    )
+    if not app.state.repo.save_intake_session(
+        abandoned, expected_revision=revision.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action="intake.abandon",
+        resource=session_id,
+        method=actor.method,
+    )
+    return _intake_view(abandoned)
 
 
 @app.get("/founders/{founder_id}/inbox")
