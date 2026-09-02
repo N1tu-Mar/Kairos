@@ -46,11 +46,15 @@ describe("a completed sign-in", () => {
     expect(EXCHANGE).toHaveBeenCalledWith("auth-code-123");
   });
 
-  it("lands on the dashboard root by default", async () => {
+  it("lands on the briefing by default", async () => {
     const response = await callback("?code=auth-code-123");
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("https://kairos.example/");
+    // Not `/`. That is the public landing page now, so a completed sign-in
+    // that went there would show somebody the door they just walked through.
+    expect(response.headers.get("location")).toBe(
+      "https://kairos.example/briefing",
+    );
   });
 
   it("returns the visitor to where they were headed", async () => {
@@ -73,7 +77,9 @@ describe("the redirect target", () => {
 
     // A sign-in link that bounces somebody to another site carries the trust
     // of this one. `login-form.tsx` guards the same parameter the same way.
-    expect(response.headers.get("location")).toBe("https://kairos.example/");
+    expect(response.headers.get("location")).toBe(
+      "https://kairos.example/briefing",
+    );
   });
 
   it("keeps a nested path on this origin", async () => {

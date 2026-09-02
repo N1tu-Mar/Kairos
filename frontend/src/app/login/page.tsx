@@ -48,8 +48,9 @@ export default async function LoginPage({
     );
   }
 
-  // Already signed in: nothing to do here.
-  if (await currentUser()) redirect("/");
+  // Already signed in: nothing to do here. `/briefing` rather than `/`,
+  // which is the public landing page and links straight back to this one.
+  if (await currentUser()) redirect("/briefing");
 
   const { next, error } = await searchParams;
   // An unrecognised value renders nothing rather than itself.
@@ -59,7 +60,8 @@ export default async function LoginPage({
     <main className="mx-auto max-w-sm px-6 py-16">
       <h1 className="text-xl font-medium text-ink">Sign in to Kairos</h1>
       <p className="mt-2 text-sm leading-relaxed text-ink-soft">
-        Your funding inbox, your drafts, and your run history.
+        Your funding inbox, your drafts, and your run history. Continue with
+        Google or GitHub, or create an account with an email address.
       </p>
       {message ? (
         <p role="alert" className="mt-4 text-sm text-alert">

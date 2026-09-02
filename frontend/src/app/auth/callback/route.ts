@@ -27,7 +27,16 @@ export const dynamic = "force-dynamic";
 const SIGN_IN_FAILED = "sign_in_failed";
 
 /**
- * `next` as a path on this origin, or `/`.
+ * Where a completed sign-in lands when `next` is absent or unusable.
+ *
+ * `/` is the public landing page, so it is the wrong answer here: somebody
+ * who has just signed in would be shown the marketing copy and the sign-in
+ * link they came from.
+ */
+const HOME = "/briefing";
+
+/**
+ * `next` as a path on this origin, or the briefing.
  *
  * The same guard as `login-form.tsx`, for the same reason: `next` arrives in a
  * query string, so a crafted sign-in link would otherwise bounce somebody to
@@ -36,9 +45,9 @@ const SIGN_IN_FAILED = "sign_in_failed";
  * so both are rejected alongside anything that is not a path at all.
  */
 function safeNext(raw: string | null): string {
-  if (!raw) return "/";
-  if (!raw.startsWith("/")) return "/";
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return "/";
+  if (!raw) return HOME;
+  if (!raw.startsWith("/")) return HOME;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return HOME;
   return raw;
 }
 

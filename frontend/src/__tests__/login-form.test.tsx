@@ -26,9 +26,10 @@ vi.mock("next/navigation", () => ({
 
 const signInWithPassword = vi.fn();
 const signInWithOAuth = vi.fn();
+const signUp = vi.fn();
 vi.mock("@/lib/supabase/browser", () => ({
   browserSupabase: () => ({
-    auth: { signInWithPassword, signInWithOAuth },
+    auth: { signInWithPassword, signInWithOAuth, signUp },
   }),
 }));
 
@@ -37,6 +38,9 @@ beforeEach(() => {
   refresh.mockClear();
   signInWithPassword.mockReset().mockResolvedValue({ error: null });
   signInWithOAuth.mockReset().mockResolvedValue({ error: null });
+  signUp
+    .mockReset()
+    .mockResolvedValue({ data: { session: { access_token: "t" } }, error: null });
 });
 
 afterEach(() => {
@@ -143,6 +147,139 @@ describe("email and password", () => {
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toBe(
       "That email and password do not match an account.",
+    );
+  });
+});
+
+describe("where a completed sign-in lands", () => {
+  it("goes to the briefing, not the landing page", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await user.type(screen.getByLabelText(/email/i), "founder@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse");
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    // `/` is now marketing. Sending someone there after they sign in shows
+    // them the door they just walked through.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/briefing"));
+  });
+
+  it("still honours an on-site `next`", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm next="/inbox" />);
+
+    await user.type(screen.getByLabelText(/email/i), "founder@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse");
+    await user.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/inbox"));
+  });
+});
+
+describe("creating an account", () => {
+  /** Switch the form into sign-up mode. */
+  async function openSignUp(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("tab", { name: /create account/i }));
+  }
+
+  it("is reachable without leaving the page", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    await openSignUp(user);
+
+    expect(
+      screen.getByRole("button", { name: /^create account$/i }),
+    ).toBeTruthy();
+  });
+
+  it("signs up with the address and password given", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await openSignUp(user);
+
+    await user.type(screen.getByLabelText(/email/i), "new@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery");
+    await user.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    await waitFor(() =>
+      expect(signUp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "new@example.com",
+          password: "correct-horse-battery",
+        }),
+      ),
+    );
+  });
+
+  it("points the confirmation email back at this origin's callback", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm next="/inbox" />);
+    await openSignUp(user);
+
+    await user.type(screen.getByLabelText(/email/i), "new@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery");
+    await user.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    await waitFor(() => expect(signUp).toHaveBeenCalled());
+    const { options } = signUp.mock.calls[0]![0];
+    // Same reasoning as the provider buttons: a hardcoded URL sends everyone
+    // who signs up on a preview deploy into production.
+    expect(options.emailRedirectTo).toBe(
+      `${window.location.origin}/auth/callback?next=%2Finbox`,
+    );
+  });
+
+  it("goes straight in when the project does not require confirmation", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await openSignUp(user);
+
+    await user.type(screen.getByLabelText(/email/i), "new@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery");
+    await user.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/briefing"));
+  });
+
+  it("asks them to check their email when confirmation is on", async () => {
+    signUp.mockResolvedValue({ data: { session: null }, error: null });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await openSignUp(user);
+
+    await user.type(screen.getByLabelText(/email/i), "new@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery");
+    await user.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    // Supabase returns a user with no session in this case. Routing to the
+    // briefing here would land on the middleware's redirect back to /login,
+    // which reads as the sign-up having failed.
+    expect(await screen.findByRole("status")).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("does not reveal that an address is already registered", async () => {
+    signUp.mockResolvedValue({
+      data: { session: null },
+      error: { message: "User already registered" },
+    });
+    const user = userEvent.setup();
+    render(<LoginForm />);
+    await openSignUp(user);
+
+    await user.type(screen.getByLabelText(/email/i), "taken@example.com");
+    await user.type(screen.getByLabelText(/password/i), "correct-horse-battery");
+    await user.click(screen.getByRole("button", { name: /^create account$/i }));
+
+    const alert = await screen.findByRole("alert");
+    // Echoing Supabase's message turns the form into a way to ask whether a
+    // given person has an account here — the same leak the sign-in error
+    // already refuses.
+    expect(alert.textContent).not.toMatch(/already registered/i);
+    expect(alert.textContent).toBe(
+      "That account could not be created. Check the address and try a longer password.",
     );
   });
 });

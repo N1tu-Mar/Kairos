@@ -62,7 +62,7 @@ export default function LandingPage() {
             Kairos
           </span>
           <Link
-            href="/briefing"
+            href="/login"
             className="t-dim text-sm transition-colors hover:[color:var(--chalk)]"
           >
             Sign in
@@ -95,7 +95,7 @@ export default function LandingPage() {
               style={{ "--step": 2 } as React.CSSProperties}
             >
               <Link
-                href="/briefing"
+                href="/login"
                 className="inline-flex items-center rounded-full px-6 py-3 text-[0.9375rem] font-medium transition-transform duration-200 hover:-translate-y-0.5"
                 style={{
                   background: "var(--brass)",
@@ -170,7 +170,7 @@ export default function LandingPage() {
                   Tell it about your startup once.
                 </h2>
                 <Link
-                  href="/briefing"
+                  href="/login"
                   className="inline-flex shrink-0 items-center self-start rounded-full px-6 py-3 text-[0.9375rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 sm:self-auto"
                   style={{ background: "var(--brass)", color: "var(--night)" }}
                 >

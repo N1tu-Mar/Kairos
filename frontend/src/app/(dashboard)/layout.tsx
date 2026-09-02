@@ -1,18 +1,30 @@
 import Link from "next/link";
 
+import { AccountBar } from "@/components/account-bar";
 import { SiteNav } from "@/components/site-nav";
+import { authConfigured } from "@/lib/supabase/config";
+import { currentUser } from "@/lib/supabase/server";
 
 /**
- * The signed-in chrome: masthead, primary navigation, standing footnotes.
+ * The signed-in chrome: masthead, primary navigation, account, footnotes.
  *
  * Scoped to the dashboard route group so the landing page and the sign-in
  * screen do not inherit navigation to places a signed-out visitor cannot go.
+ *
+ * The session read here is for the label on the account bar, not for the
+ * gate. `middleware.ts` is the gate, and it has already turned an anonymous
+ * request away before this layout renders — a check in a layout would run
+ * after the page beneath it had already been allowed to start.
  */
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // `null` in local single-founder mode: no sign-in exists, so there is
+  // nothing to sign out of and `AccountBar` renders nothing.
+  const email = authConfigured() ? ((await currentUser())?.email ?? "") : null;
+
   return (
     <>
       <div className="border-b border-rule">
@@ -25,7 +37,10 @@ export default function DashboardLayout({
               the opportune moment
             </span>
           </Link>
-          <SiteNav />
+          <div className="flex items-center gap-2">
+            <SiteNav />
+            <AccountBar email={email} />
+          </div>
         </div>
       </div>
 
