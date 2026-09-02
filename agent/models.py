@@ -260,6 +260,10 @@ class IntakeSession(Mutable):
     founder_id: str = Field(min_length=1, max_length=200)
     status: IntakeSessionStatus = "active"
     revision: int = Field(default=0, ge=0)
+    # Set while one founder message owns the model turn. This is persisted in
+    # the session payload so a retry, concurrent tab, or process restart
+    # cannot start a second paid call for the same session revision.
+    pending_message_id: str | None = Field(default=None, min_length=1, max_length=200)
     fields: dict[str, IntakeFieldState] = Field(default_factory=dict, max_length=50)
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
@@ -284,6 +288,7 @@ class IntakeMessage(Frozen):
     role: IntakeMessageRole
     text: str = Field(min_length=1, max_length=8_000)
     client_message_id: str | None = Field(default=None, min_length=1, max_length=200)
+    in_reply_to: str | None = Field(default=None, min_length=1, max_length=200)
     created_at: datetime = Field(default_factory=_now)
 
 

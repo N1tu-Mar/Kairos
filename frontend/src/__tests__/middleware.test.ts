@@ -74,7 +74,13 @@ describe("an anonymous visitor", () => {
     expect(response.headers.get("location")).toContain("/login");
   });
 
-  it.each(["/api/profile", "/api/inbox/run_1:opp_1", "/api/runs/job_1"])(
+  it.each([
+    "/api/profile",
+    "/api/inbox/run_1:opp_1",
+    "/api/runs/job_1",
+    "/api/intake",
+    "/api/intake/intake_1/messages",
+  ])(
     "cannot reach %s",
     async (path) => {
       withUser(null);

@@ -19,6 +19,8 @@ import type {
   Identity,
   InboxItem,
   InboxState,
+  IntakeMessageCreate,
+  IntakeSessionView,
   JobStatusResponse,
   Opportunity,
   RunJob,
@@ -554,4 +556,31 @@ export function putProfile(profile: FounderProfile): Promise<FounderProfile> {
     method: "PUT",
     body: profile,
   });
+}
+
+/** Create the founder's intake session, or resume the existing active one. */
+export async function createOrResumeIntake(
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(`/founders/${encodeURIComponent(target)}/intake/sessions`, {
+    method: "POST",
+  });
+}
+
+/** Submit one idempotent founder message and wait for its validated reply. */
+export async function sendIntakeMessage(
+  sessionId: string,
+  message: IntakeMessageCreate,
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/messages`,
+    {
+      method: "POST",
+      body: message,
+      timeoutMs: 60_000,
+    },
+  );
 }

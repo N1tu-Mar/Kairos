@@ -80,6 +80,34 @@ async function bodyOf(response: Response): Promise<string> {
 }
 
 describe("proxy routes never name the backend", () => {
+  it("POST /api/intake keeps the host out of an unreachable-backend error", async () => {
+    backendUnreachable();
+    const { POST } = await import("@/app/api/intake/route");
+
+    const response = await POST();
+
+    assertNoLeak(await bodyOf(response));
+  });
+
+  it("POST intake message keeps the host out of an upstream error", async () => {
+    backendReturns(503);
+    const { POST } = await import("@/app/api/intake/[sessionId]/messages/route");
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/intake/intake_1/messages", {
+        method: "POST",
+        body: JSON.stringify({
+          text: "My startup description",
+          client_message_id: "browser_1",
+          expected_revision: 0,
+        }),
+      }),
+      { params: Promise.resolve({ sessionId: "intake_1" }) },
+    );
+
+    assertNoLeak(await bodyOf(response));
+  });
+
   it("PUT /api/profile keeps the host out of an unreachable-backend error", async () => {
     backendUnreachable();
     const { PUT } = await import("@/app/api/profile/route");

@@ -31,7 +31,7 @@ describe("supabase mode", () => {
     vi.doMock("@/lib/supabase/server", () => ({
       currentAccessToken: async () => "",
     }));
-    const { triggerRun, ApiError } = await import("@/lib/api");
+    const { triggerRun, createOrResumeIntake, ApiError } = await import("@/lib/api");
 
     await expect(
       triggerRun({
@@ -40,6 +40,10 @@ describe("supabase mode", () => {
         include_grants_gov: false,
       }),
     ).rejects.toMatchObject({ kind: "unauthorized", status: 401 });
+    await expect(createOrResumeIntake()).rejects.toMatchObject({
+      kind: "unauthorized",
+      status: 401,
+    });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(ApiError).toBeDefined();
   });
