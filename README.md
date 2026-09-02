@@ -28,6 +28,9 @@ the founder is asleep**.
 > [Current implementation](#current-implementation) and
 > [Honest limitations](#honest-limitations).
 
+**Just want it running?** → [Quick start — run the dev servers](#quick-start--run-the-dev-servers).
+Backend `uv run fastapi dev api/main.py`, dashboard `cd frontend && npm run dev`.
+
 ---
 
 ## Who it's for
@@ -53,10 +56,11 @@ in a week that already has a problem set due.
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
 | Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
 | Decision loop | Deterministic eligibility filtering, founder clarification with exact answer reuse and opt-in capped semantic reuse, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
-| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. |
+| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. A founder arriving with no profile is onboarded by a **scripted, model-free intake chat**: every question is asked and every answer parsed by ordinary code, and prose lands in `knowledge_base` as a tagged chunk rather than in an eligibility field. |
+| Access | Three authenticators behind one seam. A shared `KAIROS_API_TOKEN` grants the single seeded founder and nothing more; a SHA-256-hashed credential file maps tokens to subjects and founder sets, re-read on mtime change so rotation needs no restart; **Supabase JWTs** (JWKS by default, `kid`-selected, issuer-checked) are the only one that identifies a person, with authorization still read from the `founder_members` table rather than any claim in the token. An unconfigured API fails closed — every request 401s unless `KAIROS_ALLOW_OPEN_API` is deliberately set. On the dashboard side, Next middleware refreshes the session and redirects to `/login`, closing a hole where the credential-holding proxy would answer anonymous callers. |
 | Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. Definite eligibility answers queue a one-opportunity reassessment. A run lease keyed by founder makes overlapping runs impossible; a busy lease safely defers the saved answer. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 1,044 Python tests pass with no expected failures remaining; 111 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-08-30. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
+| Verification | 1,044 Python tests pass with no expected failures remaining; 111 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-09-01. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -190,19 +194,97 @@ third party, register an account, upload a document, or accept terms.
 
 ---
 
-## Setup
+## Quick start — run the dev servers
 
-Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
+Two processes, two terminals: the API on `:8000`, the dashboard on `:3000`.
+
+Requires **Python 3.11+** with [uv](https://docs.astral.sh/uv/) and
+**Node 20.9+**.
+
+**Terminal 1 — the API**
 
 ```bash
 git clone <this repo> && cd kairos
 uv sync
+cp .env.example .env        # then fill in the two BEDROCK_MODEL_* values (below)
 
-cp .env.example .env
+uv run fastapi dev api/main.py
+# http://127.0.0.1:8000 — /health is liveness, /ready readiness
 ```
 
-Bedrock model IDs are region-specific and versioned, so `.env` ships empty
-and the app **raises on startup until you fill it in**. Discover them:
+`/health` and `/ready` are the only unauthenticated endpoints. Everything
+else, `/docs` included, needs whatever credential the API is configured with —
+so a 401 from the OpenAPI page means auth is working, not that the server is
+broken.
+
+**Terminal 2 — the dashboard**
+
+```bash
+cd frontend
+npm ci                      # not `npm install` — see "After pulling" below
+cp .env.example .env.local  # already points at http://127.0.0.1:8000
+npm run dev
+# http://localhost:3000
+```
+
+There is no migration step locally. Outside `KAIROS_ENV=production` the API
+creates its SQLite schema on first boot and seeds `founder_demo` from
+`data/demo_founder.json`, so the dashboard has a founder to read the moment it
+loads. A profile that is empty opens on a scripted intake chat — model-free,
+keyless, every answer parsed by ordinary code — which writes the facts a run
+needs.
+
+To put decisions on the dashboard, either press **Run Kairos now** with *Use
+the demo catalog* checked, or run the offline pipeline against the same
+database:
+
+```bash
+uv run python scripts/run_scout.py --dry-run --demo --no-grants-gov
+```
+
+### Without an AWS account
+
+`agent/config.py` refuses to start on a blank model ID, so the API will not
+boot until `BEDROCK_MODEL_REASONING` and `BEDROCK_MODEL_CLASSIFY` hold
+something. For a look at the product with no credentials at all, any non-empty
+string is enough — every surface except an actual model call works:
+
+```bash
+BEDROCK_MODEL_REASONING=placeholder BEDROCK_MODEL_CLASSIFY=placeholder \
+KAIROS_ALLOW_OPEN_API=1 uv run fastapi dev api/main.py
+```
+
+Anything that reaches Bedrock then fails, which is the intended trade: a loud
+startup error beats an invoke against a model id of `""`.
+
+### Two settings that will stop you
+
+**Credentials fail closed.** `KAIROS_API_TOKEN` is empty in `.env.example` and
+an unconfigured API refuses *every* request with a 401 — it does not quietly
+run open. Either set the token, or set `KAIROS_ALLOW_OPEN_API=1` for a laptop
+demo; the API logs which posture it is in at startup. If you set a token, the
+frontend must carry the same value in `frontend/.env.local`. It is server-only
+there and never reaches the browser.
+
+**Supabase sign-in is optional.** Leave `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` empty and the middleware steps aside, keeping
+the dashboard in single-founder local mode. Set them — with
+`KAIROS_SUPABASE_ISSUER` on the backend — and every page and every proxy route
+redirects to `/login` until a session exists, with authorization read from the
+`founder_members` table rather than from any claim inside the token.
+
+| Symptom | Cause |
+|---|---|
+| API exits at startup naming `BEDROCK_MODEL_REASONING` | `.env` copied but never filled in |
+| Every API call 401s | No credential configured and `KAIROS_ALLOW_OPEN_API` unset |
+| Dashboard renders an API error state | Backend down, or its token not mirrored into `frontend/.env.local` |
+| Dashboard redirects to `/login` | The Supabase variables are set — sign in, or clear them |
+| Frontend breaks in ways that look like source bugs | Stale `node_modules`; re-run `npm ci` |
+
+### Bedrock model IDs
+
+They are region-specific and versioned, so `.env` ships empty and the app
+**raises on startup until you fill it in**. Discover them:
 
 ```bash
 aws bedrock list-foundation-models --region us-east-1 \
@@ -211,25 +293,47 @@ aws bedrock list-foundation-models --region us-east-1 \
 
 Paste the Sonnet-class ID into `BEDROCK_MODEL_REASONING` and the Haiku-class
 one into `BEDROCK_MODEL_CLASSIFY`. If an invoke returns a
-`ValidationException` about on-demand throughput, the model needs an
-inference profile — run `aws bedrock list-inference-profiles` and use that ID
-instead.
+`ValidationException` about on-demand throughput, the model needs an inference
+profile — run `aws bedrock list-inference-profiles` and use that ID instead.
 
-### Run it
+Before anything else that costs money, prove the IDs resolve in your region
+and that token accounting is wired to the wallet:
 
 ```bash
-# the full test suite — no AWS account, no network, ~1 second
+uv run python scripts/smoke_bedrock.py --tier classify
+```
+
+### After pulling
+
+Re-run `npm ci` in `frontend/` after any pull that touches
+`frontend/package-lock.json`. `npm ci` installs exactly the lockfile and fails
+when it disagrees with `package.json`, which is what CI runs; `npm install`
+quietly resolves something newer and leaves you debugging a tree nobody else
+has. The Next 15 → 16 move on 2026-08-27 rewrote most of that lockfile and
+replaced `.eslintrc.json` with `eslint.config.mjs`, so a stale `node_modules`
+fails in ways that look like source bugs.
+
+If you change `package.json`, do **not** commit the lockfile `npm install`
+leaves behind: on macOS it prunes the linux-only optional dependencies that
+`npm ci` then demands on the runner. Regenerate it for CI instead —
+
+```bash
+uv run python scripts/check_lockfiles.py --fix   # see docs/runbooks.md §13
+```
+
+### Everything else you can run
+
+```bash
+# the full test suite — no AWS account, no network, ~65 seconds
 uv run pytest
+
+# the frontend's checks, from frontend/
+npm run test && npm run typecheck && npm run lint
 
 # the whole pipeline with no AWS account at all: discovery, the deterministic
 # filter, ranking, the escalation policy, idempotency and the ship gate all
 # run for real; only the judgment is stubbed, and every line it prints says so
 uv run python scripts/run_scout.py --dry-run --demo --no-grants-gov
-
-# one real Bedrock call per tier — run this before anything else that
-# costs money. It proves the model IDs resolve in your region and that token
-# accounting is actually wired to the wallet.
-uv run python scripts/smoke_bedrock.py --tier classify
 
 # one run against the synthetic catalog (needs Bedrock)
 uv run python scripts/run_scout.py --demo --no-grants-gov
@@ -259,21 +363,6 @@ uv run python scripts/run_web_scraper.py --lane both --out-dir data
 # default across both lanes; override the cap deliberately when needed.
 uv run python scripts/run_web_scraper.py --lane both --out-dir data --firecrawl
 uv run python scripts/run_web_scraper.py --lane general --firecrawl --max-firecrawl-pages 2
-
-# the API
-uv run fastapi dev api/main.py
-
-# the dashboard (see frontend/README.md; needs the API running).
-# `npm ci`, not `npm install` — it installs exactly the lockfile. Re-run it
-# after any pull that touches frontend/package-lock.json; the Next 15 -> 16
-# move on 2026-08-27 rewrote most of it. Node 20.9+ (CI builds on 22).
-#
-# If you change package.json, do NOT commit the lockfile `npm install` leaves
-# behind: on macOS it prunes the linux-only optional dependencies that
-# `npm ci` then demands on the runner. Regenerate it for CI instead —
-#   uv run python scripts/check_lockfiles.py --fix
-# See docs/runbooks.md §13.
-cd frontend && npm ci && npm run dev
 ```
 
 Firecrawl is backend-only and opt-in. Put `FIRECRAWL_API_KEY` in the root
@@ -282,10 +371,6 @@ missing. `--firecrawl` cannot be combined with `--allow-js`. The fallback is
 shared and capped across both lanes, never bypasses robots or network-safety
 failures, and archives the exact extraction markdown, raw HTML, local fetch
 decision, and provider metadata under the configured raw-data directory.
-
-`KAIROS_API_TOKEN` in `.env` is empty by default and the API runs open on
-localhost, logging that fact at startup. Set it (both sides — backend `.env`
-and `frontend/.env.local`) before exposing the API to anything.
 
 ### Curating the catalog
 
@@ -394,13 +479,13 @@ Everything runs offline. Live API responses are recorded as fixtures in
 `tests/fixtures/`, so the suite never depends on Grants.gov being up and
 never spends a token.
 
-Current local result (2026-08-27): **843 Python tests passed, no xfail
-remaining; 55 frontend tests passed; typecheck, lint and the production build
-passed.** The three previously-planned behaviours — semantic recall and the
-two scheduler/overlap ones — are implemented, and their tests converted from
-`xfail` rather than being rewritten to match whatever got built.
+Current local result (2026-09-01): **1,044 Python tests passed in ~65s, no
+xfail remaining; 111 frontend tests passed; typecheck, lint and the production
+build passed.** The three previously-planned behaviours — semantic recall and
+the two scheduler/overlap ones — are implemented, and their tests converted
+from `xfail` rather than being rewritten to match whatever got built.
 
-Migrations have their own 20 tests, run against a fresh database *and* a
+Migrations have their own 18 tests, run against a fresh database *and* a
 representative existing one built the way every deployed database was built,
 with live rows that have to survive adoption.
 
@@ -601,6 +686,7 @@ rather than recalling it, and every open TODO is dated in
 ```
 agent/
   models.py        Pydantic contracts. Three-valued eligibility throughout.
+  config.py        Settings. Blank is missing; a missing model ID raises at startup.
   guardrails.py    Escalation thresholds, the field blocklist, ship_gate().
   budget.py        Token ceiling, assessment cap, persisted daily USD cap.
   sanitize.py      The ingestion boundary for untrusted text.
@@ -608,20 +694,32 @@ agent/
   scout.py         The orchestrator. Deterministic run + Strands agent.
   toolset.py       The six tools, bound to one run.
   runtime.py       Per-run state.
-  subagents/       Assessor, Drafter, Auditor.
-  tools/           discovery.py, eligibility.py (pure Python).
+  eligibility_clarifications.py  The "Needs You" questions, and exact answer reuse.
+  semantic.py      Opt-in, capped semantic reuse of a previous answer.
+  dryrun.py        The no-Bedrock path. Stamps its own placeholder label on output.
+  scheduler.py     The local daily schedule standing in for EventBridge.
+  subagents/       Assessor, Drafter, Auditor, plus eligibility_reuse.
+  tools/           discovery.py, eligibility.py, campus.py, extraction.py (pure Python).
   scraping/        Evidence-first campus research; never writes runtime seed.
+                   robots.py + netguard.py gate every fetch; firecrawl.py is the
+                   opt-in, capped paid fallback.
   prompts/         System prompts as version-controlled .md.
 api/
-  main.py          FastAPI read surface.
+  main.py          FastAPI surface: briefings, inbox, runs, drafts, profile, skips.
+  auth.py          The Authenticator seam — shared token, credential file, Supabase.
+  jobs.py          Runs as durable jobs: leases, polling, orphan recovery.
   repository.py    Protocol + SQLite. DynamoDB is a port, not a rewrite.
+migrations/        Alembic revisions. The schema's only source of truth in production.
 data/              Candidates, verified seed, Rutgers review rows, demo data, forms.
 scripts/           Scout runner, seed verifier, Bedrock smoke check, eval, scraper.
 frontend/          Next.js dashboard. Reads the API; owns no business logic.
+  src/middleware.ts  Session refresh and the /login redirect. Steps aside locally.
+  src/app/api/     Thin proxy route handlers. One forwarded request each, no logic.
+  src/lib/api.ts   The only module that talks to FastAPI.
 infra/             Terraform: ECS Fargate + EFS + EventBridge schedule. Unapplied.
 tests/             Offline. Fixtures recorded from real API calls.
 backend_method_suites/  Per-method pytest suites, including the auth gate.
-docs/              Architecture diagrams (Mermaid source).
+docs/              Architecture diagrams (Mermaid source) and runbooks.
 ```
 
 ---
