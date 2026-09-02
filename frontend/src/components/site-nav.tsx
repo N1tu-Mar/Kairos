@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "Briefing" },
+  { href: "/briefing", label: "Briefing" },
   { href: "/inbox", label: "Inbox" },
   { href: "/drafts", label: "Drafts" },
   { href: "/runs", label: "Runs" },
@@ -14,11 +14,11 @@ const LINKS = [
 /**
  * Whether a nav href matches the current path.
  *
- * Exact match for the root so `/` is not marked active on every page;
- * prefix match elsewhere so a detail page keeps its section highlighted.
+ * Prefix match, so a detail page keeps its section highlighted. Every link
+ * here names a section rather than the site root, so there is no root case
+ * to special-case — `/` is the landing page and has no nav entry.
  */
 function isActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -38,7 +38,7 @@ export function SiteNav() {
             aria-current={active ? "page" : undefined}
             className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
               active
-                ? "bg-accent-soft font-medium text-ink"
+                ? "bg-accent-soft font-medium text-accent"
                 : "text-ink-muted hover:bg-sunk hover:text-ink"
             }`}
           >

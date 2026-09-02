@@ -28,8 +28,15 @@ import { isSupabaseAuth } from "@/lib/auth-mode";
  * unauthenticated proxy holding the backend token.
  */
 
-/** Paths that must work while signed out, or signing in is impossible. */
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/auth/signout"];
+/**
+ * Paths that must work while signed out, or signing in is impossible.
+ *
+ * `/` is the landing page: marketing copy, no founder data, no proxy call.
+ * It is matched exactly — `isPublic` only treats a path as a prefix when
+ * the next character is a separator, so listing `/` here opens the root and
+ * nothing beneath it.
+ */
+const PUBLIC_PATHS = ["/", "/login", "/auth/callback", "/auth/signout"];
 const CSP_HEADER = "Content-Security-Policy";
 
 function isPublic(pathname: string): boolean {
