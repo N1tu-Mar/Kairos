@@ -55,6 +55,7 @@ from api.auth import (
     build_authenticator,
 )
 from api.jobs import LocalJobExecutor
+from api.provisioning import provision_founder
 from api.repository import SqliteRepository
 
 log = logging.getLogger("kairos.api")
@@ -211,6 +212,9 @@ async def lifespan(app: FastAPI):
     # After the repository, not before: Supabase authorization reads its
     # memberships from it, so the authenticator cannot be built first.
     app.state.authenticator = build_authenticator(config, app.state.repo)
+    # Read per request by the authentication middleware, which has no other
+    # way to reach settings resolved at startup.
+    app.state.config = config
 
     # The async job machinery. The lease TTL is double the run timeout so a
     # live run's lease can never expire out from under it.
@@ -299,8 +303,15 @@ async def authenticate(request: Request, call_next):
         return JSONResponse({"detail": "server is not ready"}, status_code=503)
 
     try:
-        request.state.principal = authenticator.authenticate(
-            request.headers.get("authorization")
+        resolved = authenticator.authenticate(request.headers.get("authorization"))
+        # A verified person with no membership owns nothing and would see an
+        # empty dashboard. Provisioning is separated from verification on
+        # purpose — the authenticator stays a pure function of token and key —
+        # so the write happens here, once, and only for a real identity.
+        request.state.principal = provision_founder(
+            resolved,
+            request.app.state.repo,
+            enabled=request.app.state.config.auto_provision_founder,
         )
     except AuthError:
         audit_event(
