@@ -17,10 +17,19 @@ export const dynamic = "force-dynamic";
  * single-founder mode, where the dashboard has no login and the backend is
  * reached with a shared token.
  */
+/**
+ * Fixed tokens only. `/auth/callback` never puts a provider's own message in
+ * this parameter, so nothing attacker-influenced is rendered here.
+ */
+const ERRORS: Record<string, string> = {
+  sign_in_failed:
+    "That sign-in did not complete. Try again, or use an email and password.",
+};
+
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   if (!authConfigured()) {
     return (
@@ -42,7 +51,9 @@ export default async function LoginPage({
   // Already signed in: nothing to do here.
   if (await currentUser()) redirect("/");
 
-  const { next } = await searchParams;
+  const { next, error } = await searchParams;
+  // An unrecognised value renders nothing rather than itself.
+  const message = error ? ERRORS[error] : undefined;
 
   return (
     <main className="mx-auto max-w-sm px-6 py-16">
@@ -50,6 +61,11 @@ export default async function LoginPage({
       <p className="mt-2 text-sm leading-relaxed text-ink-soft">
         Your funding inbox, your drafts, and your run history.
       </p>
+      {message ? (
+        <p role="alert" className="mt-4 text-sm text-alert">
+          {message}
+        </p>
+      ) : null}
       <LoginForm next={next} />
     </main>
   );
