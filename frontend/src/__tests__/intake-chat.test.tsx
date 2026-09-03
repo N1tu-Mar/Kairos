@@ -64,7 +64,7 @@ describe("IntakeChat", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<IntakeChat profile={null} founderId="founder_demo" />);
+    render(<IntakeChat profile={null} />);
 
     expect(await screen.findByRole("textbox", { name: /message kairos/i })).toBeVisible();
     expect(screen.getByText(/tell me what you.re building/i)).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe("IntakeChat", () => {
       },
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<IntakeChat profile={null} founderId="founder_demo" />);
+    render(<IntakeChat profile={null} />);
 
     const input = await screen.findByRole("textbox", { name: /message kairos/i });
     await user.type(input, "We coordinate shared university lab equipment.");
@@ -170,7 +170,7 @@ describe("IntakeChat", () => {
       },
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<IntakeChat profile={null} founderId="founder_demo" />);
+    render(<IntakeChat profile={null} />);
 
     const input = await screen.findByRole("textbox", { name: /message kairos/i });
     await user.type(input, "My startup helps labs.");
@@ -204,7 +204,7 @@ describe("IntakeChat", () => {
       "fetch",
       vi.fn(async () => jsonResponse(unsafe)),
     );
-    render(<IntakeChat profile={null} founderId="founder_demo" />);
+    render(<IntakeChat profile={null} />);
 
     expect(await screen.findByText(/onerror/)).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
@@ -217,7 +217,7 @@ describe("IntakeSection", () => {
       "fetch",
       vi.fn(async () => jsonResponse(intakeView())),
     );
-    render(<IntakeSection profile={null} founderId="founder_demo" />);
+    render(<IntakeSection profile={null} />);
     expect(await screen.findByRole("textbox")).toBeInTheDocument();
   });
 
@@ -227,7 +227,7 @@ describe("IntakeSection", () => {
       "fetch",
       vi.fn(async () => jsonResponse(intakeView())),
     );
-    render(<IntakeSection profile={founderProfile()} founderId="founder_demo" />);
+    render(<IntakeSection profile={founderProfile()} />);
     expect(screen.queryByRole("textbox")).toBeNull();
 
     await user.click(

@@ -9,7 +9,6 @@ import { SchedulerFailures } from "@/components/scheduler-failures";
 import { ScraperCandidates } from "@/components/scraper-candidates";
 import { EmptyState, Note } from "@/components/states";
 import { Page, PageHeader, Section } from "@/components/primitives";
-import { founderId } from "@/lib/config";
 import {
   getInbox,
   getLatestRun,
@@ -130,7 +129,7 @@ export default async function BriefingPage() {
             : "Kairos cannot look for anything until it knows who you are and what you are building."
         }
       >
-        <IntakeSection profile={profile} founderId={founderId()} />
+        <IntakeSection profile={profile} />
       </Section>
 
       {failures.length > 0 ? (

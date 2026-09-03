@@ -130,7 +130,17 @@ function FactSummary({ view }: { view: IntakeSessionView }) {
   );
 }
 
-export function IntakeChat({ founderId }: { profile: FounderProfile | null; founderId: string }) {
+/**
+ * The id on the composer, fixed rather than derived from a founder id.
+ *
+ * It used to interpolate `KAIROS_FOUNDER_ID`, which is the demo founder on
+ * every deployment where anyone can sign in — a signed-in person's textarea
+ * carried somebody else's id. Nothing needs it to vary: one interview renders
+ * at a time.
+ */
+const COMPOSER_ID = "intake-message";
+
+export function IntakeChat({}: { profile: FounderProfile | null }) {
   const [view, setView] = useState<IntakeSessionView | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [draft, setDraft] = useState("");
@@ -316,11 +326,11 @@ export function IntakeChat({ founderId }: { profile: FounderProfile | null; foun
               void sendMessage();
             }}
           >
-            <label htmlFor={`intake-message-${founderId}`} className="sr-only">
+            <label htmlFor={COMPOSER_ID} className="sr-only">
               Message Kairos about your startup
             </label>
             <textarea
-              id={`intake-message-${founderId}`}
+              id={COMPOSER_ID}
               value={draft}
               onChange={(event) => {
                 setDraft(event.target.value);
@@ -368,10 +378,8 @@ export function IntakeChat({ founderId }: { profile: FounderProfile | null; foun
 
 export function IntakeSection({
   profile,
-  founderId,
 }: {
   profile: FounderProfile | null;
-  founderId: string;
 }) {
   const [open, setOpen] = useState(profile === null);
 
@@ -394,5 +402,5 @@ export function IntakeSection({
     );
   }
 
-  return <IntakeChat profile={profile} founderId={founderId} />;
+  return <IntakeChat profile={profile} />;
 }
