@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/login-form";
-import { authConfigured, supabaseUrlProblem } from "@/lib/supabase/config";
+import {
+  authConfigured,
+  halfConfigured,
+  supabaseUrlProblem,
+} from "@/lib/supabase/config";
 import { currentUser } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -32,9 +36,11 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   if (!authConfigured()) {
-    // A value that is present and wrong is a different problem from one that
-    // is deliberately absent, and only the first has a fix worth naming.
-    const problem = supabaseUrlProblem();
+    // Three states, three sentences. A value that is present and wrong, one
+    // half of a pair somebody was partway through filling in, and a
+    // deliberately empty configuration are different problems, and only the
+    // first two have a fix worth naming.
+    const problem = supabaseUrlProblem() ?? halfConfigured();
 
     return (
       <main className="mx-auto max-w-lg px-6 py-16">
@@ -43,13 +49,17 @@ export default async function LoginPage({
           <p role="alert" className="mt-3 text-sm leading-relaxed text-alert">
             {problem}
           </p>
-        ) : null}
-        <p className="mt-3 text-sm leading-relaxed text-ink-soft">
-          This dashboard is running in local single-founder mode. Set{" "}
-          <code className="font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-          <code className="font-mono text-xs">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
-          to turn on accounts.
-        </p>
+        ) : (
+          <p className="mt-3 text-sm leading-relaxed text-ink-soft">
+            This dashboard is running in local single-founder mode. Set{" "}
+            <code className="font-mono text-xs">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
+            and{" "}
+            <code className="font-mono text-xs">
+              NEXT_PUBLIC_SUPABASE_ANON_KEY
+            </code>{" "}
+            to turn on accounts.
+          </p>
+        )}
         <p className="mt-3 text-sm leading-relaxed text-ink-muted">
           Local mode has no sign-in and no per-user data. Do not expose it.
         </p>

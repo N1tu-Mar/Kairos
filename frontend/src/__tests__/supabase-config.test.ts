@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   authConfigured,
+  halfConfigured,
   supabaseUrlProblem,
 } from "@/lib/supabase/config";
 
@@ -100,5 +101,44 @@ describe("what counts as configured", () => {
     configure("https://abcdefghijklm.supabase.co", "");
 
     expect(authConfigured()).toBe(false);
+  });
+});
+
+/**
+ * Half a configuration is the state somebody was in the middle of, not a
+ * posture they chose. Both empty is local single-founder mode and the login
+ * page's "set these two variables" is the right thing to say. One filled in
+ * means the other was forgotten, and saying "set both" there sends the reader
+ * to re-check a value that is already correct.
+ */
+describe("half a configuration", () => {
+  it("names the URL when only the key was pasted", () => {
+    configure("");
+
+    expect(halfConfigured()).toMatch(/NEXT_PUBLIC_SUPABASE_URL/);
+  });
+
+  it("names the key when only the URL was pasted", () => {
+    configure("https://abcdefghijklm.supabase.co", "");
+
+    expect(halfConfigured()).toMatch(/NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  });
+
+  it("says nothing when both are absent", () => {
+    configure("", "");
+
+    expect(halfConfigured()).toBeNull();
+  });
+
+  it("says nothing when both are present", () => {
+    configure("https://abcdefghijklm.supabase.co");
+
+    expect(halfConfigured()).toBeNull();
+  });
+
+  it("never returns the value itself", () => {
+    configure("", "sb_publishable_JKB547zDuwugA4bptFhTkQ");
+
+    expect(halfConfigured()).not.toContain("JKB547z");
   });
 });

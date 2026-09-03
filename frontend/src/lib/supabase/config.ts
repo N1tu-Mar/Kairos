@@ -65,6 +65,30 @@ export function supabaseUrlProblem(): string | null {
 }
 
 /**
+ * The variable left empty when the other one was filled in, or null.
+ *
+ * Both empty is local single-founder mode — a posture, and the login page
+ * says so. One of the two filled in is nobody's posture: it is a setup
+ * somebody was partway through, and telling them to "set these two
+ * variables" sends them to re-check a value that is already right. This is
+ * the state that produced the report behind this function — a key pasted in,
+ * a URL not, and a page that described the empty configuration instead of the
+ * missing half.
+ *
+ * Returns a variable name, never a value. The reason is rendered on a page
+ * reachable while signed out.
+ */
+export function halfConfigured(): string | null {
+  const url = supabaseUrl();
+  const key = supabaseAnonKey();
+  if (Boolean(url) === Boolean(key)) return null;
+
+  return url
+    ? "NEXT_PUBLIC_SUPABASE_ANON_KEY is empty. Supabase dashboard -> Project Settings -> API Keys -> publishable key."
+    : "NEXT_PUBLIC_SUPABASE_URL is empty. Supabase dashboard -> Project Settings -> Data API -> Project URL (https://<project-ref>.supabase.co).";
+}
+
+/**
  * Whether login is wired up at all.
  *
  * False leaves the dashboard in its documented single-founder local mode,
