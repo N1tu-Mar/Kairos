@@ -20,8 +20,11 @@ Two properties are tested here, and the second is the one that actually bites:
 from __future__ import annotations
 
 import pytest
+import httpx
 
 from agent.scraping.netguard import BlockedAddress, assert_public_url
+
+_LAST_RESPONSES: dict[str, httpx.Response] = {}
 
 
 # ── Addresses that must never be fetched ─────────────────────────────────────
@@ -191,7 +194,24 @@ def _fetcher(monkeypatch, tmp_path):
     from agent.scraping.fetch import PoliteFetcher
     from agent.scraping.robots import RobotsDecision
 
-    fetcher = PoliteFetcher(tmp_path / "raw")
+    global _LAST_RESPONSES
+    _LAST_RESPONSES = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if url not in _LAST_RESPONSES:
+            raise AssertionError(f"unexpected fetch of {url}")
+        response = _LAST_RESPONSES[url]
+        return httpx.Response(
+            response.status_code,
+            headers=response.headers,
+            content=response.content,
+            request=request,
+        )
+
+    fetcher = PoliteFetcher(
+        tmp_path / "raw", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+    )
     monkeypatch.setattr(
         fetcher.robots,
         "check",
@@ -217,17 +237,11 @@ def _redirect(url: str, location: str) -> "httpx.Response":
 
 
 def _stub_http(monkeypatch, responses: dict):
-    """Replace `httpx.get` with a lookup table keyed by URL."""
-
-    def fake_get(url, **kwargs):
-        assert kwargs.get("follow_redirects") is False, (
-            "the fetcher must follow redirects itself so every hop is checked"
-        )
-        if url not in responses:
-            raise AssertionError(f"unexpected fetch of {url}")
-        return responses[url]
-
-    monkeypatch.setattr("agent.scraping.fetch.httpx.get", fake_get)
+    """Install responses into the most recently constructed test fetcher."""
+    # The tests call this immediately after `_fetcher`; find its MockTransport
+    # response table through a small module-level handoff.
+    _LAST_RESPONSES.clear()
+    _LAST_RESPONSES.update(responses)
 
 
 def _stub_resolver(monkeypatch, table: dict[str, list[str]]):

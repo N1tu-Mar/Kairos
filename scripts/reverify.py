@@ -45,6 +45,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from agent.scraping.safehttp import guarded_get  # noqa: E402
 from scripts.verify_seed import (  # noqa: E402
     UA,
     evidence_pages,
@@ -103,11 +104,10 @@ class Fetcher:
         that have died, so a dead page is the finding rather than a crash. The
         final URL is returned separately so a redirect is visible as a change.
         """
-        import httpx
-
         try:
-            response = httpx.get(
-                url, timeout=self.timeout_s, follow_redirects=True,
+            response = guarded_get(
+                url,
+                timeout=self.timeout_s,
                 headers={"User-Agent": UA},
             )
         except Exception:  # noqa: BLE001 — a dead page is data, not a crash

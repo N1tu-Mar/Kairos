@@ -147,7 +147,7 @@ class TestVerifyEndToEnd:
             request = httpx.Request("GET", url)
             return httpx.Response(200, text=PAGE, request=request)
 
-        monkeypatch.setattr(verify_seed.httpx, "get", fake_get)
+        monkeypatch.setattr(verify_seed, "guarded_get", fake_get)
 
     def test_good_evidence_verifies(self, fetch_page):
         row = _row(["Applications close March 1, 2027."])

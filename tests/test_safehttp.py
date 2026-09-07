@@ -7,6 +7,8 @@ import pytest
 
 from agent.scraping.netguard import BlockedAddress
 from agent.scraping.safehttp import ResponseTooLarge, guarded_get
+from agent.scraping.robots import RobotsCache
+from agent.sanitize import sanitize_logged_url
 
 
 class ChunkedBody(httpx.SyncByteStream):
@@ -100,3 +102,29 @@ def test_rejects_chunked_body_as_soon_as_limit_is_crossed():
     with _client(lambda request: httpx.Response(200, stream=body)) as client:
         with pytest.raises(ResponseTooLarge):
             guarded_get("https://93.184.216.34/file", client=client, max_bytes=10)
+
+
+def test_robots_redirect_to_metadata_is_rejected_before_destination_request(tmp_path):
+    calls: list[str] = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        return httpx.Response(
+            302,
+            headers={"location": "http://169.254.169.254/latest/meta-data/"},
+        )
+
+    with _client(handler) as client:
+        cache = RobotsCache(tmp_path, http_client=client)
+        decision = cache.check("https://93.184.216.34/grant")
+
+    assert decision.allowed is False
+    assert calls == ["https://93.184.216.34/robots.txt"]
+
+
+def test_logged_urls_drop_credentials_query_and_fragment():
+    sanitized = sanitize_logged_url(
+        "https://user:secret@example.com/grant?token=very-secret#private"
+    )
+
+    assert sanitized == "https://example.com/grant"
