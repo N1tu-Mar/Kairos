@@ -48,7 +48,7 @@ afterEach(() => {
 
 describe("an anonymous visitor", () => {
   it.each([
-    "/",
+    "/briefing",
     "/inbox",
     "/runs",
     "/drafts",
@@ -74,7 +74,13 @@ describe("an anonymous visitor", () => {
     expect(response.headers.get("location")).toContain("/login");
   });
 
-  it.each(["/api/profile", "/api/inbox/run_1:opp_1", "/api/runs/job_1"])(
+  it.each([
+    "/api/profile",
+    "/api/inbox/run_1:opp_1",
+    "/api/runs/job_1",
+    "/api/intake",
+    "/api/intake/intake_1/messages",
+  ])(
     "cannot reach %s",
     async (path) => {
       withUser(null);
@@ -103,6 +109,29 @@ describe("an anonymous visitor", () => {
     const response = await middleware(await request("/login"));
 
     expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("can read the landing page, which holds no founder data", async () => {
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/"));
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  it("gets nothing else from opening the root, which is the whole risk of listing it", async () => {
+    // `/` is a prefix of every path on the site. The public-path check only
+    // treats an entry as a prefix when the next character is a separator, so
+    // listing the root opens the root alone — but that is a property worth a
+    // test rather than a comment, because getting it wrong unlocks the site.
+    withUser(null);
+    const { middleware } = await import("@/middleware");
+
+    for (const path of ["/briefing", "/profile", "/api/runs"]) {
+      const response = await middleware(await request(path));
+      expect(response.headers.get("location")).toContain("/login");
+    }
   });
 });
 
@@ -221,5 +250,52 @@ describe("the redirect target", () => {
 
     const location = new URL(response.headers.get("location")!);
     expect(location.origin).toBe("https://kairos.example");
+  });
+});
+
+describe("a Supabase URL that is really a key", () => {
+  /**
+   * The mistake this guards against: the publishable key pasted into both
+   * slots, because the Supabase dashboard shows them next to each other.
+   *
+   * Handing that string to `createServerClient` throws on every request, so
+   * every route in the app becomes a 500 — including `/login`, which is the
+   * one page that could have explained the problem.
+   */
+  it("does not gate on it, and does not throw", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "sb_publishable_JKB547zDuwugA4b");
+    vi.stubEnv("KAIROS_AUTH_MODE", "local_shared");
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/briefing"));
+
+    // Treated as unconfigured: local single-founder mode, nothing gated.
+    expect(response.status).toBe(200);
+  });
+
+  it("is a 503 in supabase mode, like any other missing value", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "sb_publishable_JKB547zDuwugA4b");
+    vi.stubEnv("KAIROS_AUTH_MODE", "supabase");
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/briefing"));
+
+    // Fail closed. A deployment that meant to have accounts and does not
+    // must not quietly serve the shared-token posture instead.
+    expect(response.status).toBe(503);
+  });
+
+  it("keeps the bad value out of the CSP", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "sb_publishable_JKB547zDuwugA4b");
+    vi.stubEnv("KAIROS_AUTH_MODE", "local_shared");
+    const { middleware } = await import("@/middleware");
+
+    const response = await middleware(await request("/briefing"));
+
+    // `connect-src` is a list of origins. A key spliced into it is not an
+    // origin, and a malformed directive is one the browser may discard.
+    expect(response.headers.get("content-security-policy")).not.toContain(
+      "sb_publishable",
+    );
   });
 });

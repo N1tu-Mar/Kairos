@@ -1,236 +1,196 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
-import { ApiErrorState } from "@/components/api-error-state";
-import { InboxItemCard } from "@/components/inbox-item-card";
-import { IntakeSection } from "@/components/intake-chat";
-import { ManualRunControl } from "@/components/manual-run";
-import { RunSummary } from "@/components/run-summary";
-import { SchedulerFailures } from "@/components/scheduler-failures";
-import { ScraperCandidates } from "@/components/scraper-candidates";
-import { EmptyState, Note } from "@/components/states";
-import { Page, PageHeader, Section } from "@/components/primitives";
-import { founderId } from "@/lib/config";
-import {
-  getInbox,
-  getLatestRun,
-  getOpportunities,
-  getProfileOrNull,
-  getScraperCandidates,
-  listSchedulerFailures,
-} from "@/lib/api";
-import { formatRelative, runHeadline } from "@/lib/format";
-import type {
-  FounderProfile,
-  InboxItem,
-  Opportunity,
-  RunReport,
-  SchedulerFailure,
-  ScraperCandidateGroups,
-} from "@/lib/types";
+import { Horizon } from "@/components/landing/horizon";
+import { Reveal } from "@/components/landing/reveal";
+
+export const metadata: Metadata = {
+  title: "Kairos — funding you can still catch",
+  description:
+    "Campus grants, fellowships and cash prizes for student founders. Kairos watches for them, checks whether you qualify, and drafts what it can.",
+};
+
+/** The four stages of the loop, in the order they run. */
+const STAGES = [
+  {
+    name: "Watches",
+    body: "Grants.gov, a hand-checked catalog, and your campus's own pages. On a schedule, not when you remember.",
+  },
+  {
+    name: "Judges",
+    body: "Eligibility rules run first, in plain code. If a rule says you do not qualify, no model gets to argue with it.",
+  },
+  {
+    name: "Drafts",
+    body: "Answers built from what you already told it, in your words, with the source of each one recorded.",
+  },
+  {
+    name: "Asks",
+    body: "It interrupts you for the handful of things it genuinely cannot answer. Nothing else reaches you.",
+  },
+];
+
+/** The limits, stated as limits. */
+const LIMITS = [
+  {
+    label: "Never submits",
+    body: "Kairos prepares an application and stops. Submitting is a decision, and you make it.",
+  },
+  {
+    label: "Never invents",
+    body: "Every drafted sentence traces back to something you wrote. A fact it does not have is a question it asks.",
+  },
+  {
+    label: "Never pads",
+    body: "59 programmes in the catalog. 52 of them verified line by line against their live pages.",
+  },
+];
 
 /**
- * The briefing.
+ * The landing page.
  *
- * Data is fetched on the server. The browser never talks to FastAPI, never
- * runs the pipeline, and holds no credentials.
+ * Public: the middleware lets `/` through unauthenticated, and nothing here
+ * reads founder data or touches the API proxy. Everything below the fold is
+ * static markup — the only client code on the page is the scroll reveal.
  */
-export const dynamic = "force-dynamic";
-
-/**
- * The briefing: latest run, what it surfaced, and the scraper review queues.
- *
- * Each data source is fetched into its own try/catch and its own error
- * variable, so one dead endpoint degrades its section rather than failing
- * the page. That is the pattern every page here follows.
- */
-export default async function BriefingPage() {
-  let report: RunReport | null = null;
-  let inbox: InboxItem[] = [];
-  let runError: unknown = null;
-  let inboxError: unknown = null;
-  let scraperError: unknown = null;
-  let scraperCandidates: ScraperCandidateGroups = {};
-
-  let failures: SchedulerFailure[] = [];
-
-  // The profile is fetched alongside everything else and, like everything
-  // else, a failure to read it degrades one section rather than the page. A
-  // profile that will not load is treated as absent: intake opens, which is
-  // the same thing a founder would need to do anyway.
-  let profile: FounderProfile | null = null;
-
-  const [runResult, inboxResult, failureResult, scraperResult, profileResult] =
-    await Promise.allSettled([
-      getLatestRun(),
-      getInbox(),
-      listSchedulerFailures(),
-      getScraperCandidates(),
-      getProfileOrNull(),
-    ]);
-
-  if (profileResult.status === "fulfilled") profile = profileResult.value;
-
-  if (runResult.status === "fulfilled") report = runResult.value;
-  else runError = runResult.reason;
-
-  if (inboxResult.status === "fulfilled") inbox = inboxResult.value;
-  else inboxError = inboxResult.reason;
-
-  // A failure to read the failure log is not itself worth an alarm on the
-  // briefing — the run summary below already reports a backend that is down.
-  if (failureResult.status === "fulfilled") failures = failureResult.value;
-
-  if (scraperResult.status === "fulfilled") {
-    scraperCandidates = scraperResult.value;
-  } else {
-    scraperError = scraperResult.reason;
-  }
-
-  const active = inbox.filter((item) => !item.passive);
-  const passive = inbox.filter((item) => item.passive);
-
-  // Structured rows for the cards shown below. Failure to resolve one falls
-  // back to the composed headline; it never breaks the briefing.
-  let opportunities = new Map<string, Opportunity>();
-  try {
-    opportunities = await getOpportunities(
-      active.slice(0, 3).map((item) => item.opportunity_id),
-    );
-  } catch {
-    // Fall back to headlines.
-  }
-
+export default function LandingPage() {
   return (
-    <Page>
-      <PageHeader
-        eyebrow="Your briefing"
-        title={
-          report
-            ? runHeadline(report)
-            : runError
-              ? "The briefing is unavailable"
-              : "Nothing has run yet"
-        }
-        lede={
-          report ? (
-            <>
-              Last run {formatRelative(report.started_at)}. The number that
-              matters is the one Kairos threw away. Every discard has a reason
-              you can read.
-            </>
-          ) : null
-        }
-      />
+    <div className="night min-h-dvh">
+      <div className="mx-auto w-full max-w-[64rem] px-6 sm:px-10">
+        <header className="flex items-center justify-between py-7">
+          <span className="font-display text-[1.0625rem] font-semibold tracking-[-0.02em]">
+            Kairos
+          </span>
+          <Link
+            href="/login"
+            className="t-dim text-sm transition-colors hover:[color:var(--chalk)]"
+          >
+            Sign in
+          </Link>
+        </header>
 
-      <Section
-        title={profile ? "What Kairos is matching on" : "Start here"}
-        description={
-          profile
-            ? "The facts every funder's rules are compared against, and what you told Kairos about the work."
-            : "Kairos cannot look for anything until it knows who you are and what you are building."
-        }
-      >
-        <IntakeSection profile={profile} founderId={founderId()} />
-      </Section>
-
-      {failures.length > 0 ? (
-        <Section title="Runs that did not happen">
-          <SchedulerFailures failures={failures} />
-        </Section>
-      ) : null}
-
-      <Section
-        title="Latest run"
-        description="What the last run saw, what it cost, and what it could not reach."
-      >
-        {runError ? (
-          <ApiErrorState error={runError} what="the latest run" />
-        ) : report ? (
-          <RunSummary report={report} />
-        ) : (
-          <EmptyState title="No run has been recorded yet">
-            Kairos has not looked for anything on your behalf so far. Start one
-            by hand below. It will scan, filter, judge, and write down every
-            decision it makes.
-          </EmptyState>
-        )}
-      </Section>
-
-      <Section
-        title="Research queue"
-        description="Search-discovered candidates waiting for review, split by where the scraper looked."
-      >
-        {scraperError ? (
-          <ApiErrorState error={scraperError} what="the scraper candidates" />
-        ) : (
-          <ScraperCandidates groups={scraperCandidates} />
-        )}
-      </Section>
-
-      <Section
-        title="What surfaced"
-        description="The only opportunities Kairos decided were worth interrupting you for."
-        actions={
-          inbox.length > 0 ? (
-            <Link
-              href="/inbox"
-              className="text-sm text-accent underline underline-offset-4 hover:text-ink"
+        <main id="main">
+          {/* --- Hero. The horizon is the argument; the words introduce it. --- */}
+          <section className="pb-16 pt-10 sm:pb-24 sm:pt-16">
+            <h1
+              className="rise font-display text-[2.75rem] font-medium leading-[0.94] tracking-[-0.035em] sm:text-[3.75rem] lg:text-[4.5rem]"
+              style={{ "--step": 0 } as React.CSSProperties}
             >
-              Open the full inbox
-            </Link>
-          ) : null
-        }
-      >
-        {inboxError ? (
-          <ApiErrorState error={inboxError} what="your inbox" />
-        ) : active.length === 0 ? (
-          <EmptyState title="Nothing is waiting on you">
-            {report && report.surfaced === 0
-              ? "The last run surfaced nothing. Kairos looked and judged that none of what it found was worth your time. That is a result, not a fault."
-              : "No active recommendations right now."}
-          </EmptyState>
-        ) : (
-          <div className="space-y-4">
-            {active.slice(0, 3).map((item) => (
-              <InboxItemCard
-                key={item.item_id}
-                item={item}
-                opportunity={opportunities.get(item.opportunity_id) ?? null}
-              />
-            ))}
-            {active.length > 3 ? (
-              <Link
-                href="/inbox"
-                className="inline-block text-sm text-accent underline underline-offset-4 hover:text-ink"
-              >
-                {active.length - 3} more in the inbox
-              </Link>
-            ) : null}
-          </div>
-        )}
+              The money has
+              <br />a date on it.
+            </h1>
 
-        {passive.length > 0 ? (
-          <div className="mt-5">
-            <Note>
-              {passive.length} more{" "}
-              {passive.length === 1 ? "opportunity is" : "opportunities are"}{" "}
-              listed under <em>also found</em>. They sit past the per-run
-              surfacing cap, so they are visible but never notified.{" "}
-              <Link
-                href="/inbox?view=passive"
-                className="text-accent underline underline-offset-4"
-              >
-                See them
-              </Link>
-              .
-            </Note>
-          </div>
-        ) : null}
-      </Section>
+            <p
+              className="rise t-dim mt-7 max-w-[38rem] text-[1.0625rem] leading-[1.65]"
+              style={{ "--step": 1 } as React.CSSProperties}
+            >
+              Campus grants, fellowships and cash prizes for student founders.
+              Nothing lists them all, and nothing tells you when they close.
+              Kairos watches, checks whether you actually qualify, and drafts
+              what it can before it wakes you.
+            </p>
 
-      <Section title="Start a run">
-        <ManualRunControl />
-      </Section>
-    </Page>
+            <div
+              className="rise mt-9"
+              style={{ "--step": 2 } as React.CSSProperties}
+            >
+              <Link
+                href="/login"
+                className="inline-flex items-center rounded-full px-6 py-3 text-[0.9375rem] font-medium transition-transform duration-200 hover:-translate-y-0.5"
+                style={{
+                  background: "var(--brass)",
+                  color: "var(--night)",
+                }}
+              >
+                Start with your profile
+              </Link>
+            </div>
+
+            <div className="mt-14 sm:mt-20">
+              <Horizon />
+            </div>
+          </section>
+
+          {/* --- The loop. Four stages on one continuing rule: the order is
+                 the information, so the rule carries it and no numeral is
+                 needed. --- */}
+          <Reveal>
+            <section className="hairline border-t pt-14 pb-20 sm:pb-28">
+              <h2 className="font-display max-w-[26rem] text-[1.75rem] font-medium leading-[1.15] tracking-[-0.025em] sm:text-[2.125rem]">
+                The loop runs while you are asleep.
+              </h2>
+
+              <ol className="mt-12 grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-7">
+                {STAGES.map((stage) => (
+                  <li
+                    key={stage.name}
+                    className="hairline relative border-t pt-6"
+                  >
+                    <span className="stage-dot absolute -top-[3px] left-0 block h-[7px] w-[7px] rounded-full" />
+                    <h3 className="t-brass font-mono text-[0.6875rem] uppercase tracking-[0.18em]">
+                      {stage.name}
+                    </h3>
+                    <p className="t-dim mt-3 text-[0.9375rem] leading-[1.6]">
+                      {stage.body}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          </Reveal>
+
+          {/* --- The limits. No rules and no dots here, so it reads as a
+                 different kind of claim from the loop above. --- */}
+          <Reveal>
+            <section className="hairline border-t pt-14 pb-20 sm:pb-28">
+              <h2 className="font-display text-[1.75rem] font-medium leading-[1.15] tracking-[-0.025em] sm:text-[2.125rem]">
+                What it will not do.
+              </h2>
+
+              <dl className="mt-12 grid gap-10 sm:grid-cols-3 sm:gap-8">
+                {LIMITS.map((limit) => (
+                  <div key={limit.label}>
+                    <dt className="font-display text-[1.125rem] font-medium tracking-[-0.015em]">
+                      {limit.label}
+                    </dt>
+                    <dd className="t-dim mt-2.5 text-[0.9375rem] leading-[1.6]">
+                      {limit.body}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          </Reveal>
+
+          {/* --- Close. --- */}
+          <Reveal>
+            <section className="hairline border-t py-16 sm:py-20">
+              <div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+                <h2 className="font-display max-w-[22rem] text-[1.75rem] font-medium leading-[1.15] tracking-[-0.025em] sm:text-[2.125rem]">
+                  Tell it about your startup once.
+                </h2>
+                <Link
+                  href="/login"
+                  className="inline-flex shrink-0 items-center self-start rounded-full px-6 py-3 text-[0.9375rem] font-medium transition-transform duration-200 hover:-translate-y-0.5 sm:self-auto"
+                  style={{ background: "var(--brass)", color: "var(--night)" }}
+                >
+                  Start with your profile
+                </Link>
+              </div>
+            </section>
+          </Reveal>
+        </main>
+
+        <footer className="hairline t-dim border-t py-10 text-xs leading-relaxed">
+          <p className="max-w-[34rem]">
+            <span className="t-chalk">καιρός</span> — the window that opens and
+            shuts, as against <span className="t-chalk">chronos</span>, the
+            clock time that merely elapses. Lysippos gave him winged feet and a
+            forelock in front, bald behind. A funding deadline behaves the same
+            way.
+          </p>
+        </footer>
+      </div>
+    </div>
   );
 }

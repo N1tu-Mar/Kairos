@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from agent import config
 from agent.intake import (
     IntakeIncomplete,
+    apply_model_proposals,
     is_complete,
     missing_required,
     new_session,
@@ -18,6 +19,7 @@ from agent.intake import (
     validate_field_value,
 )
 from agent.models import IntakeEvidence, IntakeFieldState, IntakeSession
+from agent.subagents.intake_interviewer import IntakeInterviewResult, IntakeProposal
 from api.main import app
 from tests.factories import profile
 
@@ -237,3 +239,196 @@ def test_session_model_rejects_mismatched_field_keys():
             founder_id="founder_demo",
             fields={"institution": IntakeFieldState(field="major")},
         )
+
+
+def _chat_result(*proposals, message="Thanks — what stage is the startup at?"):
+    return IntakeInterviewResult(
+        assistant_message=message,
+        proposals=list(proposals),
+        missing_fields=["startup_description"],
+        next_topic="stage",
+    )
+
+
+def test_interviewer_uses_existing_reasoning_model_configuration(monkeypatch):
+    from agent.subagents import intake_interviewer
+
+    captured = {}
+
+    def fake_build_subagent(**kwargs):
+        captured.update(kwargs)
+        return object(), object()
+
+    monkeypatch.setattr(intake_interviewer, "build_subagent", fake_build_subagent)
+    intake_interviewer.build()
+
+    assert captured["tier"] is config.settings().reasoning
+    assert captured["tier"].model_id == "[DEMO]reasoning-model"
+    assert captured["temperature"] == 0.0
+
+
+def test_model_candidates_are_validated_and_never_overwrite_confirmed_facts():
+    intake = new_session("founder_demo", profile())
+    changed = apply_model_proposals(
+        intake,
+        [
+            IntakeProposal(
+                field="startup_description",
+                value="A scheduling product for university laboratories.",
+                confidence=0.94,
+                evidence_source_ids=["message_1"],
+            ),
+            IntakeProposal(
+                field="team_size",
+                value=True,
+                confidence=1,
+                evidence_source_ids=["message_1"],
+            ),
+            IntakeProposal(
+                field="institution",
+                value="Attacker University",
+                confidence=1,
+                evidence_source_ids=["message_1"],
+            ),
+            IntakeProposal(
+                field="not_a_profile_field",
+                value="ignored",
+                confidence=1,
+                evidence_source_ids=["message_1"],
+            ),
+        ],
+        source_id="message_1",
+    )
+
+    assert changed.fields["startup_description"].status == "proposed"
+    assert changed.fields["startup_description"].confirmed_at is None
+    assert changed.fields["team_size"].value == intake.fields["team_size"].value
+    assert changed.fields["institution"].value == intake.fields["institution"].value
+    assert "not_a_profile_field" not in changed.fields
+
+
+def test_chat_turn_is_persistent_idempotent_and_requires_confirmation(client):
+    calls = 0
+
+    async def fake_interviewer(session, messages, documents):
+        nonlocal calls
+        calls += 1
+        founder_message = messages[-1]
+        return _chat_result(
+            IntakeProposal(
+                field="startup_description",
+                value="A concise platform for managing shared research equipment.",
+                confidence=0.97,
+                evidence_source_ids=[founder_message.message_id],
+            )
+        )
+
+    app.state.intake_interviewer = fake_interviewer
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    body = {
+        "text": "We help university labs coordinate shared research equipment.",
+        "client_message_id": "browser-message-1",
+        "expected_revision": created["session"]["revision"],
+    }
+
+    first = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages", json=body
+    )
+    duplicate = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages", json=body
+    )
+
+    assert first.status_code == duplicate.status_code == 200
+    assert calls == 1
+    payload = first.json()
+    assert payload["turn_pending"] is False
+    assert [message["role"] for message in payload["messages"]] == [
+        "founder",
+        "assistant",
+    ]
+    fact = payload["session"]["fields"]["startup_description"]
+    assert fact["status"] == "proposed"
+    assert fact["confirmed_at"] is None
+    assert payload["ready_to_complete"] is False
+
+
+def test_chat_provider_failure_is_sanitized_and_releases_session(client):
+    async def failing_interviewer(session, messages, documents):
+        raise RuntimeError("aws_secret_access_key=do-not-leak-founder@example.com")
+
+    app.state.intake_interviewer = failing_interviewer
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    response = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "Here is my company.",
+            "client_message_id": "failure-1",
+            "expected_revision": 0,
+        },
+    )
+
+    assert response.status_code == 503
+    assert "do-not-leak" not in response.text
+    loaded = client.get(
+        f"/founders/founder_demo/intake/sessions/{session_id}"
+    ).json()
+    assert loaded["turn_pending"] is False
+    assert loaded["messages"][0]["role"] == "founder"
+    assert "example.com" not in loaded["messages"][0]["text"]
+
+
+def test_chat_rate_limit_is_persistent_and_returns_retry_after(client):
+    async def fake_interviewer(session, messages, documents):
+        return _chat_result()
+
+    app.state.intake_interviewer = fake_interviewer
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    revision = 0
+    for number in range(10):
+        response = client.post(
+            f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+            json={
+                "text": f"Founder turn {number}",
+                "client_message_id": f"rate-{number}",
+                "expected_revision": revision,
+            },
+        )
+        assert response.status_code == 200
+        revision = response.json()["session"]["revision"]
+
+    rejected = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "One turn too many",
+            "client_message_id": "rate-10",
+            "expected_revision": revision,
+        },
+    )
+    assert rejected.status_code == 429
+    assert rejected.headers["retry-after"] == "3600"
+
+
+def test_chat_rejects_cross_founder_and_mass_assignment(client):
+    other = new_session("founder_other", None)
+    app.state.repo.create_intake_session(other)
+    cross_founder = client.post(
+        f"/founders/founder_demo/intake/sessions/{other.session_id}/messages",
+        json={"text": "Probe", "client_message_id": "probe-1", "expected_revision": 0},
+    )
+    assert cross_founder.status_code == 404
+
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    extra = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "Probe",
+            "client_message_id": "probe-2",
+            "expected_revision": 0,
+            "role": "assistant",
+        },
+    )
+    assert extra.status_code == 422

@@ -234,6 +234,14 @@ class Settings:
     supabase_issuer: str
     supabase_jwt_secret: str
     supabase_public_key: str
+    #: Give a verified person with no membership a founder of their own on
+    #: their first request, rather than making an operator run
+    #: `scripts/link_founder.py`. On by default because self-serve sign-in is
+    #: unusable without it; it is nonetheless a demo posture, since anyone who
+    #: completes an OAuth flow then creates a tenant. Restrict who may sign in
+    #: at the identity provider, or turn this off. Only ever applies to a
+    #: Supabase-verified identity — see api/provisioning.py.
+    auto_provision_founder: bool
     #: Serve requests with no credential at all, as `ANONYMOUS_LOCAL`. Off
     #: unless explicitly turned on, because the alternative — treating an
     #: absent token as "run open" — makes a forgotten variable indistinguishable
@@ -332,6 +340,7 @@ def settings() -> Settings:
         # PEM, newlines and all. Read from the environment as-is; a secret
         # store hands it over whole rather than a path to it.
         supabase_public_key=os.getenv("KAIROS_SUPABASE_PUBLIC_KEY", "").strip(),
+        auto_provision_founder=_bool("KAIROS_AUTO_PROVISION_FOUNDER", True),
         # Default False: an unconfigured deployment must fail closed. `_bool`
         # reads an unrecognised value as False, so a typo in the flag that
         # opens an API leaves it shut.
