@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { putProfile } from "@/lib/api";
+import { currentFounderId, putProfile } from "@/lib/api";
 import { errorResponse } from "@/lib/errors";
-import { founderId } from "@/lib/config";
 import type { FounderProfile } from "@/lib/types";
 
 /**
@@ -12,8 +11,14 @@ import type { FounderProfile } from "@/lib/types";
  * because these fields feed the deterministic eligibility filter and a
  * half-applied update is how a founder gets told they are eligible for
  * something they are not. Pydantic on the backend is the validator of
- * record; this route only pins the founder id to the one this single-founder
- * dashboard is configured for.
+ * record; this route only pins the founder id to the one this session owns.
+ *
+ * *Which* founder that is comes from `currentFounderId`, never from
+ * `KAIROS_FOUNDER_ID`. That variable names one founder for the whole
+ * deployment — right on a laptop, and wrong the moment anyone can sign up. A
+ * new account owns an auto-provisioned founder, so every save was refused as
+ * a mismatch and the profile page was unreachable for exactly the people who
+ * had just made an account.
  */
 
 export const dynamic = "force-dynamic";
@@ -36,14 +41,20 @@ export async function PUT(request: Request) {
     );
   }
 
-  if (profile.founder_id !== founderId()) {
-    return NextResponse.json(
-      { error: "founder_id does not match the founder this dashboard serves." },
-      { status: 400 },
-    );
-  }
-
   try {
+    // Resolved before the body is trusted. A session that owns no founder
+    // raises here, which is a 403 the reader can act on rather than a write
+    // attempted against whatever id the body happened to name.
+    if (profile.founder_id !== (await currentFounderId())) {
+      return NextResponse.json(
+        {
+          error:
+            "founder_id does not match the founder this session owns.",
+        },
+        { status: 400 },
+      );
+    }
+
     // The backend redacts on write and returns what it stored. That stored
     // object is what renders, so the founder sees the truth, not the request.
     const stored = await putProfile(profile);

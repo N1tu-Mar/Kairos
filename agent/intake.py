@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Iterable
 
 from agent.models import (
     DegreeLevel,
@@ -186,6 +186,49 @@ def missing_required(session: IntakeSession) -> list[str]:
 
 def is_complete(session: IntakeSession) -> bool:
     return session.status == "active" and not missing_required(session)
+
+
+def apply_model_proposals(
+    session: IntakeSession,
+    proposals: Iterable[object],
+    *,
+    source_id: str,
+) -> IntakeSession:
+    """Validate model candidates and mark them proposed, never confirmed.
+
+    Unknown fields, invalid values, and evidence pointing anywhere other
+    than the persisted founder message are discarded. A model turn also
+    cannot overwrite a fact the founder already confirmed.
+    """
+    updated = session.model_copy(deep=True)
+    now = _now()
+    for proposal in proposals:
+        field = getattr(proposal, "field", None)
+        value = getattr(proposal, "value", None)
+        confidence = getattr(proposal, "confidence", None)
+        evidence_source_ids = getattr(proposal, "evidence_source_ids", [])
+        if field not in ALL_FIELDS or source_id not in evidence_source_ids:
+            continue
+        current = updated.fields.get(field)
+        if current is not None and current.status == "confirmed":
+            continue
+        try:
+            canonical = validate_field_value(field, value)
+            numeric_confidence = float(confidence)
+            if not 0 <= numeric_confidence <= 1:
+                continue
+        except (TypeError, ValueError):
+            continue
+        updated.fields[field] = IntakeFieldState(
+            field=field,
+            status="proposed",
+            value=canonical,
+            confidence=numeric_confidence,
+            evidence=[IntakeEvidence(source_type="message", source_id=source_id)],
+            proposed_at=now,
+        )
+    updated.updated_at = now
+    return updated
 
 
 def update_field(

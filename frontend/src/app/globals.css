@@ -8,60 +8,56 @@
   changes what the founder should do next, and nowhere else.
 */
 
+/*
+  One ground for the whole product.
+
+  The landing page and the dashboard used to be two worlds — night out front,
+  warm paper once you signed in. They are now the same surface, so signing in
+  is a door rather than a scene change.
+
+  Cold slate rather than neutral black, and brass rather than a bright accent.
+  The palette is named once here and consumed everywhere: nothing in the app
+  writes a colour of its own, which is what makes a change like this one file.
+*/
+
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  --paper: #faf8f4;
-  --surface: #ffffff;
-  --surface-sunk: #f4f1ea;
-  --ink: #1b1916;
-  --ink-soft: #4a453d;
-  --ink-muted: #736c61;
-  --rule: #e6e0d4;
-  --rule-strong: #d3cbba;
+  /* The ground, named for what it is. */
+  --night: #14161c;
+  --night-lift: #1b1e26;
+  --chalk: #eceae4;
+  --chalk-dim: #8d8b85;
+  --brass: #c8a253;
+  --gone: #454851;
 
-  --accent: #6b5b3e;
-  --accent-soft: #f0e9d8;
+  /* The dashboard's vocabulary, mapped onto that same ground. The names are
+     unchanged on purpose: every view already speaks in them, so re-theming
+     the product costs nothing but this block. */
+  --paper: var(--night);
+  --surface: var(--night-lift);
+  --surface-sunk: #191c23;
+  --ink: var(--chalk);
+  --ink-soft: #b9b7b1;
+  --ink-muted: var(--chalk-dim);
+  --rule: #2b2f37;
+  --rule-strong: #3a3f4a;
 
-  --ok: #3f6b4f;
-  --ok-soft: #e6efe7;
-  --warn: #8a6420;
-  --warn-soft: #f7eeda;
-  --alert: #96412f;
-  --alert-soft: #f8e8e2;
-  --info: #3f5a75;
-  --info-soft: #e6ecf2;
-  --neutral: #6b6459;
-  --neutral-soft: #eeeae1;
-}
+  --accent: var(--brass);
+  --accent-soft: #2a2723;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-
-    --paper: #15140f;
-    --surface: #1d1b16;
-    --surface-sunk: #22201a;
-    --ink: #f0ece2;
-    --ink-soft: #cfc8ba;
-    --ink-muted: #9a9284;
-    --rule: #322e26;
-    --rule-strong: #453f34;
-
-    --accent: #d8c496;
-    --accent-soft: #2b271d;
-
-    --ok: #8fbf9f;
-    --ok-soft: #1e2a21;
-    --warn: #d9b26a;
-    --warn-soft: #2c2418;
-    --alert: #e0937f;
-    --alert-soft: #2e1d17;
-    --info: #9bb6d0;
-    --info-soft: #1a222b;
-    --neutral: #a49b8c;
-    --neutral-soft: #26231d;
-  }
+  /* Status stays a signal, never decoration. Cooled to sit on slate — the
+     previous set was mixed over warm paper and goes muddy here. */
+  --ok: #7fbf9a;
+  --ok-soft: #17251d;
+  --warn: #d8b166;
+  --warn-soft: #2a2417;
+  --alert: #e08f7a;
+  --alert-soft: #2c1c19;
+  --info: #8fb4d6;
+  --info-soft: #182430;
+  --neutral: #9aa0ab;
+  --neutral-soft: #232730;
 }
 
 @theme inline {
@@ -87,10 +83,16 @@
   --color-neutral: var(--neutral);
   --color-neutral-soft: var(--neutral-soft);
 
-  --font-serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
-    Georgia, "Times New Roman", serif;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+  /* Loaded and self-hosted by `next/font` in the root layout. The fallbacks
+     matter: they are what renders if a build ever ships without them. */
+  --font-display: var(--kairos-display), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--kairos-body), ui-sans-serif, system-ui, sans-serif;
+
+  /* `font-serif` is the display role now, not a serif. The class name is kept
+     because roughly fifteen views spell it, and renaming them is a mechanical
+     change better made when no branch is open on those files. */
+  --font-serif: var(--font-display);
+  --font-sans: var(--font-body);
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
     "Liberation Mono", monospace;
 }
@@ -106,6 +108,11 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brass);
+  color: var(--night);
 }
 
 /* Focus is never removed, only restyled. Keyboard users get a real ring. */
@@ -139,4 +146,257 @@ body {
 
 .kairos-pulse {
   animation: kairos-pulse 1.6s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   The landing page.
+
+   One ground colour for the whole surface. Sections are separated by a
+   hairline, by space, and by type size — never by flipping the background,
+   which is what makes a marketing page feel like four pages stapled
+   together. Nothing bleeds past the gutter.
+
+   Night, deliberately: the loop runs while the founder is asleep, and
+   signing in arrives on the dashboard's warm paper. The transition is the
+   argument.
+   --------------------------------------------------------------------------- */
+
+.night {
+  background-color: var(--night);
+  color: var(--chalk);
+}
+
+/* --- The horizon ---------------------------------------------------------
+
+   A time axis. Programmes enter from the right, drift left, and cross a
+   fixed `now` line, where a thing you could still have applied for becomes
+   a thing you missed.
+
+   The colour change on crossing is done with geometry, not script: the same
+   markers are rendered twice, once clipped to the future side and once to
+   the past side, each layer in its own colour. A marker straddling the line
+   is legitimately half-lit.
+   ------------------------------------------------------------------------- */
+
+.horizon {
+  --now: 30%;
+  container-type: inline-size;
+  position: relative;
+  height: 11.5rem;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--night-lift);
+}
+
+.horizon-rule {
+  position: absolute;
+  top: 50%;
+  height: 1px;
+}
+
+.horizon-rule--past {
+  left: 0;
+  width: var(--now);
+  background: var(--gone);
+}
+
+.horizon-rule--ahead {
+  left: var(--now);
+  right: 0;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--chalk-dim) 70%, transparent),
+    transparent
+  );
+}
+
+.horizon-now-label {
+  position: absolute;
+  bottom: 0.75rem;
+  left: var(--now);
+  margin-left: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--brass);
+}
+
+.horizon-now {
+  position: absolute;
+  left: var(--now);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--brass);
+}
+
+.horizon-layer {
+  position: absolute;
+  inset: 0;
+  /* Markers enter and leave through a soft edge. Without this a label is
+     guillotined mid-digit at the boundary, which reads as a clipping bug
+     rather than as a thing arriving from further out than you can see. */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 7%,
+    black 86%,
+    transparent 100%
+  );
+}
+
+.horizon-layer--ahead {
+  clip-path: inset(0 0 0 var(--now));
+  color: var(--chalk);
+}
+
+.horizon-layer--past {
+  clip-path: inset(0 calc(100% - var(--now)) 0 0);
+  color: var(--gone);
+}
+
+.horizon-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 9rem;
+  margin-left: -4.5rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  /* Static fallback: an evenly spread axis with the first marker already
+     past the line. Motion, below, overrides it. */
+  transform: translateX(calc(var(--i) * 17cqw + 5cqw));
+}
+
+.horizon-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.horizon-amount {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.horizon-when {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  color: currentColor;
+  opacity: 0.62;
+}
+
+@keyframes horizon-drift {
+  from {
+    transform: translateX(100cqw);
+  }
+  to {
+    transform: translateX(-16rem);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes draw {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Everything that moves lives in here. Outside it the page is a finished
+   static composition, which is also what a reduced-motion visitor gets —
+   rather than the usual half-faded wreckage of animations forced to 0.01ms. */
+@media (prefers-reduced-motion: no-preference) {
+  .horizon-marker {
+    animation: horizon-drift 54s linear infinite;
+    animation-delay: calc(var(--i) * -9s);
+  }
+
+  .horizon {
+    animation: draw 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) 0.15s both;
+  }
+
+  .rise {
+    animation: rise 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+    animation-delay: calc(var(--step, 0) * 90ms);
+  }
+
+  /* Scroll reveal. `armed` is added by script once it has confirmed the
+     element is below the fold, so a visitor without JavaScript — and
+     anything already on screen — never gets hidden in the first place. */
+  .reveal.armed {
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.6s cubic-bezier(0.22, 0.61, 0.36, 1),
+      transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  .reveal.armed.shown {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Small colour utilities for the night surface. The Tailwind theme tokens
+   above describe the paper dashboard; these name the four values the
+   landing page is allowed to use, so no hex ever reaches the markup. */
+.night .t-chalk {
+  color: var(--chalk);
+}
+.night .t-dim {
+  color: var(--chalk-dim);
+}
+.night .t-brass {
+  color: var(--brass);
+}
+.night .hairline {
+  border-color: color-mix(in srgb, var(--chalk) 12%, transparent);
+}
+.night .stage-dot {
+  background: var(--brass);
+}
+
+/* Narrow screens: the axis is short enough that adjacent markers collide, so
+   the kind drops out and the amount alone carries each one. Losing a label is
+   the right trade — two overlapping labels say less than one legible number. */
+@media (max-width: 40rem) {
+  .horizon {
+    --now: 26%;
+    height: 10rem;
+  }
+
+  .horizon-marker {
+    width: 6rem;
+    margin-left: -3rem;
+  }
+
+  .horizon-amount {
+    font-size: 0.6875rem;
+  }
+
+  .horizon-when {
+    display: none;
+  }
 }

@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import {
   apiBaseUrl,
   apiBaseUrlProblem,
@@ -14,8 +16,11 @@ import type {
   EligibilityAnswerValue,
   EligibilityQuestion,
   FounderProfile,
+  Identity,
   InboxItem,
   InboxState,
+  IntakeMessageCreate,
+  IntakeSessionView,
   JobStatusResponse,
   Opportunity,
   RunJob,
@@ -48,7 +53,12 @@ export type ApiErrorKind =
   // Supabase mode with no usable session. Must not fall through to the
   // shared backend token — that is the production hole this kind exists
   // to keep closed.
-  | "unauthorized";
+  | "unauthorized"
+  // Signed in, but granted no founder. A real state, not a fault: it is what
+  // a verified person looks like before anyone linked them. Kept distinct
+  // from `unauthorized` because the answer is "ask for access", not
+  // "sign in" — treating it as the latter loops the dashboard through /login.
+  | "no_founder";
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -86,6 +96,8 @@ export class ApiError extends Error {
         return `${this.message} Fix it in frontend/.env.local, then restart the dev server.`;
       case "unauthorized":
         return "Sign in to continue.";
+      case "no_founder":
+        return "This account has no workspace yet. Ask an operator for access.";
       case "unreachable":
         return "Could not reach the Kairos API. Is the FastAPI backend running?";
       case "timeout":
@@ -114,6 +126,10 @@ export function httpStatusFor(error: ApiError): number {
       return 500;
     case "unauthorized":
       return 401;
+    // Authenticated, and deliberately granted nothing. 403, not 401: signing
+    // in again is not the fix.
+    case "no_founder":
+      return 403;
     default:
       return error.status ?? 502;
   }
@@ -243,17 +259,56 @@ export function getHealth(): Promise<{ status: string }> {
 }
 
 /**
+ * Who this request's session is, and which founder it may render.
+ *
+ * `cache` is React's per-request memo, not a time-based one: every Server
+ * Component in a single render shares one `/me` call, and the next request
+ * asks again. Memberships change, and caching across requests is how a
+ * revoked person keeps a working dashboard.
+ */
+export const getIdentity = cache(
+  async (): Promise<Identity> => request<Identity>("/me"),
+);
+
+/**
+ * The founder id to render for this session.
+ *
+ * The whole reason this is a function rather than `KAIROS_FOUNDER_ID`. That
+ * variable names one founder for the entire deployment — correct on a laptop,
+ * and silently wrong the moment two people can sign in: both are shown the
+ * same inbox, each believing it is theirs.
+ *
+ * In `local_shared` mode there is no session to ask about, so the variable is
+ * still the answer, and `/me` is not called — a laptop running with no
+ * credential would only get a 401 from it.
+ *
+ * A session that owns no founder raises rather than falling back to the
+ * variable. Falling back would hand whoever completed a sign-in the demo
+ * founder's inbox, which is the tenancy version of the shared-token hole.
+ */
+export const currentFounderId = cache(async (): Promise<string> => {
+  if (!isSupabaseAuth()) return founderId();
+  const identity = await getIdentity();
+  if (!identity.founder_id) {
+    throw new ApiError("no_founder", "This session owns no founder", "/me", 403);
+  }
+  return identity.founder_id;
+});
+
+/**
  * The founder profile. Throws `ApiError('not_found')` when none has been saved.
  */
-export function getProfile(id = founderId()): Promise<FounderProfile> {
-  return request(`/founders/${encodeURIComponent(id)}`);
+export async function getProfile(id?: string): Promise<FounderProfile> {
+  const target = id ?? (await currentFounderId());
+  return request(`/founders/${encodeURIComponent(target)}`);
 }
 
 /**
  * As {@link getProfile}, but `null` on a 404 — the first-boot state, not an error.
  */
-export function getProfileOrNull(id = founderId()): Promise<FounderProfile | null> {
-  return optional(getProfile(id));
+export async function getProfileOrNull(id?: string): Promise<FounderProfile | null> {
+  const target = id ?? (await currentFounderId());
+  return optional(getProfile(target));
 }
 
 /**
@@ -263,28 +318,31 @@ export function getProfileOrNull(id = founderId()): Promise<FounderProfile | nul
  * row limit before that filter, so the false case can return fewer rows
  * than the limit while more non-passive items exist.
  */
-export function getInbox(
-  id = founderId(),
+export async function getInbox(
+  id?: string,
   includePassive = true,
 ): Promise<InboxItem[]> {
+  const target = id ?? (await currentFounderId());
   const query = includePassive ? "" : "?include_passive=false";
-  return request(`/founders/${encodeURIComponent(id)}/inbox${query}`);
+  return request(`/founders/${encodeURIComponent(target)}/inbox${query}`);
 }
 
-export function listEligibilityQuestions(
+export async function listEligibilityQuestions(
   status: "pending" | "answered" | "all" = "pending",
-  id = founderId(),
+  id?: string,
 ): Promise<EligibilityQuestion[]> {
+  const target = id ?? (await currentFounderId());
   return request(
-    `/founders/${encodeURIComponent(id)}/eligibility-questions?status=${status}`,
+    `/founders/${encodeURIComponent(target)}/eligibility-questions?status=${status}`,
   );
 }
 
 /**
  * Recent run reports, newest first. Capped by `limit`; {@link getRun} reaches older ones.
  */
-export function listRuns(id = founderId(), limit = 20): Promise<RunReport[]> {
-  return request(`/founders/${encodeURIComponent(id)}/runs?limit=${limit}`);
+export async function listRuns(id?: string, limit = 20): Promise<RunReport[]> {
+  const target = id ?? (await currentFounderId());
+  return request(`/founders/${encodeURIComponent(target)}/runs?limit=${limit}`);
 }
 
 /**
@@ -292,8 +350,9 @@ export function listRuns(id = founderId(), limit = 20): Promise<RunReport[]> {
  * not an error. A run that scanned and surfaced nothing is a *successful*
  * run and comes back as a normal RunReport.
  */
-export function getLatestRun(id = founderId()): Promise<RunReport | null> {
-  return optional(request<RunReport>(`/founders/${encodeURIComponent(id)}/runs/latest`));
+export async function getLatestRun(id?: string): Promise<RunReport | null> {
+  const target = id ?? (await currentFounderId());
+  return optional(request<RunReport>(`/founders/${encodeURIComponent(target)}/runs/latest`));
 }
 
 /**
@@ -301,13 +360,14 @@ export function getLatestRun(id = founderId()): Promise<RunReport | null> {
  * `GET /founders/{id}/runs/{run_id}` — scoped to the founder so a mistyped id
  * 404s instead of quietly resolving to someone else's run.
  */
-export function getRun(
+export async function getRun(
   runId: string,
-  id = founderId(),
+  id?: string,
 ): Promise<RunReport | null> {
+  const target = id ?? (await currentFounderId());
   return optional(
     request<RunReport>(
-      `/founders/${encodeURIComponent(id)}/runs/${encodeURIComponent(runId)}`,
+      `/founders/${encodeURIComponent(target)}/runs/${encodeURIComponent(runId)}`,
     ),
   );
 }
@@ -353,14 +413,15 @@ export async function getOpportunities(
  * was never created or has since been dismissed. Counts come from
  * `Draft.counts()` in Python.
  */
-export function listDrafts(
-  id = founderId(),
+export async function listDrafts(
+  id?: string,
   opportunityId?: string,
 ): Promise<DraftResponse[]> {
+  const target = id ?? (await currentFounderId());
   const query = opportunityId
     ? `?opportunity_id=${encodeURIComponent(opportunityId)}`
     : "";
-  return request(`/founders/${encodeURIComponent(id)}/drafts${query}`);
+  return request(`/founders/${encodeURIComponent(target)}/drafts${query}`);
 }
 
 /**
@@ -391,11 +452,12 @@ export function getDraftOrNull(draftId: string): Promise<DraftResponse | null> {
  * This is still a manual trigger, not a schedule — production scheduling is
  * EventBridge calling this same endpoint with `source: "scheduled"`.
  */
-export function triggerRun(
+export async function triggerRun(
   trigger: RunTrigger,
-  id = founderId(),
+  id?: string,
 ): Promise<RunJob> {
-  return request(`/founders/${encodeURIComponent(id)}/runs`, {
+  const target = id ?? (await currentFounderId());
+  return request(`/founders/${encodeURIComponent(target)}/runs`, {
     method: "POST",
     body: trigger,
     // A short timeout now: this call only creates a job. The run's own
@@ -405,32 +467,35 @@ export function triggerRun(
 }
 
 /** One job plus its report once the run has produced one. The poll target. */
-export function getJobStatus(
+export async function getJobStatus(
   jobId: string,
-  id = founderId(),
+  id?: string,
 ): Promise<JobStatusResponse> {
+  const target = id ?? (await currentFounderId());
   return request(
-    `/founders/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}`,
+    `/founders/${encodeURIComponent(target)}/jobs/${encodeURIComponent(jobId)}`,
   );
 }
 
 /**
  * Recent run jobs, newest first — in-flight and finished alike.
  */
-export function listJobs(id = founderId(), limit = 20): Promise<RunJob[]> {
-  return request(`/founders/${encodeURIComponent(id)}/jobs?limit=${limit}`);
+export async function listJobs(id?: string, limit = 20): Promise<RunJob[]> {
+  const target = id ?? (await currentFounderId());
+  return request(`/founders/${encodeURIComponent(target)}/jobs?limit=${limit}`);
 }
 
 /**
  * Asks the backend to stop a running job. Cooperative — the run stops at its
  * next await point. What it already persisted stays persisted.
  */
-export function cancelJob(
+export async function cancelJob(
   jobId: string,
-  id = founderId(),
+  id?: string,
 ): Promise<{ cancelled: boolean; status: string }> {
+  const target = id ?? (await currentFounderId());
   return request(
-    `/founders/${encodeURIComponent(id)}/jobs/${encodeURIComponent(jobId)}/cancel`,
+    `/founders/${encodeURIComponent(target)}/jobs/${encodeURIComponent(jobId)}/cancel`,
     { method: "POST" },
   );
 }
@@ -440,12 +505,13 @@ export function cancelJob(
  * server-side — no credentials, no prompts, no stack traces. This is how a
  * founder learns that last night's scheduled run never ran.
  */
-export function listSchedulerFailures(
-  id = founderId(),
+export async function listSchedulerFailures(
+  id?: string,
   limit = 5,
 ): Promise<SchedulerFailure[]> {
+  const target = id ?? (await currentFounderId());
   return request(
-    `/founders/${encodeURIComponent(id)}/scheduler/failures?limit=${limit}`,
+    `/founders/${encodeURIComponent(target)}/scheduler/failures?limit=${limit}`,
   );
 }
 
@@ -465,13 +531,14 @@ export function setInboxState(
   });
 }
 
-export function answerEligibilityQuestion(
+export async function answerEligibilityQuestion(
   questionId: string,
   answer: EligibilityAnswerValue,
-  id = founderId(),
+  id?: string,
 ): Promise<EligibilityQuestion> {
+  const target = id ?? (await currentFounderId());
   return request(
-    `/founders/${encodeURIComponent(id)}/eligibility-questions/${encodeURIComponent(questionId)}/answer`,
+    `/founders/${encodeURIComponent(target)}/eligibility-questions/${encodeURIComponent(questionId)}/answer`,
     { method: "PUT", body: { answer } },
   );
 }
@@ -489,4 +556,31 @@ export function putProfile(profile: FounderProfile): Promise<FounderProfile> {
     method: "PUT",
     body: profile,
   });
+}
+
+/** Create the founder's intake session, or resume the existing active one. */
+export async function createOrResumeIntake(
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(`/founders/${encodeURIComponent(target)}/intake/sessions`, {
+    method: "POST",
+  });
+}
+
+/** Submit one idempotent founder message and wait for its validated reply. */
+export async function sendIntakeMessage(
+  sessionId: string,
+  message: IntakeMessageCreate,
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/messages`,
+    {
+      method: "POST",
+      body: message,
+      timeoutMs: 60_000,
+    },
+  );
 }

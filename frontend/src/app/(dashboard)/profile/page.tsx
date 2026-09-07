@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { ApiErrorState } from "@/components/api-error-state";
 import { Badge, DemoBadge } from "@/components/badges";
 import {
@@ -44,16 +46,33 @@ export default async function ProfilePage() {
     );
   }
 
+  // A new account reaches this page before it has a profile, and that is the
+  // ordinary case rather than a misconfiguration. The interview is what
+  // creates one — this form only edits fields that already exist — so the
+  // empty state points there instead of naming an environment variable the
+  // person reading it cannot set.
   if (!profile) {
     return (
       <Page>
-        <PageHeader eyebrow="Profile" title="No profile on file" />
-        <EmptyState title="The backend has no profile for this founder">
-          Kairos seeds a demo profile from{" "}
-          <code className="font-mono text-xs">data/demo_founder.json</code> on
-          startup. If nothing is here, check that{" "}
-          <code className="font-mono text-xs">KAIROS_FOUNDER_ID</code> matches a
-          founder the backend knows about.
+        <PageHeader
+          eyebrow="Profile"
+          title="Kairos does not know you yet"
+          lede={
+            <>
+              Your profile is built from the founder interview, in your own
+              words. Nothing here is a form you have to fill in first.
+            </>
+          }
+        />
+        <EmptyState title="No profile on file for this account">
+          <Link
+            href="/briefing"
+            className="font-medium text-accent underline underline-offset-4"
+          >
+            Start the founder interview
+          </Link>{" "}
+          and Kairos writes the structured facts as you go. They become
+          editable here once the interview has produced them.
         </EmptyState>
       </Page>
     );

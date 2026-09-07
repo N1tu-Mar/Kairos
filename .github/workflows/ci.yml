@@ -204,8 +204,16 @@ jobs:
       - name: No NEXT_PUBLIC_ secrets
         # NEXT_PUBLIC_ is client-visible by design. A token behind that
         # prefix is a token shipped to every browser.
+        #
+        # Allowlist: NEXT_PUBLIC_SUPABASE_ANON_KEY is meant to reach the
+        # browser. It identifies the project and carries the `anon` role;
+        # what it may read or write is decided by row-level security on
+        # the database, not by keeping the string hidden. The key to keep
+        # out of the frontend is the service-role one, which this check
+        # still catches.
         run: |
-          if grep -rn "NEXT_PUBLIC_.*\(TOKEN\|SECRET\|KEY\|PASSWORD\)" frontend/src frontend/*.json 2>/dev/null; then
+          if grep -rn "NEXT_PUBLIC_.*\(TOKEN\|SECRET\|KEY\|PASSWORD\)" frontend/src frontend/*.json 2>/dev/null \
+            | grep -v "NEXT_PUBLIC_SUPABASE_ANON_KEY"; then
             echo "::error::A credential is behind a NEXT_PUBLIC_ prefix."
             exit 1
           fi

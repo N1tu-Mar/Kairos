@@ -23,13 +23,84 @@ export function supabaseAnonKey(): string {
 }
 
 /**
+ * Key prefixes, so a credential in the URL slot is named as one.
+ *
+ * `sb_publishable_` and `sb_secret_` are the current Supabase key formats and
+ * `eyJ` is the base64 opening of a legacy anon JWT. Recognising them is not
+ * validation for its own sake — pasting the key into both slots is the single
+ * easiest mistake to make here, because the dashboard shows the two values
+ * next to each other.
+ */
+const KEY_PREFIXES = ["sb_publishable_", "sb_secret_", "eyJ"];
+
+/**
+ * Why `NEXT_PUBLIC_SUPABASE_URL` is unusable, or null when it is fine.
+ *
+ * An empty value is not a problem: that is local single-founder mode, a
+ * documented posture. This is about the values that look configured and are
+ * not, which used to surface as `authConfigured()` returning true and every
+ * button on the login page failing somewhere inside the Supabase client.
+ *
+ * Returns a reason, never the value. The reason is rendered on a page, and a
+ * key echoed there is a key shown to whoever loaded it.
+ */
+export function supabaseUrlProblem(): string | null {
+  const raw = supabaseUrl();
+  if (!raw) return null;
+
+  if (KEY_PREFIXES.some((prefix) => raw.startsWith(prefix))) {
+    return "NEXT_PUBLIC_SUPABASE_URL holds a key, not a URL. It wants the project URL — https://<project-ref>.supabase.co — and the key belongs in NEXT_PUBLIC_SUPABASE_ANON_KEY.";
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return "NEXT_PUBLIC_SUPABASE_URL is not a valid URL. It wants https://<project-ref>.supabase.co.";
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return "NEXT_PUBLIC_SUPABASE_URL has to start with https:// (or http:// for a local Supabase).";
+  }
+  return null;
+}
+
+/**
+ * The variable left empty when the other one was filled in, or null.
+ *
+ * Both empty is local single-founder mode — a posture, and the login page
+ * says so. One of the two filled in is nobody's posture: it is a setup
+ * somebody was partway through, and telling them to "set these two
+ * variables" sends them to re-check a value that is already right. This is
+ * the state that produced the report behind this function — a key pasted in,
+ * a URL not, and a page that described the empty configuration instead of the
+ * missing half.
+ *
+ * Returns a variable name, never a value. The reason is rendered on a page
+ * reachable while signed out.
+ */
+export function halfConfigured(): string | null {
+  const url = supabaseUrl();
+  const key = supabaseAnonKey();
+  if (Boolean(url) === Boolean(key)) return null;
+
+  return url
+    ? "NEXT_PUBLIC_SUPABASE_ANON_KEY is empty. Supabase dashboard -> Project Settings -> API Keys -> publishable key."
+    : "NEXT_PUBLIC_SUPABASE_URL is empty. Supabase dashboard -> Project Settings -> Data API -> Project URL (https://<project-ref>.supabase.co).";
+}
+
+/**
  * Whether login is wired up at all.
  *
  * False leaves the dashboard in its documented single-founder local mode,
  * where the backend is reached with the shared token and there is no sign-in.
  * That mode is for a laptop. It is what `KAIROS_ALLOW_OPEN_API` is to the
  * backend: fine locally, never on anything reachable.
+ *
+ * A malformed URL counts as not configured rather than as configured-and-
+ * broken. The two produce very different failures — one is a login page that
+ * explains itself, the other is a client that throws on every call — and only
+ * the first is any use to whoever has to fix it.
  */
 export function authConfigured(): boolean {
-  return Boolean(supabaseUrl() && supabaseAnonKey());
+  return Boolean(supabaseUrl() && supabaseAnonKey()) && !supabaseUrlProblem();
 }
