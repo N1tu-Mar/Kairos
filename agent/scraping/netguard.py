@@ -84,6 +84,12 @@ def assert_public_url(url: str) -> None:
     if parts.scheme.lower() not in ALLOWED_SCHEMES:
         raise BlockedAddress(f"scheme {parts.scheme!r} is not fetchable")
 
+    # Credentials in an attacker-controlled URL are both a phishing surface
+    # and a reliable way to leak secrets through redirects, proxy logs, and
+    # HTTP error messages. The scraper never needs authenticated URLs.
+    if parts.username is not None or parts.password is not None:
+        raise BlockedAddress("URLs containing credentials are not fetchable")
+
     host = parts.hostname
     if not host:
         raise BlockedAddress("URL has no host")
