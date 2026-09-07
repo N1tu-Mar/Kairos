@@ -62,7 +62,7 @@ output "scheduler_token_secret_arn" {
       aws secretsmanager get-secret-value --secret-id <arn> \
         --query SecretString --output text
   EOT
-  value = aws_secretsmanager_secret.scheduler_token.arn
+  value       = aws_secretsmanager_secret.scheduler_token.arn
 }
 
 output "api_token_secret_arn" {
@@ -70,7 +70,7 @@ output "api_token_secret_arn" {
     Demo-only Secrets Manager ARN holding KAIROS_API_TOKEN. Empty in
     production — never place this value in Vercel on a real deployment.
   EOT
-  value = try(aws_secretsmanager_secret.api_token[0].arn, "")
+  value       = try(aws_secretsmanager_secret.api_token[0].arn, "")
 }
 
 output "log_group" {
