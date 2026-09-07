@@ -14,10 +14,12 @@ query inside a payload from SQL, which we never need to do.
 from __future__ import annotations
 
 import json
+import hashlib
+import math
 from datetime import datetime, timezone
 from typing import Literal, Protocol, TypeVar
 
-from sqlalchemy import Column, Text, func, update
+from sqlalchemy import Column, Text, delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -248,6 +250,16 @@ class IntakeDocumentRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class RateLimitRow(SQLModel, table=True):
+    """One fixed-window counter without storing a user's raw subject."""
+
+    __tablename__ = "rate_limits"
+    bucket_key: str = Field(primary_key=True)
+    scope: str = Field(index=True)
+    count: int = Field(default=1)
+    expires_at: datetime = Field(index=True)
+
+
 # ── Interface ────────────────────────────────────────────────────────────────
 
 
@@ -314,6 +326,17 @@ class Repository(Protocol):
     def get_intake_document(self, document_id: str) -> IntakeDocument | None: ...
     def list_intake_documents(self, session_id: str) -> list[IntakeDocument]: ...
     def delete_intake_document(self, document_id: str) -> bool: ...
+
+    def take_rate_limit(
+        self,
+        scope: str,
+        principal: str,
+        founder_id: str,
+        *,
+        limit: int,
+        window_seconds: int,
+        now: datetime | None = None,
+    ) -> int | None: ...
 
     # Runs: append-only history. `latest_run`/`list_runs` are capped,
     # `get_run` is the only way back to an old one.
@@ -453,6 +476,64 @@ class SqliteRepository:
         with self.engine.connect() as conn:
             row = conn.execute(text("SELECT version_num FROM alembic_version")).first()
         return row[0] if row else None
+
+    def take_rate_limit(
+        self,
+        scope: str,
+        principal: str,
+        founder_id: str,
+        *,
+        limit: int,
+        window_seconds: int,
+        now: datetime | None = None,
+    ) -> int | None:
+        """Atomically consume a fixed-window slot; return retry seconds if full.
+
+        The database UPDATE includes ``count < limit``, so concurrent callers
+        cannot both consume the final slot.  The opaque key keeps identity
+        provider subjects out of this operational table.
+        """
+        if limit <= 0 or window_seconds <= 0:
+            raise ValueError("rate limits and windows must be positive")
+        instant = now or _now()
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        epoch = int(instant.timestamp())
+        window_start = epoch - (epoch % window_seconds)
+        expires_epoch = window_start + window_seconds
+        expires_at = datetime.fromtimestamp(expires_epoch, tz=timezone.utc)
+        material = f"{scope}\x00{principal}\x00{founder_id}\x00{window_start}"
+        bucket_key = hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+        with Session(self.engine) as session:
+            session.exec(delete(RateLimitRow).where(RateLimitRow.expires_at <= instant))
+            session.add(
+                RateLimitRow(
+                    bucket_key=bucket_key,
+                    scope=scope,
+                    count=1,
+                    expires_at=expires_at,
+                )
+            )
+            try:
+                session.commit()
+                return None
+            except IntegrityError:
+                session.rollback()
+
+        with Session(self.engine) as session:
+            result = session.exec(
+                update(RateLimitRow)
+                .where(
+                    RateLimitRow.bucket_key == bucket_key,
+                    RateLimitRow.count < limit,
+                )
+                .values(count=RateLimitRow.count + 1)
+            )
+            session.commit()
+            if result.rowcount == 1:
+                return None
+        return max(1, math.ceil(expires_epoch - instant.timestamp()))
 
     # -- profiles --
 
@@ -1048,6 +1129,10 @@ class SqliteRepository:
             if row is None:
                 return None
             question = EligibilityQuestion.model_validate_json(row.payload)
+            if question.answer == answer:
+                # A retry or repeated click is not a new fact and must not
+                # refresh the timestamp used to derive reassessment identity.
+                return question
             question.answer = answer
             question.answer_updated_at = _now()
             question.updated_at = question.answer_updated_at

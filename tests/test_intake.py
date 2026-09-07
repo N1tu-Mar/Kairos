@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
@@ -384,10 +385,11 @@ def test_chat_rate_limit_is_persistent_and_returns_retry_after(client):
         return _chat_result()
 
     app.state.intake_interviewer = fake_interviewer
+    app.state.config = replace(app.state.config, intake_turns_per_hour=2)
     created = client.post("/founders/founder_demo/intake/sessions").json()
     session_id = created["session"]["session_id"]
     revision = 0
-    for number in range(10):
+    for number in range(2):
         response = client.post(
             f"/founders/founder_demo/intake/sessions/{session_id}/messages",
             json={
@@ -403,7 +405,7 @@ def test_chat_rate_limit_is_persistent_and_returns_retry_after(client):
         f"/founders/founder_demo/intake/sessions/{session_id}/messages",
         json={
             "text": "One turn too many",
-            "client_message_id": "rate-10",
+            "client_message_id": "rate-2",
             "expected_revision": revision,
         },
     )

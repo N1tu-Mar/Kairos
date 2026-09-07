@@ -8,6 +8,7 @@ hold-the-socket-open design failed silently, pinned here as behaviour.
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 
 import pytest
 
@@ -79,6 +80,20 @@ def test_different_keys_create_different_jobs(api_client):
     assert second.status_code == 202
     assert second.json()["job_id"] != first.json()["job_id"]
     _wait_terminal(api_client, "founder_demo", second.json()["job_id"])
+
+
+def test_manual_run_limit_returns_429_with_retry_after(api_client):
+    from api.main import app
+
+    app.state.config = replace(app.state.config, manual_runs_per_hour=2)
+    for key in ("rate-a", "rate-b"):
+        accepted = _trigger(api_client, idempotency_key=key)
+        assert accepted.status_code == 202
+        _wait_terminal(api_client, "founder_demo", accepted.json()["job_id"])
+
+    rejected = _trigger(api_client, idempotency_key="rate-c")
+    assert rejected.status_code == 429
+    assert int(rejected.headers["retry-after"]) > 0
 
 
 # ── Conflict ─────────────────────────────────────────────────────────────────

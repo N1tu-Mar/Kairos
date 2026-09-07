@@ -33,7 +33,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings, validate_runtime_posture, ConfigError
-from agent.budget import BudgetExceeded, UnenforceableSpendCap
+from agent.budget import BudgetExceeded, RunBudget, UnenforceableSpendCap
 from agent.intake import (
     IntakeIncomplete,
     apply_model_proposals,
@@ -727,6 +727,13 @@ def put_founder(
     # scope, so EventBridge cannot edit a knowledge base it is only meant
     # to run against.
     owned(founder_id, actor, write=True)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     if profile.founder_id != founder_id:
         raise HTTPException(
             400,
@@ -769,6 +776,59 @@ def _intake_view(intake: IntakeSession) -> IntakeSessionView:
     )
 
 
+def _enforce_rate_limit(
+    actor: Principal,
+    founder_id: str,
+    *,
+    scope: str,
+    limit: int,
+    window_seconds: int,
+) -> None:
+    """Apply a durable principal/founder limit and emit a body-free audit."""
+    retry_after = app.state.repo.take_rate_limit(
+        scope,
+        actor.subject,
+        founder_id,
+        limit=limit,
+        window_seconds=window_seconds,
+    )
+    if retry_after is None:
+        return
+    audit_event(
+        actor=actor.subject,
+        action="rate_limit.rejected",
+        resource=founder_id,
+        method=actor.method,
+        limit=scope,
+        retry_after=retry_after,
+    )
+    raise HTTPException(
+        429,
+        "request limit reached; try again later",
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+def _require_paid_work_capacity() -> None:
+    """Reject paid work before queueing when its spend posture is unsafe."""
+    budget = RunBudget.from_settings(app.state.config)
+    try:
+        budget.require_enforceable_spend_cap()
+        if (
+            budget.daily_usd_cap > 0
+            and budget.ledger.spent_today() >= budget.daily_usd_cap
+        ):
+            raise BudgetExceeded(
+                "DAILY_USD_CAP", "the configured daily spending cap is exhausted"
+            )
+    except (BudgetExceeded, UnenforceableSpendCap):
+        raise HTTPException(
+            429,
+            "paid-work spending limit reached; try again later",
+            headers={"Retry-After": "3600"},
+        ) from None
+
+
 @app.post("/founders/{founder_id}/intake/sessions")
 def create_or_resume_intake_session(
     founder_id: ResourceId, actor: Principal = Depends(principal)
@@ -777,6 +837,13 @@ def create_or_resume_intake_session(
     owned(founder_id, actor, write=True)
     intake = app.state.repo.get_active_intake_session(founder_id)
     if intake is None:
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="authenticated_write",
+            limit=app.state.config.authenticated_writes_per_minute,
+            window_seconds=60,
+        )
         intake = app.state.repo.create_intake_session(
             new_session(founder_id, app.state.repo.get_profile(founder_id))
         )
@@ -826,7 +893,7 @@ async def send_intake_message(
         message,
         expected_revision=turn.expected_revision,
         rate_window_start=datetime.now(timezone.utc) - timedelta(hours=1),
-        founder_hour_limit=10,
+        founder_hour_limit=app.state.config.intake_turns_per_hour,
         session_turn_limit=30,
     )
     if outcome == "duplicate":
@@ -929,6 +996,13 @@ def update_intake_field(
 ) -> IntakeSessionView:
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     intake = _intake_for_founder(founder_id, session_id)
     if intake.pending_message_id is not None:
         raise HTTPException(409, "wait for the current chat response before editing facts")
@@ -967,6 +1041,13 @@ def complete_intake_session(
 ) -> FounderProfile:
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     intake = _intake_for_founder(founder_id, session_id)
     if intake.pending_message_id is not None:
         raise HTTPException(409, "wait for the current chat response before completing")
@@ -1012,6 +1093,13 @@ def abandon_intake_session(
 ) -> IntakeSessionView:
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     intake = _intake_for_founder(founder_id, session_id)
     if intake.pending_message_id is not None:
         raise HTTPException(409, "wait for the current chat response before abandoning")
@@ -1113,6 +1201,32 @@ async def answer_eligibility_question(
     question = app.state.repo.get_eligibility_question(question_id)
     if question is None or question.founder_id != founder_id:
         raise HTTPException(404, not_found)
+    if question.answer == update.answer:
+        response.headers["X-Kairos-Reassessment"] = "not-requested"
+        return question
+
+    opportunity = (
+        app.state.repo.get_opportunity(question.opportunity_id)
+        if update.answer in {"yes", "no"}
+        else None
+    )
+    if opportunity is not None:
+        _require_paid_work_capacity()
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="eligibility_reassessment",
+            limit=app.state.config.eligibility_reassessments_per_hour,
+            window_seconds=3600,
+        )
+    else:
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="authenticated_write",
+            limit=app.state.config.authenticated_writes_per_minute,
+            window_seconds=60,
+        )
     updated = app.state.repo.answer_eligibility_question(question_id, update.answer)
     if updated is None:  # pragma: no cover - only if the row vanished mid-request
         raise HTTPException(404, not_found)
@@ -1128,7 +1242,6 @@ async def answer_eligibility_question(
         response.headers["X-Kairos-Reassessment"] = "not-requested"
         return updated
 
-    opportunity = app.state.repo.get_opportunity(question.opportunity_id)
     if opportunity is None:
         # Legacy/operator-created rows may not have a persisted source row.
         app.state.repo.mark_eligibility_reassessed(
@@ -1137,6 +1250,18 @@ async def answer_eligibility_question(
             before=datetime.now(timezone.utc),
         )
         response.headers["X-Kairos-Reassessment"] = "unavailable"
+        return updated
+
+    if updated.answer_updated_at is None:  # pragma: no cover - yes/no always stamps it
+        raise HTTPException(500, "eligibility answer timestamp was not persisted")
+    reassessment_key = (
+        f"eligibility:{question_id}:{update.answer}:"
+        f"{updated.answer_updated_at.isoformat()}"
+    )
+    existing = app.state.repo.get_job_by_key(founder_id, reassessment_key)
+    if existing is not None:
+        response.headers["X-Kairos-Reassessment"] = "queued"
+        response.headers["X-Kairos-Reassessment-Job"] = existing.job_id
         return updated
 
     lease = app.state.run_lock.acquire(
@@ -1149,7 +1274,7 @@ async def answer_eligibility_question(
 
     job = job_module.new_job(
         founder_id=founder_id,
-        idempotency_key=None,
+        idempotency_key=reassessment_key,
         source="eligibility_answer",
         use_demo_catalog=False,
         include_grants_gov=False,
@@ -1159,7 +1284,12 @@ async def answer_eligibility_question(
         app.state.repo.save_job(job)
     except Exception:
         lease.release()
-        raise
+        existing = app.state.repo.get_job_by_key(founder_id, reassessment_key)
+        if existing is None:
+            raise
+        response.headers["X-Kairos-Reassessment"] = "queued"
+        response.headers["X-Kairos-Reassessment-Job"] = existing.job_id
+        return updated
     app.state.executor.submit(job, lease)
     response.headers["X-Kairos-Reassessment"] = "queued"
     response.headers["X-Kairos-Reassessment-Job"] = job.job_id
@@ -1295,6 +1425,13 @@ def patch_inbox_item(
         scope=SCOPE_INBOX_WRITE,
         not_found=f"no inbox item {item_id}",
     )
+    _enforce_rate_limit(
+        actor,
+        item.founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
 
     updated = app.state.repo.set_inbox_state(item_id, update.state)
     if updated is None:  # pragma: no cover - it existed one line ago
@@ -1387,6 +1524,15 @@ async def trigger_run(
         if existing is not None:
             response.status_code = 200
             return existing
+
+    _require_paid_work_capacity()
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="run_trigger",
+        limit=app.state.config.manual_runs_per_hour,
+        window_seconds=3600,
+    )
 
     lease = app.state.run_lock.acquire(
         founder_id=founder_id, run_kind=job_module.RUN_KIND
@@ -1491,6 +1637,13 @@ def cancel_job(
         write=True,
         scope=SCOPE_RUN_CANCEL,
         not_found=f"no job {job_id} for {founder_id}",
+    )
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
     )
     job = app.state.repo.get_job(job_id)
     if job is None or job.founder_id != founder_id:

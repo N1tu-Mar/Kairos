@@ -7,6 +7,7 @@ copy of the founder's data. A leaked audit log should embarrass nobody.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -144,3 +145,29 @@ def test_reads_are_not_audited(audited, caplog):
     audited.get("/founders/founder_demo/runs", headers=auth())
 
     assert [r for r in caplog.records if r.name == "kairos.audit"] == []
+
+
+def test_rate_limit_rejection_is_audited_without_body_or_credential(
+    audited, caplog
+):
+    audited.app.state.config = replace(
+        audited.app.state.config, authenticated_writes_per_minute=1
+    )
+    first = profile(institution="First private institution")
+    second = profile(institution="Second private institution")
+
+    assert audited.put(
+        "/founders/founder_demo", json=json_body(first), headers=auth()
+    ).status_code == 200
+    rejected = audited.put(
+        "/founders/founder_demo", json=json_body(second), headers=auth()
+    )
+
+    assert rejected.status_code == 429
+    assert int(rejected.headers["retry-after"]) > 0
+    recorded = events(caplog, "rate_limit.rejected")
+    assert len(recorded) == 1
+    text = f"{recorded[0].getMessage()} {recorded[0].__dict__}"
+    assert TOKEN not in text
+    assert "First private institution" not in text
+    assert "Second private institution" not in text

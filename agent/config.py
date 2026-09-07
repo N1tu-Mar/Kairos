@@ -95,6 +95,13 @@ def _int(key: str, default: int) -> int:
     return int(raw) if raw else default
 
 
+def _positive_int(key: str, default: int) -> int:
+    value = _int(key, default)
+    if value <= 0:
+        raise ValueError(f"{key} must be greater than zero")
+    return value
+
+
 def _float(key: str, default: float) -> float:
     """Read a float setting. Blank means default; unparseable raises, as in `_int`."""
     raw = os.getenv(key, "").strip()
@@ -203,6 +210,13 @@ class Settings:
     #: Wall-clock ceiling on one pipeline run. The job executor cancels a
     #: run that outlives it; the lease TTL must comfortably exceed it.
     run_timeout_s: float
+
+    #: Persistent API abuse controls.  Chat is intentionally the most
+    #: generous paid endpoint because profile intake is conversational.
+    intake_turns_per_hour: int
+    manual_runs_per_hour: int
+    eligibility_reassessments_per_hour: int
+    authenticated_writes_per_minute: int
 
     grants_gov_base_url: str
     http_timeout_s: float
@@ -315,6 +329,14 @@ def settings() -> Settings:
         max_assessments=_int("KAIROS_MAX_ASSESSMENTS", 25),
         daily_usd_cap=_float("KAIROS_DAILY_USD_CAP", 3.0),
         run_timeout_s=_float("KAIROS_RUN_TIMEOUT_S", 1800.0),
+        intake_turns_per_hour=_positive_int("KAIROS_INTAKE_TURNS_PER_HOUR", 30),
+        manual_runs_per_hour=_positive_int("KAIROS_MANUAL_RUNS_PER_HOUR", 3),
+        eligibility_reassessments_per_hour=_positive_int(
+            "KAIROS_ELIGIBILITY_REASSESSMENTS_PER_HOUR", 10
+        ),
+        authenticated_writes_per_minute=_positive_int(
+            "KAIROS_AUTHENTICATED_WRITES_PER_MINUTE", 60
+        ),
         grants_gov_base_url=os.getenv(
             "GRANTS_GOV_BASE_URL", "https://api.grants.gov/v1/api"
         ).rstrip("/"),
