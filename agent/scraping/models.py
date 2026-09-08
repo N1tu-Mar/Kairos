@@ -26,7 +26,9 @@ import re
 from datetime import date, datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from agent.urls import validate_external_url
 
 #: Fields that describe who may apply. Every one of them is allowed to be
 #: UNKNOWN, and each must carry evidence when it is not.
@@ -166,6 +168,13 @@ class ScrapedOpportunity(BaseModel):
     fetch: FetchRecord
     scraped_at: datetime = Field(default_factory=_now)
     review_status: ReviewStatus = "NEEDS_HUMAN_REVIEW"
+
+    @field_validator("source_url")
+    @classmethod
+    def source_url_is_safe(cls, value: str) -> str:
+        # A placeholder candidate may truthfully have no stable page yet.
+        # Empty renders as no link; any present value must be safe.
+        return validate_external_url(value, allow_empty=True)
 
     # ── The only supported way to populate a field ────────────────────────
 

@@ -75,4 +75,15 @@ describe("EligibilityQuestionCard", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not save/i);
     expect(screen.getByText(/51% of the company/i)).toBeInTheDocument();
   });
+
+  it("does not link a legacy unsafe source value", () => {
+    render(
+      <EligibilityQuestionCard
+        question={eligibilityQuestion({ source_url: "data:text/html,unsafe" })}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: /open source/i })).toBeNull();
+    expect(screen.getByText(/source link unavailable/i)).toBeInTheDocument();
+  });
 });

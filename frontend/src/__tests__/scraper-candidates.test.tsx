@@ -85,4 +85,19 @@ describe("ScraperCandidates", () => {
       screen.getByText("No general web candidates have been written yet."),
     ).toBeInTheDocument();
   });
+
+  it("renders an unsafe legacy candidate URL as a non-clickable title", () => {
+    render(
+      <ScraperCandidates
+        groups={{
+          university: scraperCandidateGroup({
+            candidates: [scraperCandidate({ source_url: "javascript:alert(1)" })],
+          }),
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Campus Venture Prize")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Campus Venture Prize" })).toBeNull();
+  });
 });

@@ -81,7 +81,7 @@ def record(**overrides) -> FetchRecord:
 
 def test_a_field_without_evidence_cannot_be_set():
     opportunity = ScrapedOpportunity(
-        scrape_id="x", title="t", organization="o", source_url="u", fetch=record()
+        scrape_id="x", title="t", organization="o", source_url="https://u.example", fetch=record()
     )
 
     assert opportunity.set_field("award_max", 5_000, None) is False
@@ -91,7 +91,7 @@ def test_a_field_without_evidence_cannot_be_set():
 
 def test_a_none_value_marks_the_field_unknown():
     opportunity = ScrapedOpportunity(
-        scrape_id="x", title="t", organization="o", source_url="u", fetch=record()
+        scrape_id="x", title="t", organization="o", source_url="https://u.example", fetch=record()
     )
     evidence = Evidence(text="anything", source_url="u")
 
@@ -101,7 +101,7 @@ def test_a_none_value_marks_the_field_unknown():
 
 def test_setting_a_field_clears_its_unknown_flag():
     opportunity = ScrapedOpportunity(
-        scrape_id="x", title="t", organization="o", source_url="u", fetch=record()
+        scrape_id="x", title="t", organization="o", source_url="https://u.example", fetch=record()
     )
     opportunity.mark_unknown("award_max")
     opportunity.set_field("award_max", 2_000, Evidence(text="First place: $2,000", source_url="u"))

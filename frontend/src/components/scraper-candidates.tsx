@@ -5,6 +5,7 @@ import {
   formatRelative,
   titleCase,
 } from "@/lib/format";
+import { safeExternalHref } from "@/lib/safe-external-href";
 import type {
   ScraperCandidate,
   ScraperCandidateGroup,
@@ -128,6 +129,7 @@ function firstCaveat(candidate: ScraperCandidate): string | null {
  */
 function CandidateRow({ candidate }: { candidate: ScraperCandidate }) {
   const caveat = firstCaveat(candidate);
+  const sourceHref = safeExternalHref(candidate.source_url);
   return (
     <li className="px-4 py-4 sm:px-5">
       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -138,9 +140,9 @@ function CandidateRow({ candidate }: { candidate: ScraperCandidate }) {
       </div>
 
       <h3 className="font-serif text-lg leading-snug tracking-tight text-ink">
-        {candidate.source_url ? (
+        {sourceHref ? (
           <a
-            href={candidate.source_url}
+            href={sourceHref}
             target="_blank"
             rel="noopener noreferrer"
             className="hover:text-accent"

@@ -23,7 +23,9 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from agent.urls import validate_external_url
 
 # ── Vocabularies ─────────────────────────────────────────────────────────────
 
@@ -369,6 +371,11 @@ class Opportunity(Frozen):
     verified_at: datetime | None = None
     retrieved_at: datetime = Field(default_factory=_now)
 
+    @field_validator("source_url")
+    @classmethod
+    def source_url_is_safe(cls, value: str) -> str:
+        return validate_external_url(value)
+
     @property
     def best_award(self) -> int | None:
         """Highest stated award, for ranking and threshold checks."""
@@ -396,6 +403,16 @@ class EligibilityQuestion(Mutable):
     reassessment_pending: bool = False
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+    @field_validator("source_url")
+    @classmethod
+    def source_url_is_safe(cls, value: str) -> str:
+        return validate_external_url(value)
+
+    @field_validator("source_doc")
+    @classmethod
+    def source_doc_is_safe(cls, value: str) -> str:
+        return validate_external_url(value, allow_empty=True)
 
     @model_validator(mode="after")
     def align_status_with_answer(self) -> EligibilityQuestion:

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/badges";
 import { formatDate } from "@/lib/format";
+import { safeExternalHref } from "@/lib/safe-external-href";
 import type {
   EligibilityAnswerValue,
   EligibilityQuestion,
@@ -27,6 +28,7 @@ export function EligibilityQuestionCard({
   const [question, setQuestion] = useState(initial);
   const [saving, setSaving] = useState<EligibilityAnswerValue | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sourceHref = safeExternalHref(question.source_url);
 
   async function answer(value: EligibilityAnswerValue) {
     if (saving) return;
@@ -120,14 +122,18 @@ export function EligibilityQuestionCard({
             );
           })}
         </div>
-        <a
-          href={question.source_url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm text-ink-muted underline underline-offset-4 hover:text-ink"
-        >
-          Open source
-        </a>
+        {sourceHref ? (
+          <a
+            href={sourceHref}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="text-sm text-ink-muted underline underline-offset-4 hover:text-ink"
+          >
+            Open source
+          </a>
+        ) : (
+          <span className="text-sm text-ink-muted">Source link unavailable</span>
+        )}
       </div>
 
       {error ? (
