@@ -17,6 +17,13 @@ function intakeView(
       revision: 0,
       pending_message_id: null,
       fields: {},
+      memory: {
+        revision: 0,
+        provisional_summary: "",
+        confirmed_summary: "",
+        claims: {},
+        updated_at: "2026-09-01T00:00:00Z",
+      },
       created_at: "2026-09-01T00:00:00Z",
       updated_at: "2026-09-01T00:00:00Z",
       completed_at: null,

@@ -33,6 +33,7 @@ EXPECTED_TABLES = {
     "inbox",
     "intake_documents",
     "intake_messages",
+    "intake_memory_revisions",
     "intake_sessions",
     "jobs",
     "opportunities",

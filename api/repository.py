@@ -33,6 +33,7 @@ from agent.models import (
     InboxItem,
     InboxState,
     IntakeDocument,
+    IntakeMemoryRevision,
     IntakeMessage,
     IntakeSession,
     Opportunity,
@@ -250,6 +251,18 @@ class IntakeDocumentRow(SQLModel, table=True):
     payload: str = Field(sa_column=Column(Text))
 
 
+class IntakeMemoryRevisionRow(SQLModel, table=True):
+    """Append-only working-memory snapshots for correction and audit history."""
+
+    __tablename__ = "intake_memory_revisions"
+    snapshot_id: str = Field(primary_key=True)
+    session_id: str = Field(index=True)
+    founder_id: str = Field(index=True)
+    revision: int = Field(index=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
 class RateLimitRow(SQLModel, table=True):
     """One fixed-window counter without storing a user's raw subject."""
 
@@ -326,6 +339,9 @@ class Repository(Protocol):
     def get_intake_document(self, document_id: str) -> IntakeDocument | None: ...
     def list_intake_documents(self, session_id: str) -> list[IntakeDocument]: ...
     def delete_intake_document(self, document_id: str) -> bool: ...
+    def list_intake_memory_revisions(
+        self, session_id: str
+    ) -> list[IntakeMemoryRevision]: ...
 
     def take_rate_limit(
         self,
@@ -571,10 +587,38 @@ class SqliteRepository:
             payload=redact_json(intake.model_dump_json()),
         )
 
+    @staticmethod
+    def _memory_revision(intake: IntakeSession) -> IntakeMemoryRevision:
+        revision = intake.memory.revision
+        return IntakeMemoryRevision(
+            snapshot_id=f"{intake.session_id}::{revision}",
+            session_id=intake.session_id,
+            founder_id=intake.founder_id,
+            revision=revision,
+            memory=intake.memory.model_copy(deep=True),
+        )
+
+    @classmethod
+    def _record_memory_revision(cls, session: Session, intake: IntakeSession) -> None:
+        snapshot = cls._memory_revision(intake)
+        if session.get(IntakeMemoryRevisionRow, snapshot.snapshot_id) is not None:
+            return
+        session.add(
+            IntakeMemoryRevisionRow(
+                snapshot_id=snapshot.snapshot_id,
+                session_id=snapshot.session_id,
+                founder_id=snapshot.founder_id,
+                revision=snapshot.revision,
+                created_at=snapshot.created_at,
+                payload=redact_json(snapshot.model_dump_json()),
+            )
+        )
+
     def create_intake_session(self, intake: IntakeSession) -> IntakeSession:
         """Insert a session or return the active session that won a race."""
         with Session(self.engine) as session:
             session.add(self._intake_row(intake))
+            self._record_memory_revision(session, intake)
             try:
                 session.commit()
                 return intake
@@ -625,6 +669,8 @@ class SqliteRepository:
                     payload=redact_json(intake.model_dump_json()),
                 )
             )
+            if result.rowcount == 1:
+                self._record_memory_revision(session, intake)
             session.commit()
             return result.rowcount == 1
 
@@ -656,6 +702,7 @@ class SqliteRepository:
             if result.rowcount != 1:
                 session.rollback()
                 return False
+            self._record_memory_revision(session, intake)
             profile_row = session.get(ProfileRow, profile.founder_id)
             if profile_row is None:
                 profile_row = ProfileRow(founder_id=profile.founder_id, payload="")
@@ -825,6 +872,7 @@ class SqliteRepository:
             if result.rowcount != 1:
                 session.rollback()
                 return False
+            self._record_memory_revision(session, intake)
             session.add(self._message_row(assistant_message))
             try:
                 session.commit()
@@ -927,6 +975,21 @@ class SqliteRepository:
             session.delete(row)
             session.commit()
             return True
+
+    def list_intake_memory_revisions(
+        self, session_id: str
+    ) -> list[IntakeMemoryRevision]:
+        """Return append-only memory snapshots in revision order."""
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(IntakeMemoryRevisionRow)
+                .where(IntakeMemoryRevisionRow.session_id == session_id)
+                .order_by(
+                    IntakeMemoryRevisionRow.revision,
+                    IntakeMemoryRevisionRow.snapshot_id,
+                )
+            ).all()
+            return [IntakeMemoryRevision.model_validate_json(row.payload) for row in rows]
 
     # -- membership --
 

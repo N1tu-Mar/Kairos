@@ -19,7 +19,13 @@ from agent.intake import (
     update_field,
     validate_field_value,
 )
-from agent.models import IntakeEvidence, IntakeFieldState, IntakeSession
+from agent.models import (
+    IntakeEvidence,
+    IntakeFieldState,
+    IntakeKnowledgeClaim,
+    IntakeSession,
+    IntakeWorkingMemory,
+)
 from agent.subagents.intake_interviewer import IntakeInterviewResult, IntakeProposal
 from api.main import app
 from tests.factories import profile
@@ -240,6 +246,54 @@ def test_session_model_rejects_mismatched_field_keys():
             founder_id="founder_demo",
             fields={"institution": IntakeFieldState(field="major")},
         )
+
+
+def test_working_memory_rejects_a_claim_stored_under_the_wrong_key():
+    claim = IntakeKnowledgeClaim(
+        claim_id="claim_problem",
+        category="problem",
+        text="University labs lose time coordinating shared equipment.",
+        confidence=0.9,
+        evidence=[IntakeEvidence(source_type="message", source_id="message_1")],
+    )
+
+    with pytest.raises(ValueError, match="claim key"):
+        IntakeWorkingMemory(claims={"claim_wrong": claim})
+
+
+def test_repository_keeps_append_only_working_memory_revisions(tmp_path):
+    from api.repository import SqliteRepository
+
+    repo = SqliteRepository(f"sqlite:///{tmp_path}/working-memory.db")
+    intake = new_session("founder_demo", profile())
+    repo.create_intake_session(intake)
+
+    claim = IntakeKnowledgeClaim(
+        claim_id="claim_problem",
+        category="problem",
+        text="University labs lose time coordinating shared equipment.",
+        confidence=0.9,
+        evidence=[IntakeEvidence(source_type="message", source_id="message_1")],
+    )
+    changed = intake.model_copy(deep=True)
+    changed.revision = 1
+    changed.memory = IntakeWorkingMemory(
+        revision=1,
+        provisional_summary="The startup coordinates shared university lab equipment.",
+        claims={claim.claim_id: claim},
+    )
+
+    assert repo.save_intake_session(changed, expected_revision=0) is True
+    restored = repo.get_intake_session(intake.session_id)
+    snapshots = repo.list_intake_memory_revisions(intake.session_id)
+
+    assert restored is not None
+    assert restored.memory.claims[claim.claim_id].text == claim.text
+    assert [snapshot.revision for snapshot in snapshots] == [0, 1]
+    assert snapshots[0].memory.claims == {}
+    assert snapshots[1].memory.provisional_summary == (
+        "The startup coordinates shared university lab equipment."
+    )
 
 
 def _chat_result(*proposals, message="Thanks — what stage is the startup at?"):

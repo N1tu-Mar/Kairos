@@ -289,6 +289,42 @@ export interface IntakeFieldState {
   confirmed_by: string | null;
 }
 
+export type IntakeClaimCategory =
+  | "problem"
+  | "solution"
+  | "customers"
+  | "market"
+  | "business_model"
+  | "differentiation"
+  | "team"
+  | "traction"
+  | "milestones"
+  | "funding_needs";
+
+export interface IntakeKnowledgeClaim {
+  claim_id: string;
+  category: IntakeClaimCategory;
+  text: string;
+  status: "proposed" | "confirmed" | "rejected" | "superseded";
+  confidence: number;
+  evidence: IntakeEvidence[];
+  proposal_batch_id: string | null;
+  supersedes_claim_id: string | null;
+  superseded_by_claim_id: string | null;
+  created_at: string;
+  updated_at: string;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+}
+
+export interface IntakeWorkingMemory {
+  revision: number;
+  provisional_summary: string;
+  confirmed_summary: string;
+  claims: Record<string, IntakeKnowledgeClaim>;
+  updated_at: string;
+}
+
 export interface IntakeSession {
   session_id: string;
   founder_id: string;
@@ -296,6 +332,7 @@ export interface IntakeSession {
   revision: number;
   pending_message_id: string | null;
   fields: Partial<Record<IntakeFieldName, IntakeFieldState>>;
+  memory: IntakeWorkingMemory;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
