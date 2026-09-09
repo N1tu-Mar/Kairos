@@ -6,8 +6,8 @@ Section 4, so it needs to be true rather than decorative:
 
 | Sub-agent | Tier      | Temperature | Fails by            |
 |-----------|-----------|-------------|---------------------|
-| Assessor  | reasoning | 0           | judging badly       |
-| Drafter   | reasoning | >0          | inventing facts     |
+| Assessor  | classify  | 0           | judging badly       |
+| Drafter   | classify  | >0          | inventing facts     |
 | Auditor   | reasoning | 0           | missing an invention|
 
 Temperature discipline (Section 9, rule 10): everything runs at 0 except the
@@ -34,6 +34,7 @@ from strands import Agent
 from strands.models import BedrockModel
 
 from agent.config import ModelTier, settings
+from agent.model_routing import ModelRole, route_for
 from agent.prompting import Prompt, load_prompt
 
 
@@ -47,13 +48,25 @@ def build_model(tier: ModelTier, temperature: float | None = None) -> BedrockMod
     )
 
 
+def build_routed_model(role: ModelRole) -> BedrockModel:
+    """Build the exact configured model assigned to an agent role."""
+    route = route_for(role)
+    if route.tier == "deterministic":
+        raise ValueError(f"{role} is deterministic and has no model")
+    tier = ModelTier(
+        model_id=route.model_id,
+        temperature=route.temperature,
+        max_tokens=route.max_tokens,
+    )
+    return build_model(tier)
+
+
 def build_subagent(
     *,
     name: str,
     prompt_name: str,
     description: str,
-    tier: ModelTier,
-    temperature: float | None = None,
+    role: ModelRole,
 ) -> tuple[Agent, Prompt]:
     """Construct a sub-agent and return it with the prompt that defines it.
 
@@ -63,7 +76,7 @@ def build_subagent(
     """
     prompt = load_prompt(prompt_name)
     agent = Agent(
-        model=build_model(tier, temperature),
+        model=build_routed_model(role),
         system_prompt=prompt.text,
         name=name,
         description=description,

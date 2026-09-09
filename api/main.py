@@ -1256,6 +1256,7 @@ async def send_intake_message(
         text=concise_reply(result.assistant_message),
         client_message_id=f"reply:{turn.client_message_id}",
         in_reply_to=message.message_id,
+        model_call=getattr(result, "_model_call", None),
         created_at=now,
     )
     if not app.state.repo.finish_intake_turn(

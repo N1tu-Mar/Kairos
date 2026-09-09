@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from agent.config import settings
+from agent.model_routing import call_receipt, route_for, usage_snapshot
 from agent.models import AuditReport, Draft, FieldAudit, KnowledgeBase
 from agent.prompting import structured_call
 from agent.subagents.base import build_subagent
@@ -52,7 +52,7 @@ def build() -> tuple:
         name="auditor",
         prompt_name="auditor",
         description=DESCRIPTION,
-        tier=settings().reasoning,
+        role="draft_auditor",
     )
 
 
@@ -103,10 +103,11 @@ async def audit_draft(
     if not audited:
         return AuditReport(
             draft_id=draft.draft_id,
-            model_id=settings().reasoning.model_id,
             prompt_version=prompt_version,
         )
 
+    route = route_for("draft_auditor")
+    before = usage_snapshot(budget)
     proposal = await structured_call(
         agent,
         ProposedAudit,
@@ -114,7 +115,7 @@ async def audit_draft(
         agent_name="auditor",
         # D7: the Auditor runs on the reasoning tier, not the cheap one.
         budget=budget,
-        tier="reasoning",
+        tier=route.tier,
     )
 
     by_field = {a.field_id: a for a in proposal.fields}
@@ -145,6 +146,7 @@ async def audit_draft(
     return AuditReport(
         draft_id=draft.draft_id,
         fields=verdicts,
-        model_id=settings().reasoning.model_id,
+        model_id=route.model_id,
         prompt_version=prompt_version,
+        model_call=call_receipt("draft_auditor", prompt_version, before, budget),
     )

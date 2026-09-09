@@ -139,6 +139,10 @@ async def test_a_valid_citation_becomes_a_real_source_span():
     assert field.provenance[0].chunk_id == "c0"
     assert field.provenance[0].source == "pitch_deck.pdf p.1"
     assert field.prompt_version == "promptv1"
+    assert field.model_call is not None
+    assert field.model_call.role == "application_drafter"
+    assert field.model_call.tier == "classify"
+    assert field.model_call.total_tokens == 150
 
 
 # ── Fields the model invents or forgets ─────────────────────────────────────
@@ -259,6 +263,9 @@ async def test_supported_without_a_quote_is_downgraded():
 
     assert report.fields[0].verdict == "UNVERIFIABLE"
     assert "quoted no supporting span" in report.fields[0].note
+    assert report.model_call is not None
+    assert report.model_call.role == "draft_auditor"
+    assert report.model_call.tier == "reasoning"
 
 
 async def test_a_field_the_auditor_skipped_is_not_a_pass():

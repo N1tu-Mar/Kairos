@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from agent.budget import RunBudget
 from agent.config import settings
 from agent.intake import missing_required
-from agent.models import IntakeDocument, IntakeMessage, IntakeSession
+from agent.model_routing import call_receipt, route_for, usage_snapshot
+from agent.models import IntakeDocument, IntakeMessage, IntakeSession, ModelCallReceipt
 from agent.prompting import structured_call
 from agent.sanitize import clean, wrap_untrusted
 from agent.subagents.base import build_subagent
@@ -62,6 +63,7 @@ class IntakeInterviewResult(BaseModel):
     working_summary: str = Field(default="", max_length=4_000)
     missing_fields: list[str] = Field(default_factory=list, max_length=30)
     next_topic: str | None = Field(default=None, max_length=100)
+    _model_call: ModelCallReceipt | None = PrivateAttr(default=None)
 
 
 def build() -> tuple:
@@ -70,8 +72,7 @@ def build() -> tuple:
         name="intake-interviewer",
         prompt_name="intake_interviewer",
         description=DESCRIPTION,
-        tier=settings().reasoning,
-        temperature=0.0,
+        role="intake_interviewer",
     )
 
 
@@ -148,13 +149,18 @@ async def interview(
     budget.max_run_tokens = min(budget.max_run_tokens, MAX_TURN_TOKENS)
     budget.require_enforceable_spend_cap()
     agent, _prompt = build()
+    route = route_for("intake_interviewer")
+    before = usage_snapshot(budget)
     result = await structured_call(
         agent,
         IntakeInterviewResult,
         _context(session, messages, documents),
         agent_name="intake-interviewer",
         budget=budget,
-        tier="reasoning",
+        tier=route.tier,
     )
     result.assistant_message = concise_reply(result.assistant_message)
+    result._model_call = call_receipt(
+        "intake_interviewer", _prompt.version, before, budget
+    )
     return result

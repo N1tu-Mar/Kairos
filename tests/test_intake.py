@@ -29,6 +29,7 @@ from agent.models import (
     IntakeKnowledgeClaim,
     IntakeSession,
     IntakeWorkingMemory,
+    ModelCallReceipt,
 )
 from agent.subagents.intake_interviewer import (
     IntakeClaimProposal,
@@ -332,9 +333,7 @@ def test_interviewer_uses_existing_reasoning_model_configuration(monkeypatch):
     monkeypatch.setattr(intake_interviewer, "build_subagent", fake_build_subagent)
     intake_interviewer.build()
 
-    assert captured["tier"] is config.settings().reasoning
-    assert captured["tier"].model_id == "[DEMO]reasoning-model"
-    assert captured["temperature"] == 0.0
+    assert captured["role"] == "intake_interviewer"
 
 
 def test_model_candidates_are_validated_and_never_overwrite_confirmed_facts():
@@ -587,7 +586,7 @@ def test_unambiguous_chat_confirmation_updates_memory_without_a_second_model_cal
         calls += 1
         founder_message = messages[-1]
         source_id = founder_message.message_id
-        return _chat_result(
+        result = _chat_result(
             IntakeProposal(
                 field="startup_description",
                 value="A platform for coordinating shared laboratory equipment.",
@@ -604,6 +603,17 @@ def test_unambiguous_chat_confirmation_updates_memory_without_a_second_model_cal
             ],
             summary="The startup coordinates shared university lab equipment.",
         )
+        result._model_call = ModelCallReceipt(
+            role="intake_interviewer",
+            tier="reasoning",
+            model_id="[DEMO]reasoning-model",
+            prompt_version="prompt-intake-v1",
+            input_tokens=100,
+            output_tokens=50,
+            total_tokens=150,
+            usd_estimate=0,
+        )
+        return result
 
     app.state.intake_interviewer = fake_interviewer
     created = client.post("/founders/founder_demo/intake/sessions").json()
@@ -616,6 +626,11 @@ def test_unambiguous_chat_confirmation_updates_memory_without_a_second_model_cal
             "expected_revision": created["session"]["revision"],
         },
     ).json()
+    receipt = proposed["messages"][1]["model_call"]
+    assert receipt["role"] == "intake_interviewer"
+    assert receipt["tier"] == "reasoning"
+    assert receipt["model_id"] == "[DEMO]reasoning-model"
+    assert receipt["total_tokens"] == 150
 
     confirmed = client.post(
         f"/founders/founder_demo/intake/sessions/{session_id}/messages",

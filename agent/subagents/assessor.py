@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from agent.config import settings
 from agent.guardrails import days_until
+from agent.model_routing import call_receipt, route_for, usage_snapshot
 from agent.models import Assessment, EligibilityResult, FounderProfile, Opportunity
 from agent.prompting import structured_call
 from agent.sanitize import wrap_untrusted
@@ -26,7 +26,7 @@ DESCRIPTION = (
 def build() -> tuple:
     """Construct the Assessor agent and its prompt version.
 
-    Runs on the reasoning tier at that tier's temperature — 0. Judgment is
+    Runs on the classify tier at temperature zero. Judgment is
     meant to be reproducible for the same inputs; only the Drafter's prose
     goes above zero.
 
@@ -37,7 +37,7 @@ def build() -> tuple:
         name="assessor",
         prompt_name="assessor",
         description=DESCRIPTION,
-        tier=settings().reasoning,
+        role="opportunity_assessor",
     )
 
 
@@ -132,17 +132,22 @@ async def assess(
     budget,
 ) -> Assessment:
     """Run one assessment. Raises `Abstention` if it cannot produce valid output."""
+    route = route_for("opportunity_assessor")
+    before = usage_snapshot(budget)
     assessment = await structured_call(
         agent,
         Assessment,
         render_context(opportunity, profile, eligibility, today),
         agent_name="assessor",
         budget=budget,
-        tier="reasoning",
+        tier=route.tier,
     )
     # Stamped by us, not by the model — a model that can write its own
     # receipt can write a false one.
     assessment.opportunity_id = opportunity.id
-    assessment.model_id = settings().reasoning.model_id
+    assessment.model_id = route.model_id
     assessment.prompt_version = prompt_version
+    assessment.model_call = call_receipt(
+        "opportunity_assessor", prompt_version, before, budget
+    )
     return assessment

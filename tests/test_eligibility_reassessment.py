@@ -380,14 +380,14 @@ async def test_targeted_job_loads_and_reassesses_only_its_persisted_row(
 @pytest.mark.asyncio
 async def test_bedrock_classifier_requires_all_three_safety_flags(monkeypatch):
     run_budget = budget()
-    agent = FakeAgent(
-        EquivalenceDecision(
-            equivalent=True,
-            same_polarity=True,
-            compatible_constraints=False,
-        )
+    decision = EquivalenceDecision(
+        equivalent=True,
+        same_polarity=True,
+        compatible_constraints=False,
     )
-    monkeypatch.setattr(eligibility_reuse, "build", lambda: (agent, object()))
+    agent = FakeAgent(decision)
+    prompt = type("Prompt", (), {"version": "eligibility-v1"})()
+    monkeypatch.setattr(eligibility_reuse, "build", lambda: (agent, prompt))
 
     matched = await eligibility_reuse.equivalent(
         "At least 51 percent resident owned",
@@ -397,3 +397,6 @@ async def test_bedrock_classifier_requires_all_three_safety_flags(monkeypatch):
 
     assert matched is False
     assert run_budget.usage.total_tokens == 150
+    assert decision._model_call is not None
+    assert decision._model_call.role == "eligibility_equivalence"
+    assert decision._model_call.tier == "classify"

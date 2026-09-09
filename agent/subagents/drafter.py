@@ -27,8 +27,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from agent.config import settings
 from agent.guardrails import MIN_KB_CHUNKS, blocklisted
+from agent.model_routing import call_receipt, route_for, usage_snapshot
 from agent.models import (
     ApplicationForm,
     Draft,
@@ -93,8 +93,7 @@ def build() -> tuple:
         name="drafter",
         prompt_name="drafter",
         description=DESCRIPTION,
-        tier=settings().reasoning,
-        temperature=settings().drafting_temperature,
+        role="application_drafter",
     )
 
 
@@ -254,14 +253,17 @@ async def draft_application(
             askable.add(spec.field_id)
 
     if askable:
+        route = route_for("application_drafter")
+        before = usage_snapshot(budget)
         proposal = await structured_call(
             agent,
             DraftProposal,
             render_context(form, opportunity, profile, kb, askable),
             agent_name="drafter",
             budget=budget,
-            tier="reasoning",
+            tier=route.tier,
         )
+        receipt = call_receipt("application_drafter", prompt_version, before, budget)
         by_spec = {f.field_id: f for f in form.fields}
 
         for proposed in proposal.fields:
@@ -298,8 +300,9 @@ async def draft_application(
                     answer=proposed.answer,
                     status=proposed.status,
                     provenance=spans,
-                    model_id=settings().reasoning.model_id,
+                    model_id=route.model_id,
                     prompt_version=prompt_version,
+                    model_call=receipt,
                     audit_note=proposed.needs_reason,
                 )
             )

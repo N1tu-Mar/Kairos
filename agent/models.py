@@ -25,6 +25,7 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from agent.model_routing import ModelRole, ModelTierName, ROLE_ROUTES
 from agent.urls import validate_external_url
 
 # ── Vocabularies ─────────────────────────────────────────────────────────────
@@ -109,6 +110,29 @@ class Mutable(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
+
+
+class ModelCallReceipt(Frozen):
+    """Server-stamped identity and usage for one logical model operation."""
+
+    role: ModelRole
+    tier: ModelTierName
+    model_id: str = Field(min_length=1, max_length=500)
+    prompt_version: str = Field(min_length=1, max_length=200)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    usd_estimate: float = Field(ge=0.0)
+
+    @model_validator(mode="after")
+    def tokens_add_up(self) -> ModelCallReceipt:
+        if self.total_tokens != self.input_tokens + self.output_tokens:
+            raise ValueError("model-call token totals must equal input plus output")
+        if self.tier == "deterministic":
+            raise ValueError("a deterministic role cannot carry a model-call receipt")
+        if ROLE_ROUTES[self.role].tier != self.tier:
+            raise ValueError("model-call tier does not match the registered role")
+        return self
 
 
 # ── Provenance primitives ────────────────────────────────────────────────────
@@ -381,6 +405,7 @@ class IntakeMessage(Frozen):
     text: str = Field(min_length=1, max_length=8_000)
     client_message_id: str | None = Field(default=None, min_length=1, max_length=200)
     in_reply_to: str | None = Field(default=None, min_length=1, max_length=200)
+    model_call: ModelCallReceipt | None = None
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -583,6 +608,7 @@ class Assessment(Mutable):
     opportunity_id: str = ""
     model_id: str = ""
     prompt_version: str = ""
+    model_call: ModelCallReceipt | None = None
     created_at: datetime = Field(default_factory=_now)
 
 
@@ -658,6 +684,7 @@ class DraftField(Mutable):
     model_id: str = ""
     #: Git blob hash of the prompt .md that produced it.
     prompt_version: str = ""
+    model_call: ModelCallReceipt | None = None
     audit_verdict: AuditVerdict | None = None
     audit_note: str = ""
     #: Set when the answer was lifted from a previous application (recall).
@@ -742,6 +769,7 @@ class AuditReport(Mutable):
     fields: list[FieldAudit] = Field(default_factory=list)
     model_id: str = ""
     prompt_version: str = ""
+    model_call: ModelCallReceipt | None = None
     created_at: datetime = Field(default_factory=_now)
 
     @property

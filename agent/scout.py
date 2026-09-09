@@ -111,12 +111,11 @@ def build_scout_agent(ctx: RunContext, sources: list[Source]):
     """
     from strands import Agent
 
-    from agent.config import settings
-    from agent.subagents.base import build_model
+    from agent.subagents.base import build_routed_model
 
     prompt = load_prompt("scout")
     return Agent(
-        model=build_model(settings().reasoning),
+        model=build_routed_model("interactive_scout"),
         system_prompt=prompt.text,
         tools=build_toolset(ctx, sources),
         name="scout",
