@@ -366,10 +366,25 @@ export interface IntakeDocument {
   filename: string;
   media_type: string;
   byte_size: number;
+  slot: number | null;
   status: "processing" | "ready" | "rejected";
-  chunks: unknown[];
+  chunks: IntakeDocumentChunk[];
   error: string | null;
   created_at: string;
+}
+
+export interface IntakeDocumentChunk {
+  chunk_id: string;
+  location: string;
+  text: string;
+  truncated: boolean;
+}
+
+export interface IntakeEvidenceView {
+  source_type: "message" | "document";
+  source_id: string;
+  location: string | null;
+  excerpt: string;
 }
 
 export interface IntakeSessionView {
@@ -385,6 +400,21 @@ export interface IntakeMessageCreate {
   text: string;
   client_message_id: string;
   expected_revision: number;
+}
+
+export interface IntakeFactUpdate {
+  action: "confirm" | "correct" | "reject";
+  expected_revision: number;
+  value?: unknown;
+  client_action_id?: string;
+}
+
+export interface IntakeClaimUpdate {
+  action: "confirm" | "correct" | "reject";
+  expected_revision: number;
+  text?: string;
+  category?: IntakeClaimCategory;
+  client_action_id: string;
 }
 
 // ── Run report ───────────────────────────────────────────────────────────────
