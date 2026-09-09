@@ -135,6 +135,8 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
             )
 
         ctx.assessments[opportunity_id] = assessment
+        if assessment.model_call is not None:
+            ctx.report.model_calls.append(assessment.model_call)
         ctx.report.judged = len(ctx.assessments)
         return (
             f"{opportunity_id}: {assessment.verdict} "
@@ -195,6 +197,9 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
                     budget=ctx.budget,
                     agent_factory=ctx.agents.field_mapper_for_call,
                 )
+                mapping_call = field_resolutions[spec.field_id].model_call
+                if mapping_call is not None:
+                    ctx.report.model_calls.append(mapping_call)
             except Abstention as exc:
                 field_resolutions[spec.field_id] = FieldResolution(
                     field_id=spec.field_id,
@@ -222,6 +227,12 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
             recalled=recalled,
             field_resolutions=field_resolutions,
         )
+        drafting_call = next(
+            (field.model_call for field in draft.fields if field.model_call is not None),
+            None,
+        )
+        if drafting_call is not None:
+            ctx.report.model_calls.append(drafting_call)
 
         audit = await audit_draft(
             ctx.agents.auditor,
@@ -230,6 +241,8 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
             ctx.kb,
             budget=ctx.budget,
         )
+        if audit.model_call is not None:
+            ctx.report.model_calls.append(audit.model_call)
 
         gate = guardrails.ship_gate(
             draft,

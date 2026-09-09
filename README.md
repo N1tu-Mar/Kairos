@@ -55,12 +55,12 @@ in a week that already has a problem set due.
 | Measurement | A 20-program discovery-recall benchmark with hand-authored ground truth and 6 deliberate negatives: **85.7% retrieval recall, 83.3% eligibility coverage at 100% precision, 0 wrong deadlines.** Separate from the drafting golden set. |
 | Application forms | Three real forms transcribed with verbatim labels, source URLs and retrieval dates; two are marked `complete: false` because their pages publish only part of the application. Protected certification, disclosure and terms fields are proven unfillable by test. |
 | Freshness | `scripts/reverify.py` refetches stale rows and writes a review diff. It never edits a curated fact — dead, redirected, expired and evidence-lost rows are reported for a person. |
-| Decision loop | Deterministic eligibility filtering, founder clarification with exact answer reuse and opt-in capped semantic reuse, Assessor/Drafter/Auditor sub-agents, value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
-| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. A founder arriving with no profile is onboarded by a **scripted, model-free intake chat**: every question is asked and every answer parsed by ordinary code, and prose lands in `knowledge_base` as a tagged chunk rather than in an eligibility field. Behind it, `agent/intake.py` is a persisted, provider-free state machine — field states, evidence and messages behind `/founders/{id}/intake/sessions`, where a model may propose a value but only deterministic code confirms one. The dashboard's chat does not call it yet; it still writes the profile in a single `PUT`. |
+| Decision loop | Deterministic eligibility filtering; Haiku-tier eligibility equivalence, opportunity assessment, semantic field mapping and first-pass drafting; Sonnet-tier intake and independent final auditing; value-per-hour escalation, top-three surfacing, idempotency, token/assessment/daily-spend caps and a fail-closed ship gate. |
+| Product surfaces | SQLite persistence behind versioned migrations, a FastAPI API with per-founder authorization, and a Next.js dashboard for briefings, inbox state, "Needs You" eligibility questions, runs, drafts and profile editing. A founder arriving with no profile enters a persistent conversational intake workspace with bounded PDF/PPTX/TXT/Markdown uploads. Sonnet proposes structured facts, narrative claims and a refreshed provisional summary after each accepted turn; only explicit founder confirmation promotes them into `FounderProfile`, its provenance-bearing knowledge base and a deterministic confirmed summary. Proposed memory remains isolated from discovery, eligibility, assessment and drafting. |
 | Access | Three authenticators behind one seam. A shared `KAIROS_API_TOKEN` grants the single seeded founder and nothing more; a SHA-256-hashed credential file maps tokens to subjects and founder sets, re-read on mtime change so rotation needs no restart; **Supabase JWTs** (JWKS by default, `kid`-selected, issuer-checked) are the only one that identifies a person, with authorization still read from the `founder_members` table rather than any claim in the token. An unconfigured API fails closed — every request 401s unless `KAIROS_ALLOW_OPEN_API` is deliberately set. On the dashboard side, Next middleware refreshes the session and redirects to `/login`, closing a hole where the credential-holding proxy would answer anonymous callers. |
 | Run execution | A run is a durable job, not a held-open connection: `POST /founders/{id}/runs` returns 202 with a job id and the dashboard polls. Definite eligibility answers queue a one-opportunity reassessment. A run lease keyed by founder makes overlapping runs impossible; a busy lease safely defers the saved answer. |
 | Operations | A Docker image running as a non-root user, versioned Alembic migrations, a preflight check, GitHub Actions CI, and Terraform for ALB + one-task ECS Fargate + EFS + EventBridge Scheduler with alarms and a dead-letter queue. **The Terraform is unapplied and has never been planned.** |
-| Verification | 1,082 Python tests pass with no expected failures remaining; 116 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-09-02. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
+| Verification | 1,204 Python tests pass with no expected failures remaining; 214 frontend tests, TypeScript checking, ESLint and the production build pass locally as of 2026-09-09. The published golden-set result is fixture-based, not a live-model score, and the offline suite does not call Bedrock. |
 
 The research scraper and the Scout runtime are deliberately separate. A
 scraped row cannot become a recommendation merely because a parser found it:
@@ -230,9 +230,10 @@ npm run dev
 There is no migration step locally. Outside `KAIROS_ENV=production` the API
 creates its SQLite schema on first boot and seeds `founder_demo` from
 `data/demo_founder.json`, so the dashboard has a founder to read the moment it
-loads. A profile that is empty opens on a scripted intake chat — model-free,
-keyless, every answer parsed by ordinary code — which writes the facts a run
-needs.
+loads. A profile that is empty opens the persistent intake workspace. Chat
+turns require the backend reasoning model; document parsing and every
+confirmation/edit/rejection rule remain deterministic. A model proposal does
+not become downstream memory until the founder confirms it.
 
 To put decisions on the dashboard, either press **Run Kairos now** with *Use
 the demo catalog* checked, or run the offline pipeline against the same
@@ -380,6 +381,15 @@ Paste the Sonnet-class ID into `BEDROCK_MODEL_REASONING` and the Haiku-class
 one into `BEDROCK_MODEL_CLASSIFY`. If an invoke returns a
 `ValidationException` about on-demand throughput, the model needs an inference
 profile — run `aws bedrock list-inference-profiles` and use that ID instead.
+
+There is no Anthropic API key in this design. The backend calls Bedrock with
+its AWS credential chain locally and its IAM task/service role when deployed;
+the browser and Vercel frontend receive neither AWS credentials nor model IDs.
+The routing is explicit: intake and final draft auditing use `reasoning`, while
+eligibility equivalence, field mapping, opportunity assessment, first-pass
+drafting and interactive Scout use `classify`. Scheduled orchestration is
+ordinary Python. Every successful model call stores a server-stamped role,
+tier, actual model ID, prompt hash, token count and estimated cost receipt.
 
 Before anything else that costs money, prove the IDs resolve in your region
 and that token accounting is wired to the wallet:

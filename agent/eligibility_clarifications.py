@@ -177,10 +177,17 @@ def _apply_answer(
     )
 
 
-async def _default_classifier(left: str, right: str, budget: object) -> bool:
+async def _default_classifier(
+    left: str, right: str, budget: object, *, on_model_call=None
+) -> bool:
     from agent.subagents.eligibility_reuse import equivalent
 
-    return await equivalent(left, right, budget=budget)
+    return await equivalent(
+        left,
+        right,
+        budget=budget,
+        on_model_call=on_model_call,
+    )
 
 
 async def resolve_founder_answers(
@@ -189,7 +196,16 @@ async def resolve_founder_answers(
     semantic_classifier: SemanticClassifier | None = None,
 ) -> ReuseStats:
     """Apply definite stored answers and retain unresolved questions for later."""
-    classifier = semantic_classifier or _default_classifier
+    if semantic_classifier is None:
+        async def classifier(left: str, right: str, budget: object) -> bool:
+            return await _default_classifier(
+                left,
+                right,
+                budget,
+                on_model_call=ctx.report.model_calls.append,
+            )
+    else:
+        classifier = semantic_classifier
     all_stored = ctx.repo.list_eligibility_questions(ctx.profile.founder_id, "all")
     by_id = {question.question_id: question for question in all_stored}
     answered = [question for question in all_stored if question.answer in {"yes", "no"}]

@@ -81,7 +81,7 @@ flowchart TD
     FILTER -->|INELIGIBLE| REJLOG["rejection log<br/><i>with the exact check that fired</i>"]
     FILTER -->|ELIGIBLE / UNKNOWN| ASSESS
 
-    ASSESS["<b>Assessor</b> — sub-agent<br/>APPLY / MAYBE / SKIP / INSUFFICIENT_INFO<br/><i>reasoning tier, temperature 0</i>"]
+    ASSESS["<b>Assessor</b> — sub-agent<br/>APPLY / MAYBE / SKIP / INSUFFICIENT_INFO<br/><i>classify tier, temperature 0</i>"]
 
     ASSESS -->|SKIP| SKIPLOG["skip log<br/><i>never shown, always recorded</i>"]
     ASSESS -->|APPLY / MAYBE| POLICY
@@ -92,7 +92,7 @@ flowchart TD
     POLICY -->|top 3| DRAFT
     POLICY -->|overflow| PASSIVE["passive 'also found' list<br/><i>no notification</i>"]
 
-    DRAFT["<b>Drafter</b> — sub-agent<br/>KNOWN / REUSED / GENERATED / NEEDS_FOUNDER<br/><i>the only call above temperature 0</i>"]
+    DRAFT["<b>Field mapper + Drafter</b><br/>bounded confirmed evidence per field<br/><i>classify tier; only drafting may exceed temperature 0</i>"]
     DRAFT --> AUDIT
     AUDIT["<b>Auditor</b> — sub-agent<br/>fresh context: draft + KB only<br/>SUPPORTED / UNSUPPORTED / UNVERIFIABLE"]
 
@@ -179,14 +179,27 @@ founder-scoped route. A model cannot argue with an index.
 
 ## Sub-agents
 
-Three agents, three different failure modes. This is why they are separate
-rather than one agent with a longer prompt.
+Each role gets a separate context and an explicit model tier. This is why they
+are separate rather than one agent with a longer prompt.
 
 | Sub-agent | Model tier | Temperature | Sees | Fails by |
 |---|---|---|---|---|
-| Assessor | reasoning | 0 | one opportunity, the profile, the filter's structured output | judging fit badly |
-| Drafter | reasoning | > 0 | the form, the knowledge base, the opportunity | inventing facts |
-| Auditor | reasoning | 0 | the finished draft and the knowledge base — **nothing else** | missing an invention |
+| Intake interviewer/extractor | reasoning | 0 | transcript, current proposal state and bounded document evidence | proposing an incorrect fact; it cannot confirm one |
+| Eligibility equivalence | classify | 0 | two bounded requirements | reusing an answer across different constraints |
+| Opportunity assessor | classify | 0 | one opportunity, confirmed profile/summary and filter output | judging fit badly |
+| Application field mapper | classify | 0 | one field and at most five confirmed chunks | selecting related but non-answering evidence |
+| Drafter | classify | configurable | one form and only the evidence approved per field | inventing facts |
+| Auditor | reasoning | 0 | the finished draft and authoritative confirmed evidence — **nothing else** | missing an invention |
+
+The founder profile is the downstream trust boundary. Sonnet refreshes
+provisional working memory after an accepted intake turn, but the raw
+transcript, uploads, provisional summary and proposed facts remain in the
+intake session. Deterministic confirmation code promotes only the displayed
+proposal revision. Discovery then maps confirmed text into at most four
+server-owned topic categories; arbitrary founder or model text never becomes
+a URL or search query. Every run stores one server-stamped model-call receipt
+per invocation so token and estimated-dollar usage can be grouped by role,
+tier, model ID and prompt hash without retaining prompts or reasoning.
 
 The Auditor's isolation is the point. It never sees the Drafter's prompt, its
 reasoning, or its provenance claims, because an auditor that inherits the

@@ -941,6 +941,10 @@ class RunReport(Mutable):
     rejections: list[Rejection] = Field(default_factory=list)
     skips: list[SkipRecord] = Field(default_factory=list)
     usage: TokenUsage = Field(default_factory=TokenUsage)
+    #: One server-stamped receipt per model invocation, in invocation order.
+    #: This is deliberately bounded independently of the token cap so a bad
+    #: loop cannot make the report itself an unbounded persistence payload.
+    model_calls: list[ModelCallReceipt] = Field(default_factory=list, max_length=1_000)
     #: Set when a cap fired or a dependency died. A halted run surfaces
     #: nothing and says so.
     halted_reason: str | None = None

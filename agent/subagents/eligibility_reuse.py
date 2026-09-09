@@ -28,7 +28,7 @@ def build() -> tuple:
     )
 
 
-async def equivalent(left: str, right: str, *, budget) -> bool:
+async def equivalent(left: str, right: str, *, budget, on_model_call=None) -> bool:
     """Return true only when the classifier confirms every safety dimension."""
     agent, prompt = build()
     route = route_for("eligibility_equivalence")
@@ -45,6 +45,8 @@ async def equivalent(left: str, right: str, *, budget) -> bool:
     decision._model_call = call_receipt(
         "eligibility_equivalence", prompt.version, before, budget
     )
+    if on_model_call is not None:
+        on_model_call(decision._model_call)
     return (
         decision.equivalent
         and decision.same_polarity

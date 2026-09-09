@@ -400,3 +400,28 @@ async def test_bedrock_classifier_requires_all_three_safety_flags(monkeypatch):
     assert decision._model_call is not None
     assert decision._model_call.role == "eligibility_equivalence"
     assert decision._model_call.tier == "classify"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_classifier_reports_its_server_stamped_receipt(monkeypatch):
+    run_budget = budget()
+    decision = EquivalenceDecision(
+        equivalent=True,
+        same_polarity=True,
+        compatible_constraints=True,
+    )
+    agent = FakeAgent(decision)
+    prompt = type("Prompt", (), {"version": "eligibility-v1"})()
+    monkeypatch.setattr(eligibility_reuse, "build", lambda: (agent, prompt))
+    receipts = []
+
+    assert await eligibility_reuse.equivalent(
+        "US residents",
+        "US residents",
+        budget=run_budget,
+        on_model_call=receipts.append,
+    )
+
+    assert len(receipts) == 1
+    assert receipts[0].role == "eligibility_equivalence"
+    assert receipts[0].total_tokens == 150

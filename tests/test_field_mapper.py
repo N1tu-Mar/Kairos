@@ -354,3 +354,9 @@ async def test_runtime_pipeline_maps_then_drafts_only_from_selected_memory(tmp_p
     assert drafted.mapping_call.role == "application_field_mapper"
     assert drafted.provenance[0].chunk_id == "confirmed-problem"
     assert "unrelated-traction" not in drafter.prompts[0]
+    assert [receipt.role for receipt in ctx.report.model_calls] == [
+        "application_field_mapper",
+        "application_drafter",
+        "draft_auditor",
+    ]
+    assert sum(receipt.total_tokens for receipt in ctx.report.model_calls) == 450

@@ -596,7 +596,56 @@ re-resolving next to a macOS-populated tree reproduces the macOS answer.
 
 ---
 
-## 14. What has never been verified
+## 14. Model routing, intake memory and cost attribution
+
+**LOCAL** for routing and persistence tests. **WRITTEN** for live Bedrock.
+
+The deployment has two model settings and no Anthropic API key:
+
+```bash
+BEDROCK_MODEL_REASONING=<Sonnet inference-profile-or-model-id>
+BEDROCK_MODEL_CLASSIFY=<Haiku inference-profile-or-model-id>
+```
+
+The backend alone reads them. Local calls use the AWS SDK credential chain;
+a deployed backend should use a least-privilege IAM role with
+`bedrock:InvokeModel` limited to the configured model/inference-profile ARNs.
+Do not add either model setting or any AWS credential to `NEXT_PUBLIC_*` or a
+browser request. A Vercel frontend is not the backend: its server proxies still
+need a separately reachable FastAPI deployment.
+
+Expected routing:
+
+| Role | Tier |
+|---|---|
+| Intake interview/extraction and final draft audit | reasoning |
+| Eligibility equivalence, field mapping, assessment, first draft, interactive Scout | classify |
+| Scheduled orchestration, confirmation, eligibility, spend and ship gates | deterministic Python |
+
+Intake assistant messages store their own receipt. Scheduled/manual run
+responses expose `model_calls`, one receipt per invocation, alongside aggregate
+`usage`. Receipts contain role, tier, actual model ID, prompt hash, input/output
+tokens and estimated dollars—never chat text, document text, prompts, model
+reasoning or credentials. To see a run's attribution:
+
+```bash
+curl -fsS -H "Authorization: Bearer $TOKEN" \
+  "$BASE/founders/<founder_id>/runs/<run_id>" \
+  | jq '.model_calls | group_by(.role) | map({role: .[0].role, calls: length, tokens: map(.total_tokens) | add, usd: map(.usd_estimate) | add})'
+```
+
+If the sum of receipts differs from aggregate usage, stop the release and find
+the unstamped model path. If `usd_estimate` is zero in production, configure
+the `KAIROS_PRICE_*` values before relying on the daily dollar cap.
+
+Only `FounderProfile.memory_summary`, confirmed structured fields and
+provenance-bearing confirmed knowledge chunks may enter discovery, assessment,
+mapping, drafting or auditing. Debugging an intake issue does not justify
+copying raw transcript/document text into logs.
+
+---
+
+## 15. What has never been verified
 
 Repeating this because it is the most important thing on the page.
 
