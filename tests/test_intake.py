@@ -10,12 +10,16 @@ from fastapi.testclient import TestClient
 
 from agent import config
 from agent.intake import (
+    IntakeConflict,
     IntakeIncomplete,
+    apply_interview_memory,
     apply_model_proposals,
+    confirm_proposal_batch,
     is_complete,
     missing_required,
     new_session,
     profile_from_session,
+    update_claim,
     update_field,
     validate_field_value,
 )
@@ -26,7 +30,11 @@ from agent.models import (
     IntakeSession,
     IntakeWorkingMemory,
 )
-from agent.subagents.intake_interviewer import IntakeInterviewResult, IntakeProposal
+from agent.subagents.intake_interviewer import (
+    IntakeClaimProposal,
+    IntakeInterviewResult,
+    IntakeProposal,
+)
 from api.main import app
 from tests.factories import profile
 
@@ -296,10 +304,17 @@ def test_repository_keeps_append_only_working_memory_revisions(tmp_path):
     )
 
 
-def _chat_result(*proposals, message="Thanks — what stage is the startup at?"):
+def _chat_result(
+    *proposals,
+    message="Thanks — what stage is the startup at?",
+    claims=(),
+    summary="",
+):
     return IntakeInterviewResult(
         assistant_message=message,
         proposals=list(proposals),
+        claim_proposals=list(claims),
+        working_summary=summary,
         missing_fields=["startup_description"],
         next_topic="stage",
     )
@@ -362,6 +377,160 @@ def test_model_candidates_are_validated_and_never_overwrite_confirmed_facts():
     assert "not_a_profile_field" not in changed.fields
 
 
+def test_interview_memory_accepts_document_evidence_but_keeps_it_provisional():
+    intake = new_session("founder_demo", profile())
+    evidence = IntakeEvidence(
+        source_type="document",
+        source_id="chunk_slide_4",
+        location="slide 4",
+        excerpt="Labs lose hours coordinating shared equipment.",
+    )
+    changed = apply_interview_memory(
+        intake,
+        field_proposals=[
+            IntakeProposal(
+                field="startup_description",
+                value="A platform for coordinating shared laboratory equipment.",
+                confidence=0.95,
+                evidence_source_ids=["chunk_slide_4"],
+            )
+        ],
+        claim_proposals=[
+            IntakeClaimProposal(
+                category="problem",
+                text="University labs lose hours coordinating shared equipment.",
+                confidence=0.93,
+                evidence_source_ids=["chunk_slide_4"],
+            )
+        ],
+        provisional_summary="The startup coordinates university lab equipment.",
+        source_message_id="message_1",
+        valid_evidence={evidence.source_id: evidence},
+    )
+
+    batch = changed.pending_confirmation_batch
+    assert batch is not None
+    assert batch.field_names == ["startup_description"]
+    assert len(batch.claim_ids) == 1
+    assert changed.fields["startup_description"].status == "proposed"
+    claim = changed.memory.claims[batch.claim_ids[0]]
+    assert claim.status == "proposed"
+    assert claim.evidence[0].location == "slide 4"
+    assert changed.memory.confirmed_summary == ""
+
+
+def test_confirming_a_batch_promotes_only_its_exact_candidates():
+    intake = new_session("founder_demo", profile())
+    evidence = IntakeEvidence(source_type="message", source_id="message_1")
+    proposed = apply_interview_memory(
+        intake,
+        field_proposals=[
+            IntakeProposal(
+                field="startup_description",
+                value="A platform for coordinating shared laboratory equipment.",
+                confidence=0.95,
+                evidence_source_ids=["message_1"],
+            )
+        ],
+        claim_proposals=[
+            IntakeClaimProposal(
+                category="solution",
+                text="The product schedules access to shared laboratory equipment.",
+                confidence=0.9,
+                evidence_source_ids=["message_1"],
+            )
+        ],
+        provisional_summary="This provisional wording must not become ground truth.",
+        source_message_id="message_1",
+        valid_evidence={"message_1": evidence},
+    )
+    batch = proposed.pending_confirmation_batch
+    assert batch is not None
+
+    confirmed = confirm_proposal_batch(
+        proposed, batch_id=batch.batch_id, actor="founder-user"
+    )
+
+    assert confirmed.pending_confirmation_batch is None
+    assert confirmed.fields["startup_description"].status == "confirmed"
+    assert confirmed.memory.claims[batch.claim_ids[0]].status == "confirmed"
+    assert "This provisional wording" not in confirmed.memory.confirmed_summary
+    assert "Solution: The product schedules access" in confirmed.memory.confirmed_summary
+    with pytest.raises(IntakeConflict):
+        confirm_proposal_batch(
+            confirmed, batch_id=batch.batch_id, actor="founder-user"
+        )
+
+
+def test_correcting_a_claim_preserves_a_supersession_receipt():
+    intake = new_session("founder_demo", profile())
+    claim = IntakeKnowledgeClaim(
+        claim_id="claim_old",
+        category="customers",
+        text="The product serves universities.",
+        confidence=0.8,
+        evidence=[IntakeEvidence(source_type="message", source_id="message_1")],
+    )
+    intake.memory.claims[claim.claim_id] = claim
+
+    corrected = update_claim(
+        intake,
+        claim_id=claim.claim_id,
+        action="correct",
+        actor="founder-user",
+        source_id="web-action-1",
+        text="The initial customers are university laboratory managers.",
+    )
+
+    old = corrected.memory.claims[claim.claim_id]
+    replacement = corrected.memory.claims[old.superseded_by_claim_id]
+    assert old.status == "superseded"
+    assert replacement.status == "confirmed"
+    assert replacement.supersedes_claim_id == old.claim_id
+    assert replacement.evidence[0].source_type == "founder_edit"
+
+
+def test_profile_promotes_confirmed_claims_and_excludes_provisional_claims():
+    intake = new_session("founder_demo", profile())
+    intake = update_field(
+        intake,
+        field="startup_description",
+        action="correct",
+        actor="founder-user",
+        value="A scheduling platform for shared university laboratories.",
+    )
+    now = datetime.now(timezone.utc)
+    confirmed = IntakeKnowledgeClaim(
+        claim_id="claim_confirmed",
+        category="customers",
+        text="The initial users are university laboratory managers.",
+        status="confirmed",
+        confidence=1.0,
+        evidence=[IntakeEvidence(source_type="message", source_id="message_1")],
+        confirmed_at=now,
+        confirmed_by="founder-user",
+    )
+    provisional = IntakeKnowledgeClaim(
+        claim_id="claim_provisional",
+        category="traction",
+        text="The startup has one million customers.",
+        confidence=0.2,
+        evidence=[IntakeEvidence(source_type="message", source_id="message_2")],
+    )
+    intake.memory.claims = {
+        confirmed.claim_id: confirmed,
+        provisional.claim_id: provisional,
+    }
+
+    stored = profile_from_session(intake, profile())
+    texts = [chunk.text for chunk in stored.knowledge_base]
+
+    assert confirmed.text in texts
+    assert provisional.text not in texts
+    assert confirmed.text in stored.memory_summary
+    assert provisional.text not in stored.memory_summary
+
+
 def test_chat_turn_is_persistent_idempotent_and_requires_confirmation(client):
     calls = 0
 
@@ -406,6 +575,217 @@ def test_chat_turn_is_persistent_idempotent_and_requires_confirmation(client):
     assert fact["status"] == "proposed"
     assert fact["confirmed_at"] is None
     assert payload["ready_to_complete"] is False
+
+
+def test_unambiguous_chat_confirmation_updates_memory_without_a_second_model_call(
+    client,
+):
+    calls = 0
+
+    async def fake_interviewer(session, messages, documents):
+        nonlocal calls
+        calls += 1
+        founder_message = messages[-1]
+        source_id = founder_message.message_id
+        return _chat_result(
+            IntakeProposal(
+                field="startup_description",
+                value="A platform for coordinating shared laboratory equipment.",
+                confidence=0.95,
+                evidence_source_ids=[source_id],
+            ),
+            claims=[
+                IntakeClaimProposal(
+                    category="customers",
+                    text="The initial users are university laboratory managers.",
+                    confidence=0.9,
+                    evidence_source_ids=[source_id],
+                )
+            ],
+            summary="The startup coordinates shared university lab equipment.",
+        )
+
+    app.state.intake_interviewer = fake_interviewer
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    proposed = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "We coordinate shared university laboratory equipment.",
+            "client_message_id": "proposal-turn",
+            "expected_revision": created["session"]["revision"],
+        },
+    ).json()
+
+    confirmed = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "Yes.",
+            "client_message_id": "confirmation-turn",
+            "expected_revision": proposed["session"]["revision"],
+        },
+    )
+
+    assert confirmed.status_code == 200
+    assert calls == 1
+    payload = confirmed.json()
+    assert payload["session"]["pending_confirmation_batch"] is None
+    assert payload["session"]["fields"]["startup_description"]["status"] == "confirmed"
+    claims = payload["session"]["memory"]["claims"].values()
+    assert {claim["status"] for claim in claims} == {"confirmed"}
+    assert "Customers:" in payload["session"]["memory"]["confirmed_summary"]
+
+    duplicate = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "Yes.",
+            "client_message_id": "confirmation-turn",
+            "expected_revision": proposed["session"]["revision"],
+        },
+    )
+    assert duplicate.status_code == 200
+    assert calls == 1
+
+
+def test_ambiguous_confirmation_is_sent_to_the_interviewer(client):
+    calls = 0
+
+    async def fake_interviewer(session, messages, documents):
+        nonlocal calls
+        calls += 1
+        source_id = messages[-1].message_id
+        return _chat_result(
+            IntakeProposal(
+                field="startup_description",
+                value="A laboratory scheduling platform.",
+                confidence=0.9,
+                evidence_source_ids=[source_id],
+            )
+        )
+
+    app.state.intake_interviewer = fake_interviewer
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    proposed = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "We make laboratory scheduling software.",
+            "client_message_id": "ambiguous-proposal",
+            "expected_revision": 0,
+        },
+    ).json()
+
+    response = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "Yes, except we focus on teaching laboratories.",
+            "client_message_id": "ambiguous-correction",
+            "expected_revision": proposed["session"]["revision"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert calls == 2
+
+
+def test_batch_and_claim_endpoints_enforce_revision_and_explicit_actions(client):
+    async def fake_interviewer(session, messages, documents):
+        source_id = messages[-1].message_id
+        return _chat_result(
+            claims=[
+                IntakeClaimProposal(
+                    category="problem",
+                    text="Laboratory managers coordinate equipment manually.",
+                    confidence=0.9,
+                    evidence_source_ids=[source_id],
+                )
+            ]
+        )
+
+    app.state.intake_interviewer = fake_interviewer
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    proposed = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}/messages",
+        json={
+            "text": "Lab managers still coordinate shared equipment manually.",
+            "client_message_id": "endpoint-proposal",
+            "expected_revision": 0,
+        },
+    ).json()
+    batch = proposed["session"]["pending_confirmation_batch"]
+    claim_id = batch["claim_ids"][0]
+
+    confirmed = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}"
+        f"/proposal-batches/{batch['batch_id']}/confirm",
+        json={"expected_revision": proposed["session"]["revision"]},
+    )
+
+    assert confirmed.status_code == 200
+    confirmed_payload = confirmed.json()
+    assert confirmed_payload["session"]["memory"]["claims"][claim_id]["status"] == (
+        "confirmed"
+    )
+    stale = client.post(
+        f"/founders/founder_demo/intake/sessions/{session_id}"
+        f"/proposal-batches/{batch['batch_id']}/confirm",
+        json={"expected_revision": proposed["session"]["revision"]},
+    )
+    assert stale.status_code == 409
+
+    corrected = client.patch(
+        f"/founders/founder_demo/intake/sessions/{session_id}/claims/{claim_id}",
+        json={
+            "action": "correct",
+            "text": "University lab managers coordinate equipment manually.",
+            "expected_revision": confirmed_payload["session"]["revision"],
+            "client_action_id": "claim-edit-1",
+        },
+    )
+    assert corrected.status_code == 200
+    claims = corrected.json()["session"]["memory"]["claims"]
+    assert claims[claim_id]["status"] == "superseded"
+    assert any(
+        claim["text"] == "University lab managers coordinate equipment manually."
+        and claim["status"] == "confirmed"
+        for claim in claims.values()
+    )
+
+
+def test_claim_endpoint_rejects_cross_founder_and_mass_assignment(client):
+    other = new_session("founder_other", None)
+    other.memory.claims["claim_other"] = IntakeKnowledgeClaim(
+        claim_id="claim_other",
+        category="team",
+        text="The team has two founders.",
+        confidence=0.9,
+        evidence=[IntakeEvidence(source_type="message", source_id="message_other")],
+    )
+    app.state.repo.create_intake_session(other)
+
+    cross_founder = client.patch(
+        f"/founders/founder_demo/intake/sessions/{other.session_id}/claims/claim_other",
+        json={
+            "action": "confirm",
+            "expected_revision": 0,
+            "client_action_id": "cross-founder",
+        },
+    )
+    assert cross_founder.status_code == 404
+
+    created = client.post("/founders/founder_demo/intake/sessions").json()
+    session_id = created["session"]["session_id"]
+    extra = client.patch(
+        f"/founders/founder_demo/intake/sessions/{session_id}/claims/claim_missing",
+        json={
+            "action": "confirm",
+            "expected_revision": 0,
+            "client_action_id": "mass-assignment",
+            "role": "admin",
+        },
+    )
+    assert extra.status_code == 422
 
 
 def test_chat_provider_failure_is_sanitized_and_releases_session(client):

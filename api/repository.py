@@ -302,6 +302,13 @@ class Repository(Protocol):
     def save_intake_session(
         self, intake: IntakeSession, *, expected_revision: int
     ) -> bool: ...
+    def save_intake_session_with_messages(
+        self,
+        intake: IntakeSession,
+        messages: list[IntakeMessage],
+        *,
+        expected_revision: int,
+    ) -> Literal["saved", "duplicate", "stale"]: ...
     def complete_intake_session(
         self,
         intake: IntakeSession,
@@ -673,6 +680,59 @@ class SqliteRepository:
                 self._record_memory_revision(session, intake)
             session.commit()
             return result.rowcount == 1
+
+    def save_intake_session_with_messages(
+        self,
+        intake: IntakeSession,
+        messages: list[IntakeMessage],
+        *,
+        expected_revision: int,
+    ) -> Literal["saved", "duplicate", "stale"]:
+        """Atomically publish a memory edit and its visible chat receipt."""
+        if any(
+            message.session_id != intake.session_id
+            or message.founder_id != intake.founder_id
+            for message in messages
+        ):
+            raise ValueError("intake messages must belong to the updated session")
+        with Session(self.engine) as session:
+            for message in messages:
+                if message.client_message_id is None:
+                    continue
+                key = f"{message.session_id}::{message.client_message_id}"
+                existing = session.exec(
+                    select(IntakeMessageRow).where(
+                        IntakeMessageRow.idempotency_key == key
+                    )
+                ).first()
+                if existing is not None:
+                    return "duplicate"
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == intake.session_id,
+                    IntakeSessionRow.founder_id == intake.founder_id,
+                    IntakeSessionRow.revision == expected_revision,
+                    IntakeSessionRow.status == "active",
+                )
+                .values(
+                    revision=intake.revision,
+                    updated_at=intake.updated_at,
+                    payload=redact_json(intake.model_dump_json()),
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                return "stale"
+            self._record_memory_revision(session, intake)
+            for message in messages:
+                session.add(self._message_row(message))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                return "duplicate"
+            return "saved"
 
     def complete_intake_session(
         self,

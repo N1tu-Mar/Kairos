@@ -20,6 +20,14 @@ Return only the requested structured output.
 - `proposals`: facts explicitly supported by the supplied data. Each proposal
   must use an exact source ID from that data. A proposal is only a candidate;
   never claim it has been confirmed or saved.
+- `claim_proposals`: concise narrative claims explicitly supported by supplied
+  data. Use one of these categories: `problem`, `solution`, `customers`,
+  `market`, `business_model`, `differentiation`, `team`, `traction`,
+  `milestones`, or `funding_needs`. Cite exact source IDs. When correcting an
+  existing claim, set `supersedes_claim_id`; otherwise use null.
+- `working_summary`: a compact, current summary rebuilt from the supplied raw
+  evidence and current structured state. Do not merely repeat or extend an old
+  summary. It is provisional and must not imply founder confirmation.
 - `missing_fields`: copy only fields that remain missing from the supplied
   deterministic state. The server, not you, decides completion.
 - `next_topic`: one short field or topic name, or null when there is no useful

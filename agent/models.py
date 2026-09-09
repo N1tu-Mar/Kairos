@@ -211,6 +211,9 @@ class FounderProfile(Frozen):
     knowledge_base: list[KnowledgeChunk] = Field(
         default_factory=list, max_length=MAX_KNOWLEDGE_CHUNKS
     )
+    #: Deterministically assembled from confirmed narrative claims. It helps
+    #: discovery and assessment orient quickly; drafts still require chunks.
+    memory_summary: str = Field(default="", max_length=8_000)
 
     @property
     def min_award(self) -> int:
@@ -229,7 +232,7 @@ class FounderProfile(Frozen):
 class IntakeEvidence(Frozen):
     """A bounded pointer to the founder-controlled source of one proposal."""
 
-    source_type: Literal["message", "document", "existing_profile"]
+    source_type: Literal["message", "document", "existing_profile", "founder_edit"]
     source_id: str = Field(min_length=1, max_length=200)
     location: str | None = Field(default=None, max_length=200)
     excerpt: str | None = Field(default=None, max_length=500)
@@ -319,6 +322,16 @@ class IntakeWorkingMemory(Mutable):
         return self
 
 
+class IntakeProposalBatch(Frozen):
+    """The exact candidates most recently presented for founder confirmation."""
+
+    batch_id: str = Field(min_length=1, max_length=200)
+    source_message_id: str = Field(min_length=1, max_length=200)
+    field_names: list[IntakeFieldName] = Field(default_factory=list, max_length=20)
+    claim_ids: list[str] = Field(default_factory=list, max_length=50)
+    created_at: datetime = Field(default_factory=_now)
+
+
 class IntakeSession(Mutable):
     """Persisted state for one founder interview."""
 
@@ -332,6 +345,7 @@ class IntakeSession(Mutable):
     pending_message_id: str | None = Field(default=None, min_length=1, max_length=200)
     fields: dict[str, IntakeFieldState] = Field(default_factory=dict, max_length=50)
     memory: IntakeWorkingMemory = Field(default_factory=IntakeWorkingMemory)
+    pending_confirmation_batch: IntakeProposalBatch | None = None
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
     completed_at: datetime | None = None

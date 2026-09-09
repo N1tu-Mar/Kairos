@@ -267,12 +267,13 @@ export interface FounderProfile {
   geographies: string[];
   reuse_eligibility_answers: boolean;
   knowledge_base: KnowledgeChunk[];
+  memory_summary: string;
 }
 
 // Conversational founder intake
 
 export interface IntakeEvidence {
-  source_type: "message" | "document" | "existing_profile";
+  source_type: "message" | "document" | "existing_profile" | "founder_edit";
   source_id: string;
   location: string | null;
   excerpt: string | null;
@@ -325,6 +326,14 @@ export interface IntakeWorkingMemory {
   updated_at: string;
 }
 
+export interface IntakeProposalBatch {
+  batch_id: string;
+  source_message_id: string;
+  field_names: IntakeFieldName[];
+  claim_ids: string[];
+  created_at: string;
+}
+
 export interface IntakeSession {
   session_id: string;
   founder_id: string;
@@ -333,6 +342,7 @@ export interface IntakeSession {
   pending_message_id: string | null;
   fields: Partial<Record<IntakeFieldName, IntakeFieldState>>;
   memory: IntakeWorkingMemory;
+  pending_confirmation_batch: IntakeProposalBatch | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;

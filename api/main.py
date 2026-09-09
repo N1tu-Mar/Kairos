@@ -35,13 +35,16 @@ from pydantic import BaseModel, ConfigDict, Field as PydanticField
 from agent.config import REPO_ROOT, settings, validate_runtime_posture, ConfigError
 from agent.budget import BudgetExceeded, RunBudget, UnenforceableSpendCap
 from agent.intake import (
+    IntakeConflict,
     IntakeIncomplete,
-    apply_model_proposals,
+    apply_interview_memory,
+    confirm_proposal_batch,
     is_complete as intake_is_complete,
     missing_required,
     new_intake_id,
     new_session,
     profile_from_session,
+    update_claim,
     update_field,
 )
 from agent.prompting import Abstention, Throttled
@@ -56,6 +59,7 @@ from agent.models import (
     FounderProfile,
     InboxState,
     IntakeDocument,
+    IntakeEvidence,
     IntakeMessage,
     IntakeSession,
     Opportunity,
@@ -199,10 +203,31 @@ class IntakeFieldUpdate(BaseModel):
     action: Literal["confirm", "correct", "reject"]
     expected_revision: int = PydanticField(ge=0)
     value: object | None = None
+    client_action_id: str | None = PydanticField(default=None, min_length=1, max_length=200)
+
+
+class IntakeClaimUpdate(BaseModel):
+    """One explicit founder decision about a narrative memory claim."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["confirm", "correct", "reject"]
+    expected_revision: int = PydanticField(ge=0)
+    text: str | None = PydanticField(default=None, max_length=4_000)
+    category: str | None = PydanticField(default=None, max_length=100)
+    client_action_id: str = PydanticField(min_length=1, max_length=200)
 
 
 class IntakeRevision(BaseModel):
     """Optimistic revision required for terminal session transitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = PydanticField(ge=0)
+
+
+class IntakeBatchConfirmation(BaseModel):
+    """Confirm exactly one proposal batch at one optimistic revision."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -776,6 +801,40 @@ def _intake_view(intake: IntakeSession) -> IntakeSessionView:
     )
 
 
+def _intake_evidence(
+    messages: list[IntakeMessage], documents: list[IntakeDocument]
+) -> dict[str, IntakeEvidence]:
+    """Evidence IDs from exactly the bounded context sent to the interviewer."""
+    evidence = {
+        message.message_id: IntakeEvidence(
+            source_type="message",
+            source_id=message.message_id,
+            excerpt=message.text[:500],
+        )
+        for message in messages[-20:]
+        if message.role == "founder"
+    }
+    chunks = [
+        chunk
+        for document in documents
+        if document.status == "ready"
+        for chunk in document.chunks
+    ][:30]
+    for chunk in chunks:
+        evidence[chunk.chunk_id] = IntakeEvidence(
+            source_type="document",
+            source_id=chunk.chunk_id,
+            location=chunk.location,
+            excerpt=chunk.text[:500],
+        )
+    return evidence
+
+
+def _is_unambiguous_confirmation(text: str) -> bool:
+    normalized = text.casefold().strip().rstrip(".!?").strip()
+    return normalized in {"yes", "correct", "confirm", "confirmed", "looks good"}
+
+
 def _enforce_rate_limit(
     actor: Principal,
     founder_id: str,
@@ -889,6 +948,50 @@ async def send_intake_message(
         text=founder_text,
         client_message_id=turn.client_message_id,
     )
+    if (
+        intake.pending_confirmation_batch is not None
+        and _is_unambiguous_confirmation(founder_text)
+    ):
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="authenticated_write",
+            limit=app.state.config.authenticated_writes_per_minute,
+            window_seconds=60,
+        )
+        try:
+            changed = confirm_proposal_batch(
+                intake,
+                batch_id=intake.pending_confirmation_batch.batch_id,
+                actor=actor.subject,
+            )
+        except IntakeConflict:
+            raise HTTPException(409, "proposal batch is stale") from None
+        assistant = IntakeMessage(
+            message_id=new_intake_id("message"),
+            session_id=session_id,
+            founder_id=founder_id,
+            role="assistant",
+            text="Confirmed. I updated your founder memory with those facts.",
+            client_message_id=f"reply:{turn.client_message_id}",
+            in_reply_to=message.message_id,
+        )
+        outcome = app.state.repo.save_intake_session_with_messages(
+            changed,
+            [message, assistant],
+            expected_revision=turn.expected_revision,
+        )
+        if outcome == "duplicate":
+            return _intake_view(_intake_for_founder(founder_id, session_id))
+        if outcome != "saved":
+            raise HTTPException(409, "intake session revision is stale")
+        audit_event(
+            actor=actor.subject,
+            action="intake.batch_confirm",
+            resource=session_id,
+            method=actor.method,
+        )
+        return _intake_view(changed)
     outcome = app.state.repo.begin_intake_turn(
         message,
         expected_revision=turn.expected_revision,
@@ -928,11 +1031,13 @@ async def send_intake_message(
         raise HTTPException(409, "intake session revision is stale")
 
     reserved = _intake_for_founder(founder_id, session_id)
+    messages = app.state.repo.list_intake_messages(session_id)
+    documents = app.state.repo.list_intake_documents(session_id)
     try:
         result = await app.state.intake_interviewer(
             reserved,
-            app.state.repo.list_intake_messages(session_id),
-            app.state.repo.list_intake_documents(session_id),
+            messages,
+            documents,
         )
     except (BudgetExceeded, UnenforceableSpendCap):
         app.state.repo.abort_intake_turn(
@@ -953,8 +1058,13 @@ async def send_intake_message(
         )
         raise HTTPException(503, "the interview assistant is temporarily unavailable") from None
 
-    changed = apply_model_proposals(
-        reserved, result.proposals, source_id=message.message_id
+    changed = apply_interview_memory(
+        reserved,
+        field_proposals=result.proposals,
+        claim_proposals=result.claim_proposals,
+        provisional_summary=result.working_summary,
+        source_message_id=message.message_id,
+        valid_evidence=_intake_evidence(messages, documents),
     )
     now = datetime.now(timezone.utc)
     changed.pending_message_id = None
@@ -980,6 +1090,50 @@ async def send_intake_message(
     audit_event(
         actor=actor.subject,
         action="intake.message",
+        resource=session_id,
+        method=actor.method,
+    )
+    return _intake_view(changed)
+
+
+@app.post(
+    "/founders/{founder_id}/intake/sessions/{session_id}/proposal-batches/{batch_id}/confirm"
+)
+def confirm_intake_proposal_batch(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    batch_id: ResourceId,
+    confirmation: IntakeBatchConfirmation,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    """Confirm exactly the candidates the founder was shown in one batch."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before confirming facts")
+    if intake.revision != confirmation.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        changed = confirm_proposal_batch(
+            intake, batch_id=batch_id, actor=actor.subject
+        )
+    except IntakeConflict:
+        raise HTTPException(409, "proposal batch is stale") from None
+    if not app.state.repo.save_intake_session(
+        changed, expected_revision=confirmation.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action="intake.batch_confirm",
         resource=session_id,
         method=actor.method,
     )
@@ -1015,6 +1169,7 @@ def update_intake_field(
             action=update.action,
             actor=actor.subject,
             value=update.value,
+            source_id=update.client_action_id,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
@@ -1028,6 +1183,55 @@ def update_intake_field(
         resource=session_id,
         method=actor.method,
         field=field,
+    )
+    return _intake_view(changed)
+
+
+@app.patch("/founders/{founder_id}/intake/sessions/{session_id}/claims/{claim_id}")
+def update_intake_claim(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    claim_id: ResourceId,
+    update: IntakeClaimUpdate,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    """Apply a founder-owned decision to one provisional narrative claim."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before editing memory")
+    if intake.revision != update.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        changed = update_claim(
+            intake,
+            claim_id=claim_id,
+            action=update.action,
+            actor=actor.subject,
+            source_id=update.client_action_id,
+            text=update.text,
+            category=update.category,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    if not app.state.repo.save_intake_session(
+        changed, expected_revision=update.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action=f"intake.claim_{update.action}",
+        resource=session_id,
+        method=actor.method,
+        claim_id=claim_id,
     )
     return _intake_view(changed)
 

@@ -24,6 +24,7 @@ function intakeView(
         claims: {},
         updated_at: "2026-09-01T00:00:00Z",
       },
+      pending_confirmation_batch: null,
       created_at: "2026-09-01T00:00:00Z",
       updated_at: "2026-09-01T00:00:00Z",
       completed_at: null,
