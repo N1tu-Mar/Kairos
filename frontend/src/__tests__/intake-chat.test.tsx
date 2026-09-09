@@ -217,6 +217,252 @@ describe("IntakeChat", () => {
     expect(await screen.findByText(/onerror/)).toBeInTheDocument();
     expect(document.querySelector("img")).toBeNull();
   });
+
+  it("confirms exactly the displayed proposal batch and announces the memory update", async () => {
+    const user = userEvent.setup();
+    const initial = intakeView();
+    const proposed = intakeView({
+      session: {
+        ...initial.session,
+        revision: 4,
+        fields: {
+          startup_description: {
+            field: "startup_description",
+            status: "proposed",
+            value: "A scheduling platform for shared laboratories.",
+            confidence: 0.98,
+            evidence: [],
+            proposed_at: "2026-09-01T00:01:00Z",
+            confirmed_at: null,
+            confirmed_by: null,
+          },
+        },
+        pending_confirmation_batch: {
+          batch_id: "batch_4",
+          source_message_id: "message_4",
+          field_names: ["startup_description"],
+          claim_ids: [],
+          created_at: "2026-09-01T00:01:01Z",
+        },
+      },
+    });
+    const confirmed = intakeView({
+      ...proposed,
+      session: {
+        ...proposed.session,
+        revision: 5,
+        pending_confirmation_batch: null,
+        fields: {
+          startup_description: {
+            ...proposed.session.fields.startup_description!,
+            status: "confirmed",
+            confirmed_at: "2026-09-01T00:02:00Z",
+            confirmed_by: "founder-user",
+          },
+        },
+      },
+    });
+    const fetchMock = vi.fn(
+      async (...args: [input: RequestInfo | URL, init?: RequestInit]) => {
+        void args;
+        return fetchMock.mock.calls.length === 1
+          ? jsonResponse(proposed)
+          : jsonResponse(confirmed);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<IntakeChat profile={null} />);
+
+    await user.click(await screen.findByRole("button", { name: /confirm all captured facts/i }));
+    expect(await screen.findByRole("status")).toHaveTextContent(/all displayed proposals/i);
+    const [url, init] = fetchMock.mock.calls[1]!;
+    expect(url).toBe("/api/intake/intake_123/proposal-batches/batch_4/confirm");
+    expect(JSON.parse(String(init?.body))).toEqual({ expected_revision: 4 });
+  });
+
+  it("rejects an invalid upload in the browser before making a request", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const fetchMock = vi.fn(async () => jsonResponse(intakeView()));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<IntakeChat profile={null} />);
+
+    const picker = await screen.findByLabelText(/drop a brief or pitch deck/i);
+    await user.upload(
+      picker,
+      new File(["binary"], "malware.exe", { type: "application/octet-stream" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(/pdf, pptx, txt, or markdown/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("uploads and removes a supported document through the authenticated proxies", async () => {
+    const user = userEvent.setup();
+    const document = {
+      document_id: "document_1",
+      session_id: "intake_123",
+      founder_id: "founder_demo",
+      filename: "brief.txt",
+      media_type: "text/plain",
+      byte_size: 18,
+      slot: 1,
+      status: "ready" as const,
+      chunks: [],
+      error: null,
+      created_at: "2026-09-01T00:03:00Z",
+    };
+    let uploaded = false;
+    const fetchMock = vi.fn(
+      async (...args: [input: RequestInfo | URL, init?: RequestInit]) => {
+        const [input, init] = args;
+        const url = String(input);
+        if (url.endsWith("/documents") && init?.method === "POST") {
+          uploaded = true;
+          return jsonResponse(document, 201);
+        }
+        if (url.endsWith("/documents/document_1") && init?.method === "DELETE") {
+          uploaded = false;
+          return jsonResponse({ removed: true });
+        }
+        return jsonResponse(intakeView({ documents: uploaded ? [document] : [] }));
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<IntakeChat profile={null} />);
+
+    const picker = await screen.findByLabelText(/drop a brief or pitch deck/i);
+    await user.upload(picker, new File(["A bounded brief."], "brief.txt", { type: "text/plain" }));
+    expect(await screen.findByText("brief.txt")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/extracted and added as evidence/i);
+
+    const uploadCall = fetchMock.mock.calls.find(
+      ([input, init]) => String(input).endsWith("/documents") && init?.method === "POST",
+    );
+    expect(uploadCall?.[1]?.body).toBeInstanceOf(FormData);
+
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(screen.queryByText("brief.txt")).toBeNull());
+    expect(screen.getByRole("status")).toHaveTextContent(/brief.txt was removed/i);
+  });
+
+  it("confirms one proposed fact with the current optimistic revision", async () => {
+    const user = userEvent.setup();
+    const initial = intakeView();
+    const proposedFact = {
+      field: "startup_description" as const,
+      status: "proposed" as const,
+      value: "A platform for university laboratories.",
+      confidence: 0.94,
+      evidence: [],
+      proposed_at: "2026-09-01T00:01:00Z",
+      confirmed_at: null,
+      confirmed_by: null,
+    };
+    const proposed = intakeView({
+      session: {
+        ...initial.session,
+        revision: 7,
+        fields: { startup_description: proposedFact },
+      },
+    });
+    const confirmed = intakeView({
+      session: {
+        ...proposed.session,
+        revision: 8,
+        fields: {
+          startup_description: {
+            ...proposedFact,
+            status: "confirmed",
+            confirmed_at: "2026-09-01T00:02:00Z",
+            confirmed_by: "founder-user",
+          },
+        },
+      },
+    });
+    const fetchMock = vi.fn(
+      async (...args: [input: RequestInfo | URL, init?: RequestInit]) => {
+        void args;
+        return fetchMock.mock.calls.length === 1
+          ? jsonResponse(proposed)
+          : jsonResponse(confirmed);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<IntakeChat profile={null} />);
+
+    await user.click(await screen.findByRole("button", { name: "Confirm" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(/confirmed founder memory was updated/i);
+    const [url, init] = fetchMock.mock.calls[1]!;
+    expect(url).toBe("/api/intake/intake_123/fields/startup_description");
+    expect(init?.method).toBe("PATCH");
+    expect(JSON.parse(String(init?.body))).toEqual({ action: "confirm", expected_revision: 7 });
+  });
+
+  it("enables completion only when the backend declares the session ready", async () => {
+    const user = userEvent.setup();
+    const ready = intakeView({ missing_required: [], ready_to_complete: true });
+    const fetchMock = vi.fn(
+      async (...args: [input: RequestInfo | URL, init?: RequestInit]) => {
+        void args;
+        return fetchMock.mock.calls.length === 1
+          ? jsonResponse(ready)
+          : jsonResponse(founderProfile());
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<IntakeChat profile={null} />);
+
+    await user.click(await screen.findByRole("button", { name: /finish founder profile/i }));
+    expect(await screen.findByRole("status")).toHaveTextContent(/ready for matching and drafting/i);
+    expect(screen.getByRole("button", { name: /founder memory completed/i })).toBeDisabled();
+    const [url, init] = fetchMock.mock.calls[1]!;
+    expect(url).toBe("/api/intake/intake_123/complete");
+    expect(JSON.parse(String(init?.body))).toEqual({ expected_revision: 0 });
+  });
+
+  it("loads provenance and renders it as plain text", async () => {
+    const user = userEvent.setup();
+    const initial = intakeView({
+      session: {
+        ...intakeView().session,
+        fields: {
+          startup_description: {
+            field: "startup_description",
+            status: "proposed",
+            value: "A lab platform.",
+            confidence: 0.9,
+            evidence: [{
+              source_type: "document",
+              source_id: "document_1:chunk:1",
+              location: "slide:2",
+              excerpt: null,
+            }],
+            proposed_at: "2026-09-01T00:01:00Z",
+            confirmed_at: null,
+            confirmed_by: null,
+          },
+        },
+      },
+    });
+    const fetchMock = vi.fn(
+      async (...args: [input: RequestInfo | URL, init?: RequestInit]) => {
+        void args;
+        return fetchMock.mock.calls.length === 1
+          ? jsonResponse(initial)
+          : jsonResponse({
+              source_type: "document",
+              source_id: "document_1:chunk:1",
+              location: "slide:2",
+              excerpt: "<img src=x onerror=alert(1)> 47 pilot labs",
+            });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<IntakeChat profile={null} />);
+
+    await user.click(await screen.findByRole("button", { name: /evidence.*slide 2/i }));
+    expect(await screen.findByLabelText("Supporting evidence")).toHaveTextContent("47 pilot labs");
+    expect(document.querySelector("img")).toBeNull();
+  });
 });
 
 describe("IntakeSection", () => {
