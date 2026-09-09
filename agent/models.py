@@ -402,6 +402,10 @@ class IntakeDocument(Frozen):
     filename: str = Field(min_length=1, max_length=200)
     media_type: str = Field(min_length=1, max_length=100)
     byte_size: int = Field(ge=0, le=10 * 1024 * 1024)
+    # Slots make the two-document ceiling enforceable by a database unique
+    # constraint even when two browser tabs upload concurrently. Rejected
+    # documents release their slot but retain bounded metadata for the UI.
+    slot: int | None = Field(default=None, ge=1, le=2)
     status: IntakeDocumentStatus
     chunks: list[IntakeDocumentChunk] = Field(default_factory=list, max_length=100)
     error: str | None = Field(default=None, max_length=500)

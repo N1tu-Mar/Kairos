@@ -19,7 +19,7 @@ import math
 from datetime import datetime, timezone
 from typing import Literal, Protocol, TypeVar
 
-from sqlalchemy import Column, Text, delete, func, update
+from sqlalchemy import Column, Text, UniqueConstraint, delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -246,9 +246,12 @@ class IntakeDocumentRow(SQLModel, table=True):
     document_id: str = Field(primary_key=True)
     session_id: str = Field(index=True)
     founder_id: str = Field(index=True)
+    slot: int | None = Field(default=None)
     status: str = Field(index=True)
     created_at: datetime = Field(index=True)
     payload: str = Field(sa_column=Column(Text))
+
+    __table_args__ = (UniqueConstraint("session_id", "slot"),)
 
 
 class IntakeMemoryRevisionRow(SQLModel, table=True):
@@ -343,6 +346,7 @@ class Repository(Protocol):
     ) -> IntakeMessage | None: ...
     def list_intake_messages(self, session_id: str) -> list[IntakeMessage]: ...
     def save_intake_document(self, document: IntakeDocument) -> None: ...
+    def reserve_intake_document(self, document: IntakeDocument) -> bool: ...
     def get_intake_document(self, document_id: str) -> IntakeDocument | None: ...
     def list_intake_documents(self, session_id: str) -> list[IntakeDocument]: ...
     def delete_intake_document(self, document_id: str) -> bool: ...
@@ -1004,11 +1008,13 @@ class SqliteRepository:
                     document_id=document.document_id,
                     session_id=document.session_id,
                     founder_id=document.founder_id,
+                    slot=document.slot,
                     status=document.status,
                     created_at=document.created_at,
                     payload="",
                 )
             row.status = document.status
+            row.slot = document.slot
             row.payload = redact_json(document.model_dump_json())
             session.add(row)
             session.commit()
@@ -1035,6 +1041,33 @@ class SqliteRepository:
             session.delete(row)
             session.commit()
             return True
+
+    def reserve_intake_document(self, document: IntakeDocument) -> bool:
+        """Atomically claim one of two upload slots for an active session."""
+        if document.status != "processing" or document.slot is not None:
+            raise ValueError("a document reservation must be processing without a slot")
+        for slot in (1, 2):
+            reserved = document.model_copy(update={"slot": slot})
+            try:
+                with Session(self.engine) as session:
+                    session.add(
+                        IntakeDocumentRow(
+                            document_id=reserved.document_id,
+                            session_id=reserved.session_id,
+                            founder_id=reserved.founder_id,
+                            slot=slot,
+                            status=reserved.status,
+                            created_at=reserved.created_at,
+                            payload=redact_json(reserved.model_dump_json()),
+                        )
+                    )
+                    session.commit()
+                return True
+            except IntegrityError:
+                # A concurrent request claimed this slot. Try the other one;
+                # the unique(session_id, slot) constraint is the authority.
+                continue
+        return False
 
     def list_intake_memory_revisions(
         self, session_id: str

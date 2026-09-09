@@ -19,6 +19,7 @@ should have a one-click answer (Section 9, rule 5).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -27,7 +28,7 @@ from pathlib import Path
 
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Path as PathParam, Query, Request, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Path as PathParam, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field as PydanticField
@@ -46,6 +47,12 @@ from agent.intake import (
     profile_from_session,
     update_claim,
     update_field,
+)
+from agent.intake_documents import (
+    DocumentRejected,
+    MAX_FILE_BYTES,
+    extract_upload,
+    safe_filename,
 )
 from agent.prompting import Abstention, Throttled
 from agent.sanitize import clean
@@ -130,6 +137,7 @@ MAX_LIST_LIMIT = 1_000
 #: 2 MB against a real caller: the largest thing anyone legitimately sends is
 #: a profile with a full knowledge base, which is tens of kilobytes.
 MAX_BODY_BYTES = 2 * 1024 * 1024
+MAX_UPLOAD_BODY_BYTES = MAX_FILE_BYTES + 256 * 1024
 
 #: A list limit: at least one row, at most `MAX_LIST_LIMIT`.
 ListLimit = Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)]
@@ -257,6 +265,17 @@ class IntakeSessionView(BaseModel):
     turn_pending: bool
 
 
+class IntakeEvidenceView(BaseModel):
+    """One founder-owned, sanitized evidence excerpt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_type: Literal["message", "document"]
+    source_id: str
+    location: str | None = None
+    excerpt: str
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Build everything the process needs, once, before the first request.
@@ -370,9 +389,15 @@ async def bound_request_body(request: Request, call_next):
             size = int(declared)
         except ValueError:
             return JSONResponse({"detail": "malformed content-length"}, status_code=400)
-        if size > MAX_BODY_BYTES:
+        is_upload = (
+            request.method == "POST"
+            and request.url.path.endswith("/documents")
+            and "/intake/sessions/" in request.url.path
+        )
+        limit = MAX_UPLOAD_BODY_BYTES if is_upload else MAX_BODY_BYTES
+        if size > limit:
             return JSONResponse(
-                {"detail": f"request body exceeds {MAX_BODY_BYTES} bytes"},
+                {"detail": f"request body exceeds {limit} bytes"},
                 status_code=413,
             )
     return await call_next(request)
@@ -472,7 +497,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=ALLOWED_ORIGIN_REGEX,
-    allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -924,6 +949,159 @@ def get_intake_session(
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, not_found=not_found)
     return _intake_view(_intake_for_founder(founder_id, session_id))
+
+
+async def _read_bounded_upload(upload: UploadFile) -> bytes:
+    """Read one spooled upload without ever accepting more than 10 MB."""
+    body = bytearray()
+    while True:
+        chunk = await upload.read(min(64 * 1024, MAX_FILE_BYTES + 1 - len(body)))
+        if not chunk:
+            return bytes(body)
+        body.extend(chunk)
+        if len(body) > MAX_FILE_BYTES:
+            raise HTTPException(413, "the file exceeds the 10 MB limit")
+
+
+@app.post("/founders/{founder_id}/intake/sessions/{session_id}/documents")
+async def upload_intake_document(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    file: Annotated[UploadFile, File()],
+    actor: Principal = Depends(principal),
+) -> IntakeDocument:
+    """Extract one founder-owned document; raw bytes are never persisted."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.status != "active":
+        raise HTTPException(409, "documents can only be added to an active intake session")
+    try:
+        filename = safe_filename(file.filename or "")
+        media_type = file.content_type or "application/octet-stream"
+        data = await _read_bounded_upload(file)
+    except DocumentRejected as exc:
+        raise HTTPException(422, str(exc)) from None
+    finally:
+        await file.close()
+
+    document_id = new_intake_id("document")
+    processing = IntakeDocument(
+        document_id=document_id,
+        session_id=session_id,
+        founder_id=founder_id,
+        filename=filename,
+        media_type=media_type,
+        byte_size=len(data),
+        status="processing",
+    )
+    if not app.state.repo.reserve_intake_document(processing):
+        raise HTTPException(409, "an intake session may contain at most two documents")
+    reserved = app.state.repo.get_intake_document(document_id)
+    if reserved is None:  # pragma: no cover - transaction just inserted it
+        raise HTTPException(500, "document reservation was not persisted")
+    try:
+        _, extracted = await asyncio.to_thread(extract_upload, data, filename, media_type)
+    except DocumentRejected as exc:
+        # Failed uploads do not consume a slot or accumulate attacker-chosen
+        # metadata. The caller keeps the safe error for its local status UI.
+        app.state.repo.delete_intake_document(document_id)
+        audit_event(
+            actor=actor.subject,
+            action="intake.document_rejected",
+            resource=document_id,
+            method=actor.method,
+        )
+        raise HTTPException(422, str(exc)) from None
+
+    chunks = [
+        chunk.model_copy(update={"chunk_id": f"{document_id}:chunk:{index}"})
+        for index, chunk in enumerate(extracted, 1)
+    ]
+    ready = reserved.model_copy(update={"status": "ready", "chunks": chunks, "error": None})
+    app.state.repo.save_intake_document(ready)
+    audit_event(
+        actor=actor.subject,
+        action="intake.document_uploaded",
+        resource=document_id,
+        method=actor.method,
+    )
+    return ready
+
+
+@app.delete(
+    "/founders/{founder_id}/intake/sessions/{session_id}/documents/{document_id}"
+)
+def remove_intake_document(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    document_id: ResourceId,
+    actor: Principal = Depends(principal),
+) -> Response:
+    not_found = f"no intake document {document_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    document = app.state.repo.get_intake_document(document_id)
+    if document is None or document.founder_id != founder_id or document.session_id != session_id:
+        raise HTTPException(404, not_found)
+    if intake.status != "active":
+        raise HTTPException(409, "documents can only be removed from an active intake session")
+    if document.status == "processing":
+        raise HTTPException(409, "wait for document extraction to finish")
+    if not app.state.repo.delete_intake_document(document_id):
+        raise HTTPException(404, not_found)
+    audit_event(
+        actor=actor.subject,
+        action="intake.document_removed",
+        resource=document_id,
+        method=actor.method,
+    )
+    return Response(status_code=204)
+
+
+@app.get(
+    "/founders/{founder_id}/intake/sessions/{session_id}/evidence/{source_id}"
+)
+def get_intake_evidence(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    source_id: ResourceId,
+    actor: Principal = Depends(principal),
+) -> IntakeEvidenceView:
+    not_found = f"no intake evidence {source_id} for {founder_id}"
+    owned(founder_id, actor, not_found=not_found)
+    _intake_for_founder(founder_id, session_id)
+    for message in app.state.repo.list_intake_messages(session_id):
+        if message.message_id == source_id:
+            return IntakeEvidenceView(
+                source_type="message", source_id=source_id, excerpt=message.text[:500]
+            )
+    for document in app.state.repo.list_intake_documents(session_id):
+        if document.founder_id != founder_id:
+            continue
+        for chunk in document.chunks:
+            if chunk.chunk_id == source_id:
+                return IntakeEvidenceView(
+                    source_type="document",
+                    source_id=source_id,
+                    location=chunk.location,
+                    excerpt=chunk.text[:500],
+                )
+    raise HTTPException(404, not_found)
 
 
 @app.post("/founders/{founder_id}/intake/sessions/{session_id}/messages")
