@@ -167,13 +167,48 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
 
         from agent.subagents.auditor import audit_draft
         from agent.subagents.drafter import draft_application
+        from agent.subagents.field_mapper import FieldResolution, resolve_field
 
         recalled = {}
+        mapping_enabled = bool(
+            ctx.agents.field_mapper is not None
+            or ctx.agents.field_mapper_factory is not None
+        )
+        field_resolutions = {} if mapping_enabled else None
         for spec in form.fields:
-            found = ctx.repo.recall(ctx.profile.founder_id, spec.label)
+            found = (
+                ctx.repo.recall_exact(ctx.profile.founder_id, spec.label)
+                if mapping_enabled
+                else ctx.repo.recall(ctx.profile.founder_id, spec.label)
+            )
             if found is not None:
                 found.field_id = spec.field_id
                 recalled[spec.field_id] = found
+                continue
+            if not mapping_enabled:
+                continue
+            try:
+                field_resolutions[spec.field_id] = await resolve_field(
+                    spec,
+                    ctx.profile,
+                    ctx.kb,
+                    budget=ctx.budget,
+                    agent_factory=ctx.agents.field_mapper_for_call,
+                )
+            except Abstention as exc:
+                field_resolutions[spec.field_id] = FieldResolution(
+                    field_id=spec.field_id,
+                    status="NEEDS_FOUNDER",
+                    confidence=0.0,
+                    abstention_reason=(
+                        "The field mapper could not safely determine an answer."
+                    ),
+                )
+                ctx.report.notes.append(
+                    safe_detail(
+                        f"field mapper abstained on {spec.field_id}: {exc.detail}"
+                    )
+                )
 
         draft = await draft_application(
             ctx.agents.drafter,
@@ -185,6 +220,7 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
             profile=ctx.profile,
             kb=ctx.kb,
             recalled=recalled,
+            field_resolutions=field_resolutions,
         )
 
         audit = await audit_draft(

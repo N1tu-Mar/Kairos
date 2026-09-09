@@ -685,6 +685,11 @@ class DraftField(Mutable):
     #: Git blob hash of the prompt .md that produced it.
     prompt_version: str = ""
     model_call: ModelCallReceipt | None = None
+    mapping_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    mapping_transformation: Literal[
+        "exact_reuse", "structured_alias", "verbatim", "paraphrase", "synthesis"
+    ] | None = None
+    mapping_call: ModelCallReceipt | None = None
     audit_verdict: AuditVerdict | None = None
     audit_note: str = ""
     #: Set when the answer was lifted from a previous application (recall).
@@ -1023,9 +1028,39 @@ class KnowledgeBase(Mutable):
         Copies both collections rather than aliasing them, so mutating the
         knowledge base during a run cannot write back into the stored profile.
         """
+        structured_values = {
+            "full_name": profile.full_name,
+            "degree_level": profile.degree_level,
+            "institution": profile.institution,
+            "major": profile.major,
+            "citizenship": profile.citizenship,
+            "entity_type": profile.entity_type,
+            "team_size": profile.team_size,
+            "stage": profile.stage,
+            "funding_range": list(profile.funding_range),
+            "equity_ok": profile.equity_ok,
+            "has_faculty_advisor": profile.has_faculty_advisor,
+            "max_application_hours": profile.max_application_hours,
+            "geographies": profile.geographies,
+        }
+        profile_chunks = [
+            KnowledgeChunk(
+                chunk_id=f"profile:{name}",
+                text=f"{name.replace('_', ' ').title()}: {value}",
+                source="confirmed founder profile",
+                confidence=1.0,
+            )
+            for name, value in structured_values.items()
+            if value is not None and value != "" and value != []
+        ]
         return cls(
             founder_id=profile.founder_id,
-            chunks=list(profile.knowledge_base),
+            chunks=[
+                chunk
+                for chunk in profile.knowledge_base
+                if not chunk.chunk_id.startswith("profile:")
+            ]
+            + profile_chunks,
             traction=dict(profile.traction),
         )
 

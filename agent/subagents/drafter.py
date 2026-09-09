@@ -27,7 +27,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from agent.guardrails import MIN_KB_CHUNKS, blocklisted
+from agent.guardrails import MIN_KB_CHUNKS, blocklisted, extract_numbers
 from agent.model_routing import call_receipt, route_for, usage_snapshot
 from agent.models import (
     ApplicationForm,
@@ -41,6 +41,7 @@ from agent.models import (
 from agent.prompting import structured_call
 from agent.sanitize import wrap_untrusted
 from agent.subagents.base import build_subagent
+from agent.subagents.field_mapper import FieldResolution
 
 DESCRIPTION = (
     "Fills an application form from the founder's knowledge base. Classifies every "
@@ -103,6 +104,7 @@ def render_context(
     profile: FounderProfile,
     kb: KnowledgeBase,
     askable_field_ids: set[str],
+    field_resolutions: dict[str, FieldResolution] | None = None,
 ) -> str:
     """Build the Drafter's user message: the closed world, then the questions.
 
@@ -114,8 +116,19 @@ def render_context(
     `provenance_chunk_ids` is verified against this same list afterwards, so
     an id it did not see here cannot be accepted.
     """
+    allowed_union = {
+        chunk_id
+        for field_id in askable_field_ids
+        for chunk_id in (
+            field_resolutions[field_id].matched_chunk_ids
+            if field_resolutions and field_id in field_resolutions
+            else [chunk.chunk_id for chunk in kb.chunks]
+        )
+    }
     chunks = "\n".join(
-        f"[{c.chunk_id}] (from {c.source}) {c.text}" for c in kb.chunks
+        f"[{c.chunk_id}] (from {c.source}) {c.text}"
+        for c in kb.chunks
+        if c.chunk_id in allowed_union
     ) or "(the knowledge base is empty)"
 
     traction = (
@@ -127,6 +140,13 @@ def render_context(
         f"- {f.field_id}: {f.label}"
         + (f" (max {f.max_chars} characters)" if f.max_chars else "")
         + (f" [{f.help_text}]" if f.help_text else "")
+        + (
+            " (permitted evidence: "
+            + ", ".join(field_resolutions[f.field_id].matched_chunk_ids)
+            + ")"
+            if field_resolutions and f.field_id in field_resolutions
+            else ""
+        )
         for f in form.fields
         if f.field_id in askable_field_ids
     )
@@ -215,6 +235,7 @@ async def draft_application(
     profile: FounderProfile,
     kb: KnowledgeBase,
     recalled: dict[str, DraftField] | None = None,
+    field_resolutions: dict[str, FieldResolution] | None = None,
     min_kb_chunks: int = MIN_KB_CHUNKS,
 ) -> Draft:
     """Produce a draft. Never raises on a thin knowledge base — abstains instead."""
@@ -249,6 +270,49 @@ async def draft_application(
         elif spec.field_id in recalled:
             # Never re-ask a known question (Section 9, rule 3).
             fields.append(recalled[spec.field_id])
+        elif field_resolutions is not None and spec.field_id in field_resolutions:
+            resolution = field_resolutions[spec.field_id]
+            if resolution.status == "NEEDS_FOUNDER":
+                fields.append(
+                    DraftField(
+                        field_id=spec.field_id,
+                        question=spec.label,
+                        status="NEEDS_FOUNDER",
+                        audit_note=resolution.abstention_reason,
+                        mapping_confidence=resolution.confidence,
+                        mapping_transformation=(
+                            None
+                            if resolution.transformation_type == "none"
+                            else resolution.transformation_type
+                        ),
+                        mapping_call=resolution.model_call,
+                    )
+                )
+            elif resolution.answer is not None:
+                spans, missing = _spans_for(resolution.matched_chunk_ids, kb)
+                fields.append(
+                    DraftField(
+                        field_id=spec.field_id,
+                        question=spec.label,
+                        answer=resolution.answer,
+                        status="KNOWN",
+                        provenance=[] if missing else spans,
+                        mapping_confidence=resolution.confidence,
+                        mapping_transformation=resolution.transformation_type,
+                        mapping_call=resolution.model_call,
+                    )
+                )
+            else:
+                askable.add(spec.field_id)
+        elif field_resolutions is not None:
+            fields.append(
+                DraftField(
+                    field_id=spec.field_id,
+                    question=spec.label,
+                    status="NEEDS_FOUNDER",
+                    audit_note="field mapper returned no result",
+                )
+            )
         else:
             askable.add(spec.field_id)
 
@@ -258,7 +322,9 @@ async def draft_application(
         proposal = await structured_call(
             agent,
             DraftProposal,
-            render_context(form, opportunity, profile, kb, askable),
+            render_context(
+                form, opportunity, profile, kb, askable, field_resolutions
+            ),
             agent_name="drafter",
             budget=budget,
             tier=route.tier,
@@ -274,9 +340,30 @@ async def draft_application(
                 continue
 
             spans, missing = _spans_for(proposed.provenance_chunk_ids, kb)
+            resolution = (field_resolutions or {}).get(proposed.field_id)
+            unexpected = (
+                sorted(
+                    set(proposed.provenance_chunk_ids)
+                    - set(resolution.matched_chunk_ids)
+                )
+                if resolution is not None
+                else []
+            )
+            allowed_numeric_text = "\n".join(span.text for span in spans)
+            allowed_numeric_text += (
+                f"\n{spec.label}\n{spec.help_text}\n{spec.stated_limit}"
+            )
+            unauthorized_numbers = (
+                sorted(
+                    extract_numbers(proposed.answer or "")
+                    - extract_numbers(allowed_numeric_text)
+                )
+                if resolution is not None
+                else []
+            )
 
             if proposed.status in {"GENERATED", "KNOWN", "REUSED"} and (
-                missing or not spans
+                missing or unexpected or unauthorized_numbers or not spans
             ):
                 # A citation pointing at a chunk that does not exist is a
                 # fabricated receipt. Demote, do not repair.
@@ -286,9 +373,21 @@ async def draft_application(
                         question=spec.label,
                         status="NEEDS_FOUNDER",
                         audit_note=(
-                            f"drafter cited sources that are not in the knowledge base: "
-                            f"{', '.join(missing) or 'none provided'}"
+                            "drafter cited evidence not in the knowledge base or not "
+                            "authorized for this field: "
+                            f"{', '.join(missing + unexpected) or 'none provided'}"
+                            + (
+                                "; unauthorized numbers: "
+                                + ", ".join(f"{number:g}" for number in unauthorized_numbers)
+                                if unauthorized_numbers
+                                else ""
+                            )
                         ),
+                        mapping_confidence=(resolution.confidence if resolution else None),
+                        mapping_transformation=(
+                            resolution.transformation_type if resolution else None
+                        ),
+                        mapping_call=(resolution.model_call if resolution else None),
                     )
                 )
                 continue
@@ -303,6 +402,11 @@ async def draft_application(
                     model_id=route.model_id,
                     prompt_version=prompt_version,
                     model_call=receipt,
+                    mapping_confidence=(resolution.confidence if resolution else None),
+                    mapping_transformation=(
+                        resolution.transformation_type if resolution else None
+                    ),
+                    mapping_call=(resolution.model_call if resolution else None),
                     audit_note=proposed.needs_reason,
                 )
             )
@@ -312,11 +416,28 @@ async def draft_application(
         for field_id in sorted(askable - answered):
             spec = by_spec[field_id]
             fields.append(
+                # The mapper receipt remains attached even when drafting
+                # abstains, so operators can explain why the field stopped.
                 DraftField(
                     field_id=field_id,
                     question=spec.label,
                     status="NEEDS_FOUNDER",
                     audit_note="drafter returned no answer for this field",
+                    mapping_confidence=(
+                        field_resolutions[field_id].confidence
+                        if field_resolutions and field_id in field_resolutions
+                        else None
+                    ),
+                    mapping_transformation=(
+                        field_resolutions[field_id].transformation_type
+                        if field_resolutions and field_id in field_resolutions
+                        else None
+                    ),
+                    mapping_call=(
+                        field_resolutions[field_id].model_call
+                        if field_resolutions and field_id in field_resolutions
+                        else None
+                    ),
                 )
             )
 

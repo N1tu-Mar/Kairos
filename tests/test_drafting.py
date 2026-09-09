@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from agent.models import ApplicationField, AuditReport, DraftField, FieldAudit
+from agent.models import (
+    ApplicationField,
+    AuditReport,
+    DraftField,
+    FieldAudit,
+    KnowledgeBase,
+)
 from agent.prompting import Abstention
 from agent.subagents.auditor import audit_draft, render_context as audit_context
 from agent.subagents.drafter import (
@@ -13,6 +19,7 @@ from agent.subagents.drafter import (
     ProposedField,
     draft_application,
 )
+from agent.subagents.field_mapper import FieldResolution
 from tests.conftest import FakeAgent
 from tests.factories import (
     budget,
@@ -143,6 +150,154 @@ async def test_a_valid_citation_becomes_a_real_source_span():
     assert field.model_call.role == "application_drafter"
     assert field.model_call.tier == "classify"
     assert field.model_call.total_tokens == 150
+
+
+async def test_drafter_sees_only_mapper_selected_evidence_for_each_field():
+    selected = FieldResolution(
+        field_id="problem",
+        status="MATCHED",
+        matched_chunk_ids=["c0"],
+        confidence=0.98,
+        transformation_type="paraphrase",
+    )
+    agent = FakeAgent(
+        DraftProposal(
+            fields=[
+                ProposedField(
+                    field_id="problem",
+                    status="GENERATED",
+                    answer="Shared labs lose time to scheduling conflicts.",
+                    provenance_chunk_ids=["c0"],
+                )
+            ]
+        )
+    )
+    single_field_form = form(
+        ApplicationField(field_id="problem", label="What problem are you solving?")
+    )
+
+    result = await draft_application(
+        agent,
+        "promptv1",
+        draft_id="d1",
+        budget=budget(),
+        form=single_field_form,
+        opportunity=opportunity(),
+        profile=profile(),
+        kb=RICH_KB,
+        field_resolutions={"problem": selected},
+    )
+
+    assert result.fields[0].status == "GENERATED"
+    assert "LabQueue schedules shared lab equipment" in agent.prompts[0]
+    assert "40 students used it" not in agent.prompts[0]
+    assert result.fields[0].mapping_confidence == 0.98
+    assert result.fields[0].mapping_transformation == "paraphrase"
+
+
+async def test_drafter_cannot_cross_cite_another_candidates_evidence():
+    selected = FieldResolution(
+        field_id="problem",
+        status="MATCHED",
+        matched_chunk_ids=["c0"],
+        confidence=0.98,
+        transformation_type="paraphrase",
+    )
+    agent = FakeAgent(
+        DraftProposal(
+            fields=[
+                ProposedField(
+                    field_id="problem",
+                    status="GENERATED",
+                    answer="Forty students used the pilot.",
+                    provenance_chunk_ids=["c1"],
+                )
+            ]
+        )
+    )
+
+    result = await draft_application(
+        agent,
+        "promptv1",
+        draft_id="d1",
+        budget=budget(),
+        form=form(ApplicationField(field_id="problem", label="What problem are you solving?")),
+        opportunity=opportunity(),
+        profile=profile(),
+        kb=RICH_KB,
+        field_resolutions={"problem": selected},
+    )
+
+    assert result.fields[0].status == "NEEDS_FOUNDER"
+    assert "not authorized for this field" in result.fields[0].audit_note
+
+
+async def test_number_from_unselected_memory_cannot_leak_into_an_answer():
+    selected = FieldResolution(
+        field_id="problem",
+        status="MATCHED",
+        matched_chunk_ids=["c0"],
+        confidence=0.98,
+        transformation_type="paraphrase",
+    )
+    agent = FakeAgent(
+        DraftProposal(
+            fields=[
+                ProposedField(
+                    field_id="problem",
+                    status="GENERATED",
+                    answer="The scheduling problem affects 40 students.",
+                    provenance_chunk_ids=["c0"],
+                )
+            ]
+        )
+    )
+
+    result = await draft_application(
+        agent,
+        "promptv1",
+        draft_id="d1",
+        budget=budget(),
+        form=form(ApplicationField(field_id="problem", label="What problem are you solving?")),
+        opportunity=opportunity(),
+        profile=profile(),
+        kb=RICH_KB,
+        field_resolutions={"problem": selected},
+    )
+
+    assert result.fields[0].status == "NEEDS_FOUNDER"
+    assert "unauthorized numbers: 40" in result.fields[0].audit_note
+
+
+async def test_structured_alias_is_copied_from_the_confirmed_profile_without_a_model():
+    founder = profile(institution="Example University")
+    knowledge = KnowledgeBase.from_profile(founder)
+    resolution = FieldResolution(
+        field_id="institution",
+        status="MATCHED",
+        answer="Example University",
+        matched_chunk_ids=["profile:institution"],
+        confidence=1.0,
+        transformation_type="structured_alias",
+    )
+    agent = FakeAgent()
+
+    result = await draft_application(
+        agent,
+        "promptv1",
+        draft_id="d1",
+        budget=budget(),
+        form=form(ApplicationField(field_id="institution", label="Institution")),
+        opportunity=opportunity(),
+        profile=founder,
+        kb=knowledge,
+        field_resolutions={"institution": resolution},
+    )
+
+    assert agent.prompts == []
+    assert result.fields[0].status == "KNOWN"
+    assert result.fields[0].answer == "Example University"
+    assert result.fields[0].provenance[0].chunk_id == "profile:institution"
 
 
 # ── Fields the model invents or forgets ─────────────────────────────────────

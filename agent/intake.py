@@ -603,7 +603,9 @@ def profile_from_session(
             KnowledgeChunk(
                 chunk_id=chunk_id,
                 text=claim.text,
-                source=f"intake:{session.session_id}:{locations}"[:500],
+                source=(
+                    f"intake:{session.session_id}:{claim.category}:{locations}"
+                )[:500],
                 confidence=1.0,
             )
         )

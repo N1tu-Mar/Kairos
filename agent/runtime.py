@@ -39,6 +39,11 @@ class SubAgents:
     drafter_version: str
     auditor: object
     auditor_version: str
+    field_mapper: object | None = field(default=None, repr=False)
+    field_mapper_version: str = ""
+    field_mapper_factory: Callable[[], tuple[object, object]] | None = field(
+        default=None, repr=False
+    )
     assessor_factory: Callable[[], tuple[object, object]] | None = field(
         default=None, repr=False
     )
@@ -50,10 +55,22 @@ class SubAgents:
         agent, prompt = self.assessor_factory()
         return agent, getattr(prompt, "version", str(prompt))
 
+    def field_mapper_for_call(self) -> tuple[object, str]:
+        """Return a clean mapper so one form field cannot contaminate another."""
+        if self.field_mapper_factory is not None:
+            agent, prompt = self.field_mapper_factory()
+            return agent, getattr(prompt, "version", str(prompt))
+        if self.field_mapper is not None:
+            return self.field_mapper, self.field_mapper_version
+        from agent.subagents import field_mapper
+
+        agent, prompt = field_mapper.build()
+        return agent, prompt.version
+
     @classmethod
     def build(cls) -> SubAgents:
         """Construct all three. Requires a populated `.env`."""
-        from agent.subagents import assessor, auditor, drafter
+        from agent.subagents import assessor, auditor, drafter, field_mapper
 
         assessor_agent, assessor_prompt = assessor.build()
         drafter_agent, drafter_prompt = drafter.build()
@@ -65,6 +82,7 @@ class SubAgents:
             drafter_version=drafter_prompt.version,
             auditor=auditor_agent,
             auditor_version=auditor_prompt.version,
+            field_mapper_factory=field_mapper.build,
             assessor_factory=assessor.build,
         )
 

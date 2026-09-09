@@ -67,6 +67,17 @@ def api_client(monkeypatch, tmp_path):
     without the `with` would skip all of it.
     """
     monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/api.db")
+    # A run accepted by the real endpoint executes in a background task. Keep
+    # that task offline too: constructing production SubAgents here can make a
+    # test depend on the developer's AWS credential chain, and a newly added
+    # agent role would otherwise turn an endpoint test into a Bedrock call.
+    # Return a fresh bundle for every job so repeated-run tests cannot exhaust
+    # a shared FakeAgent response queue.
+    monkeypatch.setattr(
+        SubAgents,
+        "build",
+        classmethod(lambda cls: fake_agents(assessment("SKIP"))),
+    )
     config.settings.cache_clear()
     with TestClient(app) as client:
         yield client

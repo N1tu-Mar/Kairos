@@ -408,6 +408,7 @@ class Repository(Protocol):
 
     # Recall: what makes application 2 shorter than application 1.
     def remember_answer(self, founder_id: str, field: DraftField) -> None: ...
+    def recall_exact(self, founder_id: str, question: str) -> DraftField | None: ...
     def recall(self, founder_id: str, question: str) -> DraftField | None: ...
 
     # Membership: which auth users may act for which founders. The only
@@ -1553,6 +1554,22 @@ class SqliteRepository:
             row.payload = redact_json(field.model_dump_json())
             session.add(row)
             session.commit()
+
+    def recall_exact(self, founder_id: str, question: str) -> DraftField | None:
+        """Return only normalized-exact, reusable founder-owned history."""
+        key = question_key(question)
+        with Session(self.engine) as session:
+            row = session.exec(
+                select(AnswerRow).where(
+                    AnswerRow.founder_id == founder_id,
+                    AnswerRow.question_key == key,
+                )
+            ).first()
+            if row is None:
+                return None
+            return self._as_reused(
+                row, match="exact", score=1.0, question=question
+            )
 
     def recall(self, founder_id: str, question: str) -> DraftField | None:
         """Has the founder answered a semantically equivalent question before?

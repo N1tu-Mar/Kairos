@@ -68,6 +68,7 @@ def test_routes_resolve_deployment_models_and_temperature_policy(monkeypatch):
         ("drafter", "application_drafter"),
         ("auditor", "draft_auditor"),
         ("eligibility_reuse", "eligibility_equivalence"),
+        ("field_mapper", "application_field_mapper"),
         ("intake_interviewer", "intake_interviewer"),
     ],
 )
