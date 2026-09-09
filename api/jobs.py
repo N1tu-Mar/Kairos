@@ -122,7 +122,7 @@ class PersistedOpportunitySource:
         return [self.opportunity]
 
 
-def build_sources(job: RunJob, repo=None):
+def build_sources(job: RunJob, repo=None, profile=None):
     """Assemble the discovery sources for one job, in priority order.
 
     Seed catalog always; Grants.gov only when the job asked for it; campus
@@ -151,9 +151,16 @@ def build_sources(job: RunJob, repo=None):
         )
     ]
     if job.include_grants_gov:
+        from agent.tools.discovery import keywords_for_profile
+
         sources.append(
             GrantsGovSource(
-                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s)
+                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s),
+                keywords=(
+                    keywords_for_profile(profile)
+                    if profile is not None
+                    else ("student", "undergraduate", "entrepreneurship")
+                ),
             )
         )
     # The same Tier 3 source the CLI builds. Without this line the flag would
@@ -214,7 +221,7 @@ async def execute_job(job: RunJob, repo, lease: Lease, failure_log: ScheduledRun
                 agents=SubAgents.build(),
             )
             ctx.forms = load_forms()
-            sources = build_sources(job, repo)
+            sources = build_sources(job, repo, profile)
         except Exception as exc:  # noqa: BLE001 — a start failure is a class of its own
             _fail(job, repo, failure_log, exc, failure_class="startup")
             return

@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
@@ -312,6 +313,77 @@ class GrantsGovClient:
         return self._post("fetchOpportunity", {"opportunityId": opportunity_id})
 
 
+MAX_PERSONALIZED_TOPICS = 4
+MAX_TOPIC_CORPUS_CHARS = 50_000
+
+# Founder text may select only from this server-owned vocabulary. It can
+# never become a URL, shell argument, or arbitrary Grants.gov query.
+_TOPIC_RULES: tuple[tuple[str, str, re.Pattern[str]], ...] = (
+    (
+        "climate_energy",
+        "climate energy innovation",
+        re.compile(r"\b(climate|clean[ -]?tech|decarbon\w*|renewable|solar|wind|battery|carbon)\b"),
+    ),
+    (
+        "health_biomedical",
+        "health biomedical innovation",
+        re.compile(r"\b(health|healthcare|medical|biomedical|biotech|patient|diagnostic|therapeutic)\b"),
+    ),
+    (
+        "education_workforce",
+        "education workforce innovation",
+        re.compile(r"\b(education|learning|classroom|teacher|school|workforce|training)\b"),
+    ),
+    (
+        "agriculture_food",
+        "agriculture food innovation",
+        re.compile(r"\b(agriculture|agricultural|farm\w*|crop|food|livestock)\b"),
+    ),
+    (
+        "ai_data",
+        "artificial intelligence data innovation",
+        re.compile(r"\b(artificial intelligence|machine learning|data science)\b"),
+    ),
+    (
+        "cybersecurity",
+        "cybersecurity innovation",
+        re.compile(r"\b(cybersecurity|cyber security|information security|privacy)\b"),
+    ),
+    (
+        "manufacturing_hardware",
+        "advanced manufacturing innovation",
+        re.compile(r"\b(manufactur\w*|robotics|hardware|semiconductor|materials?)\b"),
+    ),
+    (
+        "transportation_mobility",
+        "transportation mobility innovation",
+        re.compile(r"\b(transportation|mobility|transit|vehicle|aviation|logistics)\b"),
+    ),
+)
+
+
+def confirmed_topic_categories(profile) -> tuple[str, ...]:
+    """Map confirmed founder memory into a small server-owned taxonomy.
+
+    `FounderProfile.memory_summary` and `knowledge_base` contain only state
+    promoted out of intake after founder confirmation. Provisional session
+    memory is a different model and cannot enter this function. The corpus is
+    bounded before matching so even a maximal profile cannot create unbounded
+    discovery work.
+    """
+    parts = [str(getattr(profile, "memory_summary", "") or "")]
+    parts.extend(
+        str(getattr(chunk, "text", "") or "")
+        for chunk in getattr(profile, "knowledge_base", [])
+    )
+    corpus = "\n".join(parts)[:MAX_TOPIC_CORPUS_CHARS].casefold()
+    return tuple(
+        category
+        for category, _query, pattern in _TOPIC_RULES
+        if pattern.search(corpus)
+    )[:MAX_PERSONALIZED_TOPICS]
+
+
 def keywords_for_profile(profile) -> tuple[str, ...]:
     """Search keywords derived from structured profile fields.
 
@@ -331,6 +403,10 @@ def keywords_for_profile(profile) -> tuple[str, ...]:
         keywords.append(term)
     if getattr(profile, "entity_type", "none") != "none":
         keywords.append("small business innovation")
+    categories = set(confirmed_topic_categories(profile))
+    keywords.extend(
+        query for category, query, _pattern in _TOPIC_RULES if category in categories
+    )
     seen: set[str] = set()
     return tuple(k for k in keywords if not (k in seen or seen.add(k)))
 
