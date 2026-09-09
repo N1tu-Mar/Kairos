@@ -47,6 +47,10 @@ from urllib.parse import urlsplit
 import httpx
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from agent.scraping.safehttp import guarded_get  # noqa: E402
+
 CANDIDATES = REPO_ROOT / "data" / "opportunities.candidates.json"
 SEED = REPO_ROOT / "data" / "opportunities.seed.json"
 
@@ -146,15 +150,15 @@ def fetch(url: str, timeout_s: float, cache: dict[str, str | None]) -> str | Non
     if url in cache:
         return cache[url]
     try:
-        response = httpx.get(
-            url, timeout=timeout_s, follow_redirects=True, headers={"User-Agent": UA}
+        response = guarded_get(
+            url, timeout=timeout_s, headers={"User-Agent": UA}
         )
         cache[url] = response.text if response.status_code == 200 else None
         if response.status_code != 200:
             cache[f"{url}::status"] = f"HTTP {response.status_code}"  # type: ignore[assignment]
     except httpx.HTTPError as exc:
         cache[url] = None
-        cache[f"{url}::status"] = f"fetch failed: {type(exc).__name__}: {exc}"  # type: ignore[assignment]
+        cache[f"{url}::status"] = f"fetch failed: {type(exc).__name__}"  # type: ignore[assignment]
     return cache[url]
 
 

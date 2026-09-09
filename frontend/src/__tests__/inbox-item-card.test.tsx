@@ -90,6 +90,18 @@ describe("InboxItemCard", () => {
     expect(screen.queryByRole("link", { name: /open the funder/i })).toBeNull();
   });
 
+  it("renders a legacy unsafe source as text rather than a link", () => {
+    render(
+      <InboxItemCard
+        item={inboxItem()}
+        opportunity={opportunity({ source_url: "javascript:alert(1)" })}
+      />,
+    );
+
+    expect(screen.queryByRole("link", { name: /open the funder/i })).toBeNull();
+    expect(screen.getByText(/source link unavailable/i)).toBeInTheDocument();
+  });
+
   it("marks an unverified source instead of hiding it", () => {
     render(
       <InboxItemCard

@@ -23,7 +23,9 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from agent.urls import validate_external_url
 
 # ── Vocabularies ─────────────────────────────────────────────────────────────
 
@@ -51,6 +53,19 @@ IntakeFieldStatus = Literal["missing", "proposed", "confirmed"]
 IntakeSessionStatus = Literal["active", "completed", "abandoned"]
 IntakeMessageRole = Literal["founder", "assistant"]
 IntakeDocumentStatus = Literal["processing", "ready", "rejected"]
+IntakeClaimCategory = Literal[
+    "problem",
+    "solution",
+    "customers",
+    "market",
+    "business_model",
+    "differentiation",
+    "team",
+    "traction",
+    "milestones",
+    "funding_needs",
+]
+IntakeClaimStatus = Literal["proposed", "confirmed", "rejected", "superseded"]
 
 #: Three-valued eligibility. `UNKNOWN` never silently passes and never
 #: silently fails — it becomes a question for the founder (Section 11.3).
@@ -196,6 +211,9 @@ class FounderProfile(Frozen):
     knowledge_base: list[KnowledgeChunk] = Field(
         default_factory=list, max_length=MAX_KNOWLEDGE_CHUNKS
     )
+    #: Deterministically assembled from confirmed narrative claims. It helps
+    #: discovery and assessment orient quickly; drafts still require chunks.
+    memory_summary: str = Field(default="", max_length=8_000)
 
     @property
     def min_award(self) -> int:
@@ -214,7 +232,7 @@ class FounderProfile(Frozen):
 class IntakeEvidence(Frozen):
     """A bounded pointer to the founder-controlled source of one proposal."""
 
-    source_type: Literal["message", "document", "existing_profile"]
+    source_type: Literal["message", "document", "existing_profile", "founder_edit"]
     source_id: str = Field(min_length=1, max_length=200)
     location: str | None = Field(default=None, max_length=200)
     excerpt: str | None = Field(default=None, max_length=500)
@@ -253,6 +271,67 @@ class IntakeFieldState(Mutable):
         return self
 
 
+class IntakeKnowledgeClaim(Mutable):
+    """One provenance-bearing narrative fact in founder working memory."""
+
+    claim_id: str = Field(min_length=1, max_length=200)
+    category: IntakeClaimCategory
+    text: str = Field(min_length=1, max_length=4_000)
+    status: IntakeClaimStatus = "proposed"
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence: list[IntakeEvidence] = Field(min_length=1, max_length=20)
+    proposal_batch_id: str | None = Field(default=None, max_length=200)
+    supersedes_claim_id: str | None = Field(default=None, max_length=200)
+    superseded_by_claim_id: str | None = Field(default=None, max_length=200)
+    created_at: datetime = Field(default_factory=_now)
+    updated_at: datetime = Field(default_factory=_now)
+    confirmed_at: datetime | None = None
+    confirmed_by: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def status_metadata_is_coherent(self) -> IntakeKnowledgeClaim:
+        if self.status == "confirmed":
+            if self.confirmed_at is None or not self.confirmed_by:
+                raise ValueError("a confirmed knowledge claim requires confirmation metadata")
+        elif self.status in {"proposed", "rejected"}:
+            if self.confirmed_at is not None or self.confirmed_by is not None:
+                raise ValueError("an unconfirmed knowledge claim cannot carry confirmation metadata")
+        if self.status == "superseded" and not self.superseded_by_claim_id:
+            raise ValueError("a superseded knowledge claim must name its replacement")
+        if self.superseded_by_claim_id == self.claim_id:
+            raise ValueError("a knowledge claim cannot supersede itself")
+        return self
+
+
+class IntakeWorkingMemory(Mutable):
+    """Current two-layer memory; raw transcript remains stored separately."""
+
+    revision: int = Field(default=0, ge=0)
+    provisional_summary: str = Field(default="", max_length=4_000)
+    confirmed_summary: str = Field(default="", max_length=8_000)
+    claims: dict[str, IntakeKnowledgeClaim] = Field(default_factory=dict, max_length=500)
+    updated_at: datetime = Field(default_factory=_now)
+
+    @model_validator(mode="after")
+    def claim_keys_match(self) -> IntakeWorkingMemory:
+        for key, claim in self.claims.items():
+            if key != claim.claim_id:
+                raise ValueError(
+                    f"working-memory claim key {key!r} does not match {claim.claim_id!r}"
+                )
+        return self
+
+
+class IntakeProposalBatch(Frozen):
+    """The exact candidates most recently presented for founder confirmation."""
+
+    batch_id: str = Field(min_length=1, max_length=200)
+    source_message_id: str = Field(min_length=1, max_length=200)
+    field_names: list[IntakeFieldName] = Field(default_factory=list, max_length=20)
+    claim_ids: list[str] = Field(default_factory=list, max_length=50)
+    created_at: datetime = Field(default_factory=_now)
+
+
 class IntakeSession(Mutable):
     """Persisted state for one founder interview."""
 
@@ -265,6 +344,8 @@ class IntakeSession(Mutable):
     # cannot start a second paid call for the same session revision.
     pending_message_id: str | None = Field(default=None, min_length=1, max_length=200)
     fields: dict[str, IntakeFieldState] = Field(default_factory=dict, max_length=50)
+    memory: IntakeWorkingMemory = Field(default_factory=IntakeWorkingMemory)
+    pending_confirmation_batch: IntakeProposalBatch | None = None
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
     completed_at: datetime | None = None
@@ -277,6 +358,17 @@ class IntakeSession(Mutable):
         if self.status == "completed" and self.completed_at is None:
             raise ValueError("a completed intake session requires completed_at")
         return self
+
+
+class IntakeMemoryRevision(Frozen):
+    """Append-only receipt for one published working-memory revision."""
+
+    snapshot_id: str = Field(min_length=1, max_length=500)
+    session_id: str = Field(min_length=1, max_length=200)
+    founder_id: str = Field(min_length=1, max_length=200)
+    revision: int = Field(ge=0)
+    memory: IntakeWorkingMemory
+    created_at: datetime = Field(default_factory=_now)
 
 
 class IntakeMessage(Frozen):
@@ -310,6 +402,10 @@ class IntakeDocument(Frozen):
     filename: str = Field(min_length=1, max_length=200)
     media_type: str = Field(min_length=1, max_length=100)
     byte_size: int = Field(ge=0, le=10 * 1024 * 1024)
+    # Slots make the two-document ceiling enforceable by a database unique
+    # constraint even when two browser tabs upload concurrently. Rejected
+    # documents release their slot but retain bounded metadata for the UI.
+    slot: int | None = Field(default=None, ge=1, le=2)
     status: IntakeDocumentStatus
     chunks: list[IntakeDocumentChunk] = Field(default_factory=list, max_length=100)
     error: str | None = Field(default=None, max_length=500)
@@ -369,6 +465,11 @@ class Opportunity(Frozen):
     verified_at: datetime | None = None
     retrieved_at: datetime = Field(default_factory=_now)
 
+    @field_validator("source_url")
+    @classmethod
+    def source_url_is_safe(cls, value: str) -> str:
+        return validate_external_url(value)
+
     @property
     def best_award(self) -> int | None:
         """Highest stated award, for ranking and threshold checks."""
@@ -396,6 +497,16 @@ class EligibilityQuestion(Mutable):
     reassessment_pending: bool = False
     created_at: datetime = Field(default_factory=_now)
     updated_at: datetime = Field(default_factory=_now)
+
+    @field_validator("source_url")
+    @classmethod
+    def source_url_is_safe(cls, value: str) -> str:
+        return validate_external_url(value)
+
+    @field_validator("source_doc")
+    @classmethod
+    def source_doc_is_safe(cls, value: str) -> str:
+        return validate_external_url(value, allow_empty=True)
 
     @model_validator(mode="after")
     def align_status_with_answer(self) -> EligibilityQuestion:

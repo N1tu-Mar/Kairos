@@ -20,6 +20,10 @@ import type {
   InboxItem,
   InboxState,
   IntakeMessageCreate,
+  IntakeClaimUpdate,
+  IntakeDocument,
+  IntakeEvidenceView,
+  IntakeFactUpdate,
   IntakeSessionView,
   JobStatusResponse,
   Opportunity,
@@ -136,8 +140,10 @@ export function httpStatusFor(error: ApiError): number {
 }
 
 interface RequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "PUT";
+  method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
+  rawBody?: BodyInit;
+  expectNoContent?: boolean;
   timeoutMs?: number;
 }
 
@@ -158,7 +164,16 @@ interface RequestOptions {
  * response does not leave a pending timeout behind.
  */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", body, timeoutMs = readTimeoutMs() } = options;
+  const {
+    method = "GET",
+    body,
+    rawBody,
+    expectNoContent = false,
+    timeoutMs = readTimeoutMs(),
+  } = options;
+  if (body !== undefined && rawBody !== undefined) {
+    throw new ApiError("misconfigured", "request has two bodies", path);
+  }
 
   // Checked before the fetch, not after it fails. A bad base URL makes every
   // request fail in a way indistinguishable from a stopped backend, and the
@@ -171,7 +186,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const headers: Record<string, string> = {};
-  if (body) headers["content-type"] = "application/json";
+  if (body !== undefined) headers["content-type"] = "application/json";
   // Supabase mode: the *user's* access token, or no request at all.
   // Falling back to KAIROS_API_TOKEN here is how an unauthenticated
   // visitor used to trigger paid runs — the proxy held the backend
@@ -200,7 +215,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     response = await fetch(url, {
       method,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
-      body: body ? JSON.stringify(body) : undefined,
+      body: rawBody ?? (body !== undefined ? JSON.stringify(body) : undefined),
       signal: controller.signal,
       // Every view reflects live pipeline state; a stale render is a lie.
       cache: "no-store",
@@ -231,6 +246,8 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       response.status,
     );
   }
+
+  if (expectNoContent || response.status === 204) return undefined as T;
 
   try {
     return (await response.json()) as T;
@@ -582,5 +599,105 @@ export async function sendIntakeMessage(
       body: message,
       timeoutMs: 60_000,
     },
+  );
+}
+
+export async function uploadIntakeDocument(
+  sessionId: string,
+  file: File,
+  id?: string,
+): Promise<IntakeDocument> {
+  const target = id ?? (await currentFounderId());
+  const form = new FormData();
+  form.set("file", file, file.name);
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/documents`,
+    { method: "POST", rawBody: form, timeoutMs: 30_000 },
+  );
+}
+
+export async function removeIntakeDocument(
+  sessionId: string,
+  documentId: string,
+  id?: string,
+): Promise<void> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/documents/${encodeURIComponent(documentId)}`,
+    { method: "DELETE", expectNoContent: true },
+  );
+}
+
+export async function getIntakeEvidence(
+  sessionId: string,
+  sourceId: string,
+  id?: string,
+): Promise<IntakeEvidenceView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/evidence/${encodeURIComponent(sourceId)}`,
+  );
+}
+
+export async function confirmIntakeBatch(
+  sessionId: string,
+  batchId: string,
+  expectedRevision: number,
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/proposal-batches/${encodeURIComponent(batchId)}/confirm`,
+    { method: "POST", body: { expected_revision: expectedRevision } },
+  );
+}
+
+export async function updateIntakeField(
+  sessionId: string,
+  field: string,
+  update: IntakeFactUpdate,
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/fields/${encodeURIComponent(field)}`,
+    { method: "PATCH", body: update },
+  );
+}
+
+export async function updateIntakeClaim(
+  sessionId: string,
+  claimId: string,
+  update: IntakeClaimUpdate,
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/claims/${encodeURIComponent(claimId)}`,
+    { method: "PATCH", body: update },
+  );
+}
+
+export async function completeIntake(
+  sessionId: string,
+  expectedRevision: number,
+  id?: string,
+): Promise<FounderProfile> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}/complete`,
+    { method: "POST", body: { expected_revision: expectedRevision } },
+  );
+}
+
+export async function abandonIntake(
+  sessionId: string,
+  expectedRevision: number,
+  id?: string,
+): Promise<IntakeSessionView> {
+  const target = id ?? (await currentFounderId());
+  return request(
+    `/founders/${encodeURIComponent(target)}/intake/sessions/${encodeURIComponent(sessionId)}`,
+    { method: "DELETE", body: { expected_revision: expectedRevision } },
   );
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
@@ -181,7 +182,58 @@ def test_definite_answer_queues_one_persisted_opportunity(monkeypatch, tmp_path)
         job = executor.jobs[0]
         assert job.source == "eligibility_answer"
         assert job.target_opportunity_id == "opp_demo_1"
+        assert job.idempotency_key is not None
+        assert job.idempotency_key.startswith("eligibility:eq_demo_1:yes:")
         assert app.state.repo.get_job(job.job_id) is not None
+
+        first_updated_at = response.json()["answer_updated_at"]
+        repeated = client.put(
+            "/founders/founder_demo/eligibility-questions/eq_demo_1/answer",
+            json={"answer": "yes"},
+        )
+        assert repeated.status_code == 200
+        assert repeated.headers["x-kairos-reassessment"] == "not-requested"
+        assert repeated.json()["answer_updated_at"] == first_updated_at
+        assert len(executor.jobs) == 1
+    config.settings.cache_clear()
+
+
+def test_eligibility_reassessment_limit_rejects_before_saving(monkeypatch, tmp_path):
+    monkeypatch.setenv("KAIROS_DB_URL", f"sqlite:///{tmp_path}/limited.db")
+    from agent import config
+
+    config.settings.cache_clear()
+    with TestClient(app) as client:
+        app.state.config = replace(
+            app.state.config, eligibility_reassessments_per_hour=1
+        )
+        for suffix in ("1", "2"):
+            app.state.repo.save_opportunity(opportunity(id=f"opp_demo_{suffix}"))
+            app.state.repo.save_eligibility_question(
+                question(
+                    question_id=f"eq_demo_{suffix}",
+                    opportunity_id=f"opp_demo_{suffix}",
+                )
+            )
+        executor = CapturingExecutor()
+        app.state.executor = executor
+
+        first = client.put(
+            "/founders/founder_demo/eligibility-questions/eq_demo_1/answer",
+            json={"answer": "yes"},
+        )
+        rejected = client.put(
+            "/founders/founder_demo/eligibility-questions/eq_demo_2/answer",
+            json={"answer": "yes"},
+        )
+
+        assert first.status_code == 200
+        assert rejected.status_code == 429
+        assert int(rejected.headers["retry-after"]) > 0
+        unchanged = app.state.repo.get_eligibility_question("eq_demo_2")
+        assert unchanged is not None
+        assert unchanged.answer is None
+        assert len(executor.jobs) == 1
     config.settings.cache_clear()
 
 

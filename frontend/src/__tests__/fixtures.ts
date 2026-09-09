@@ -296,6 +296,7 @@ export function founderProfile(
         created_at: "2026-08-22T00:00:00Z",
       },
     ],
+    memory_summary: "",
     ...overrides,
   };
 }

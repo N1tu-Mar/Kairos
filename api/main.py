@@ -19,6 +19,7 @@ should have a one-click answer (Section 9, rule 5).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from contextlib import asynccontextmanager
@@ -27,22 +28,31 @@ from pathlib import Path
 
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Path as PathParam, Query, Request, Response
+from fastapi import Depends, FastAPI, File, HTTPException, Path as PathParam, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field as PydanticField
 
 from agent.config import REPO_ROOT, settings, validate_runtime_posture, ConfigError
-from agent.budget import BudgetExceeded, UnenforceableSpendCap
+from agent.budget import BudgetExceeded, RunBudget, UnenforceableSpendCap
 from agent.intake import (
+    IntakeConflict,
     IntakeIncomplete,
-    apply_model_proposals,
+    apply_interview_memory,
+    confirm_proposal_batch,
     is_complete as intake_is_complete,
     missing_required,
     new_intake_id,
     new_session,
     profile_from_session,
+    update_claim,
     update_field,
+)
+from agent.intake_documents import (
+    DocumentRejected,
+    MAX_FILE_BYTES,
+    extract_upload,
+    safe_filename,
 )
 from agent.prompting import Abstention, Throttled
 from agent.sanitize import clean
@@ -56,6 +66,7 @@ from agent.models import (
     FounderProfile,
     InboxState,
     IntakeDocument,
+    IntakeEvidence,
     IntakeMessage,
     IntakeSession,
     Opportunity,
@@ -126,6 +137,7 @@ MAX_LIST_LIMIT = 1_000
 #: 2 MB against a real caller: the largest thing anyone legitimately sends is
 #: a profile with a full knowledge base, which is tens of kilobytes.
 MAX_BODY_BYTES = 2 * 1024 * 1024
+MAX_UPLOAD_BODY_BYTES = MAX_FILE_BYTES + 256 * 1024
 
 #: A list limit: at least one row, at most `MAX_LIST_LIMIT`.
 ListLimit = Annotated[int, Query(ge=1, le=MAX_LIST_LIMIT)]
@@ -199,10 +211,31 @@ class IntakeFieldUpdate(BaseModel):
     action: Literal["confirm", "correct", "reject"]
     expected_revision: int = PydanticField(ge=0)
     value: object | None = None
+    client_action_id: str | None = PydanticField(default=None, min_length=1, max_length=200)
+
+
+class IntakeClaimUpdate(BaseModel):
+    """One explicit founder decision about a narrative memory claim."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["confirm", "correct", "reject"]
+    expected_revision: int = PydanticField(ge=0)
+    text: str | None = PydanticField(default=None, max_length=4_000)
+    category: str | None = PydanticField(default=None, max_length=100)
+    client_action_id: str = PydanticField(min_length=1, max_length=200)
 
 
 class IntakeRevision(BaseModel):
     """Optimistic revision required for terminal session transitions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = PydanticField(ge=0)
+
+
+class IntakeBatchConfirmation(BaseModel):
+    """Confirm exactly one proposal batch at one optimistic revision."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -230,6 +263,17 @@ class IntakeSessionView(BaseModel):
     missing_required: list[str]
     ready_to_complete: bool
     turn_pending: bool
+
+
+class IntakeEvidenceView(BaseModel):
+    """One founder-owned, sanitized evidence excerpt."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_type: Literal["message", "document"]
+    source_id: str
+    location: str | None = None
+    excerpt: str
 
 
 @asynccontextmanager
@@ -345,9 +389,15 @@ async def bound_request_body(request: Request, call_next):
             size = int(declared)
         except ValueError:
             return JSONResponse({"detail": "malformed content-length"}, status_code=400)
-        if size > MAX_BODY_BYTES:
+        is_upload = (
+            request.method == "POST"
+            and request.url.path.endswith("/documents")
+            and "/intake/sessions/" in request.url.path
+        )
+        limit = MAX_UPLOAD_BODY_BYTES if is_upload else MAX_BODY_BYTES
+        if size > limit:
             return JSONResponse(
-                {"detail": f"request body exceeds {MAX_BODY_BYTES} bytes"},
+                {"detail": f"request body exceeds {limit} bytes"},
                 status_code=413,
             )
     return await call_next(request)
@@ -447,7 +497,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_origin_regex=ALLOWED_ORIGIN_REGEX,
-    allow_methods=["GET", "POST", "PATCH", "PUT", "OPTIONS"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
 
@@ -727,6 +777,13 @@ def put_founder(
     # scope, so EventBridge cannot edit a knowledge base it is only meant
     # to run against.
     owned(founder_id, actor, write=True)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     if profile.founder_id != founder_id:
         raise HTTPException(
             400,
@@ -769,6 +826,93 @@ def _intake_view(intake: IntakeSession) -> IntakeSessionView:
     )
 
 
+def _intake_evidence(
+    messages: list[IntakeMessage], documents: list[IntakeDocument]
+) -> dict[str, IntakeEvidence]:
+    """Evidence IDs from exactly the bounded context sent to the interviewer."""
+    evidence = {
+        message.message_id: IntakeEvidence(
+            source_type="message",
+            source_id=message.message_id,
+            excerpt=message.text[:500],
+        )
+        for message in messages[-20:]
+        if message.role == "founder"
+    }
+    chunks = [
+        chunk
+        for document in documents
+        if document.status == "ready"
+        for chunk in document.chunks
+    ][:30]
+    for chunk in chunks:
+        evidence[chunk.chunk_id] = IntakeEvidence(
+            source_type="document",
+            source_id=chunk.chunk_id,
+            location=chunk.location,
+            excerpt=chunk.text[:500],
+        )
+    return evidence
+
+
+def _is_unambiguous_confirmation(text: str) -> bool:
+    normalized = text.casefold().strip().rstrip(".!?").strip()
+    return normalized in {"yes", "correct", "confirm", "confirmed", "looks good"}
+
+
+def _enforce_rate_limit(
+    actor: Principal,
+    founder_id: str,
+    *,
+    scope: str,
+    limit: int,
+    window_seconds: int,
+) -> None:
+    """Apply a durable principal/founder limit and emit a body-free audit."""
+    retry_after = app.state.repo.take_rate_limit(
+        scope,
+        actor.subject,
+        founder_id,
+        limit=limit,
+        window_seconds=window_seconds,
+    )
+    if retry_after is None:
+        return
+    audit_event(
+        actor=actor.subject,
+        action="rate_limit.rejected",
+        resource=founder_id,
+        method=actor.method,
+        limit=scope,
+        retry_after=retry_after,
+    )
+    raise HTTPException(
+        429,
+        "request limit reached; try again later",
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+def _require_paid_work_capacity() -> None:
+    """Reject paid work before queueing when its spend posture is unsafe."""
+    budget = RunBudget.from_settings(app.state.config)
+    try:
+        budget.require_enforceable_spend_cap()
+        if (
+            budget.daily_usd_cap > 0
+            and budget.ledger.spent_today() >= budget.daily_usd_cap
+        ):
+            raise BudgetExceeded(
+                "DAILY_USD_CAP", "the configured daily spending cap is exhausted"
+            )
+    except (BudgetExceeded, UnenforceableSpendCap):
+        raise HTTPException(
+            429,
+            "paid-work spending limit reached; try again later",
+            headers={"Retry-After": "3600"},
+        ) from None
+
+
 @app.post("/founders/{founder_id}/intake/sessions")
 def create_or_resume_intake_session(
     founder_id: ResourceId, actor: Principal = Depends(principal)
@@ -777,6 +921,13 @@ def create_or_resume_intake_session(
     owned(founder_id, actor, write=True)
     intake = app.state.repo.get_active_intake_session(founder_id)
     if intake is None:
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="authenticated_write",
+            limit=app.state.config.authenticated_writes_per_minute,
+            window_seconds=60,
+        )
         intake = app.state.repo.create_intake_session(
             new_session(founder_id, app.state.repo.get_profile(founder_id))
         )
@@ -798,6 +949,159 @@ def get_intake_session(
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, not_found=not_found)
     return _intake_view(_intake_for_founder(founder_id, session_id))
+
+
+async def _read_bounded_upload(upload: UploadFile) -> bytes:
+    """Read one spooled upload without ever accepting more than 10 MB."""
+    body = bytearray()
+    while True:
+        chunk = await upload.read(min(64 * 1024, MAX_FILE_BYTES + 1 - len(body)))
+        if not chunk:
+            return bytes(body)
+        body.extend(chunk)
+        if len(body) > MAX_FILE_BYTES:
+            raise HTTPException(413, "the file exceeds the 10 MB limit")
+
+
+@app.post("/founders/{founder_id}/intake/sessions/{session_id}/documents")
+async def upload_intake_document(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    file: Annotated[UploadFile, File()],
+    actor: Principal = Depends(principal),
+) -> IntakeDocument:
+    """Extract one founder-owned document; raw bytes are never persisted."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.status != "active":
+        raise HTTPException(409, "documents can only be added to an active intake session")
+    try:
+        filename = safe_filename(file.filename or "")
+        media_type = file.content_type or "application/octet-stream"
+        data = await _read_bounded_upload(file)
+    except DocumentRejected as exc:
+        raise HTTPException(422, str(exc)) from None
+    finally:
+        await file.close()
+
+    document_id = new_intake_id("document")
+    processing = IntakeDocument(
+        document_id=document_id,
+        session_id=session_id,
+        founder_id=founder_id,
+        filename=filename,
+        media_type=media_type,
+        byte_size=len(data),
+        status="processing",
+    )
+    if not app.state.repo.reserve_intake_document(processing):
+        raise HTTPException(409, "an intake session may contain at most two documents")
+    reserved = app.state.repo.get_intake_document(document_id)
+    if reserved is None:  # pragma: no cover - transaction just inserted it
+        raise HTTPException(500, "document reservation was not persisted")
+    try:
+        _, extracted = await asyncio.to_thread(extract_upload, data, filename, media_type)
+    except DocumentRejected as exc:
+        # Failed uploads do not consume a slot or accumulate attacker-chosen
+        # metadata. The caller keeps the safe error for its local status UI.
+        app.state.repo.delete_intake_document(document_id)
+        audit_event(
+            actor=actor.subject,
+            action="intake.document_rejected",
+            resource=document_id,
+            method=actor.method,
+        )
+        raise HTTPException(422, str(exc)) from None
+
+    chunks = [
+        chunk.model_copy(update={"chunk_id": f"{document_id}:chunk:{index}"})
+        for index, chunk in enumerate(extracted, 1)
+    ]
+    ready = reserved.model_copy(update={"status": "ready", "chunks": chunks, "error": None})
+    app.state.repo.save_intake_document(ready)
+    audit_event(
+        actor=actor.subject,
+        action="intake.document_uploaded",
+        resource=document_id,
+        method=actor.method,
+    )
+    return ready
+
+
+@app.delete(
+    "/founders/{founder_id}/intake/sessions/{session_id}/documents/{document_id}"
+)
+def remove_intake_document(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    document_id: ResourceId,
+    actor: Principal = Depends(principal),
+) -> Response:
+    not_found = f"no intake document {document_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    document = app.state.repo.get_intake_document(document_id)
+    if document is None or document.founder_id != founder_id or document.session_id != session_id:
+        raise HTTPException(404, not_found)
+    if intake.status != "active":
+        raise HTTPException(409, "documents can only be removed from an active intake session")
+    if document.status == "processing":
+        raise HTTPException(409, "wait for document extraction to finish")
+    if not app.state.repo.delete_intake_document(document_id):
+        raise HTTPException(404, not_found)
+    audit_event(
+        actor=actor.subject,
+        action="intake.document_removed",
+        resource=document_id,
+        method=actor.method,
+    )
+    return Response(status_code=204)
+
+
+@app.get(
+    "/founders/{founder_id}/intake/sessions/{session_id}/evidence/{source_id}"
+)
+def get_intake_evidence(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    source_id: ResourceId,
+    actor: Principal = Depends(principal),
+) -> IntakeEvidenceView:
+    not_found = f"no intake evidence {source_id} for {founder_id}"
+    owned(founder_id, actor, not_found=not_found)
+    _intake_for_founder(founder_id, session_id)
+    for message in app.state.repo.list_intake_messages(session_id):
+        if message.message_id == source_id:
+            return IntakeEvidenceView(
+                source_type="message", source_id=source_id, excerpt=message.text[:500]
+            )
+    for document in app.state.repo.list_intake_documents(session_id):
+        if document.founder_id != founder_id:
+            continue
+        for chunk in document.chunks:
+            if chunk.chunk_id == source_id:
+                return IntakeEvidenceView(
+                    source_type="document",
+                    source_id=source_id,
+                    location=chunk.location,
+                    excerpt=chunk.text[:500],
+                )
+    raise HTTPException(404, not_found)
 
 
 @app.post("/founders/{founder_id}/intake/sessions/{session_id}/messages")
@@ -822,11 +1126,55 @@ async def send_intake_message(
         text=founder_text,
         client_message_id=turn.client_message_id,
     )
+    if (
+        intake.pending_confirmation_batch is not None
+        and _is_unambiguous_confirmation(founder_text)
+    ):
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="authenticated_write",
+            limit=app.state.config.authenticated_writes_per_minute,
+            window_seconds=60,
+        )
+        try:
+            changed = confirm_proposal_batch(
+                intake,
+                batch_id=intake.pending_confirmation_batch.batch_id,
+                actor=actor.subject,
+            )
+        except IntakeConflict:
+            raise HTTPException(409, "proposal batch is stale") from None
+        assistant = IntakeMessage(
+            message_id=new_intake_id("message"),
+            session_id=session_id,
+            founder_id=founder_id,
+            role="assistant",
+            text="Confirmed. I updated your founder memory with those facts.",
+            client_message_id=f"reply:{turn.client_message_id}",
+            in_reply_to=message.message_id,
+        )
+        outcome = app.state.repo.save_intake_session_with_messages(
+            changed,
+            [message, assistant],
+            expected_revision=turn.expected_revision,
+        )
+        if outcome == "duplicate":
+            return _intake_view(_intake_for_founder(founder_id, session_id))
+        if outcome != "saved":
+            raise HTTPException(409, "intake session revision is stale")
+        audit_event(
+            actor=actor.subject,
+            action="intake.batch_confirm",
+            resource=session_id,
+            method=actor.method,
+        )
+        return _intake_view(changed)
     outcome = app.state.repo.begin_intake_turn(
         message,
         expected_revision=turn.expected_revision,
         rate_window_start=datetime.now(timezone.utc) - timedelta(hours=1),
-        founder_hour_limit=10,
+        founder_hour_limit=app.state.config.intake_turns_per_hour,
         session_turn_limit=30,
     )
     if outcome == "duplicate":
@@ -861,11 +1209,13 @@ async def send_intake_message(
         raise HTTPException(409, "intake session revision is stale")
 
     reserved = _intake_for_founder(founder_id, session_id)
+    messages = app.state.repo.list_intake_messages(session_id)
+    documents = app.state.repo.list_intake_documents(session_id)
     try:
         result = await app.state.intake_interviewer(
             reserved,
-            app.state.repo.list_intake_messages(session_id),
-            app.state.repo.list_intake_documents(session_id),
+            messages,
+            documents,
         )
     except (BudgetExceeded, UnenforceableSpendCap):
         app.state.repo.abort_intake_turn(
@@ -886,8 +1236,13 @@ async def send_intake_message(
         )
         raise HTTPException(503, "the interview assistant is temporarily unavailable") from None
 
-    changed = apply_model_proposals(
-        reserved, result.proposals, source_id=message.message_id
+    changed = apply_interview_memory(
+        reserved,
+        field_proposals=result.proposals,
+        claim_proposals=result.claim_proposals,
+        provisional_summary=result.working_summary,
+        source_message_id=message.message_id,
+        valid_evidence=_intake_evidence(messages, documents),
     )
     now = datetime.now(timezone.utc)
     changed.pending_message_id = None
@@ -919,6 +1274,50 @@ async def send_intake_message(
     return _intake_view(changed)
 
 
+@app.post(
+    "/founders/{founder_id}/intake/sessions/{session_id}/proposal-batches/{batch_id}/confirm"
+)
+def confirm_intake_proposal_batch(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    batch_id: ResourceId,
+    confirmation: IntakeBatchConfirmation,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    """Confirm exactly the candidates the founder was shown in one batch."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before confirming facts")
+    if intake.revision != confirmation.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        changed = confirm_proposal_batch(
+            intake, batch_id=batch_id, actor=actor.subject
+        )
+    except IntakeConflict:
+        raise HTTPException(409, "proposal batch is stale") from None
+    if not app.state.repo.save_intake_session(
+        changed, expected_revision=confirmation.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action="intake.batch_confirm",
+        resource=session_id,
+        method=actor.method,
+    )
+    return _intake_view(changed)
+
+
 @app.patch("/founders/{founder_id}/intake/sessions/{session_id}/fields/{field}")
 def update_intake_field(
     founder_id: ResourceId,
@@ -929,6 +1328,13 @@ def update_intake_field(
 ) -> IntakeSessionView:
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     intake = _intake_for_founder(founder_id, session_id)
     if intake.pending_message_id is not None:
         raise HTTPException(409, "wait for the current chat response before editing facts")
@@ -941,6 +1347,7 @@ def update_intake_field(
             action=update.action,
             actor=actor.subject,
             value=update.value,
+            source_id=update.client_action_id,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from None
@@ -958,6 +1365,55 @@ def update_intake_field(
     return _intake_view(changed)
 
 
+@app.patch("/founders/{founder_id}/intake/sessions/{session_id}/claims/{claim_id}")
+def update_intake_claim(
+    founder_id: ResourceId,
+    session_id: ResourceId,
+    claim_id: ResourceId,
+    update: IntakeClaimUpdate,
+    actor: Principal = Depends(principal),
+) -> IntakeSessionView:
+    """Apply a founder-owned decision to one provisional narrative claim."""
+    not_found = f"no intake session {session_id} for {founder_id}"
+    owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
+    intake = _intake_for_founder(founder_id, session_id)
+    if intake.pending_message_id is not None:
+        raise HTTPException(409, "wait for the current chat response before editing memory")
+    if intake.revision != update.expected_revision:
+        raise HTTPException(409, "intake session revision is stale")
+    try:
+        changed = update_claim(
+            intake,
+            claim_id=claim_id,
+            action=update.action,
+            actor=actor.subject,
+            source_id=update.client_action_id,
+            text=update.text,
+            category=update.category,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+    if not app.state.repo.save_intake_session(
+        changed, expected_revision=update.expected_revision
+    ):
+        raise HTTPException(409, "intake session revision is stale")
+    audit_event(
+        actor=actor.subject,
+        action=f"intake.claim_{update.action}",
+        resource=session_id,
+        method=actor.method,
+        claim_id=claim_id,
+    )
+    return _intake_view(changed)
+
+
 @app.post("/founders/{founder_id}/intake/sessions/{session_id}/complete")
 def complete_intake_session(
     founder_id: ResourceId,
@@ -967,6 +1423,13 @@ def complete_intake_session(
 ) -> FounderProfile:
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     intake = _intake_for_founder(founder_id, session_id)
     if intake.pending_message_id is not None:
         raise HTTPException(409, "wait for the current chat response before completing")
@@ -1012,6 +1475,13 @@ def abandon_intake_session(
 ) -> IntakeSessionView:
     not_found = f"no intake session {session_id} for {founder_id}"
     owned(founder_id, actor, write=True, not_found=not_found)
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
     intake = _intake_for_founder(founder_id, session_id)
     if intake.pending_message_id is not None:
         raise HTTPException(409, "wait for the current chat response before abandoning")
@@ -1113,6 +1583,32 @@ async def answer_eligibility_question(
     question = app.state.repo.get_eligibility_question(question_id)
     if question is None or question.founder_id != founder_id:
         raise HTTPException(404, not_found)
+    if question.answer == update.answer:
+        response.headers["X-Kairos-Reassessment"] = "not-requested"
+        return question
+
+    opportunity = (
+        app.state.repo.get_opportunity(question.opportunity_id)
+        if update.answer in {"yes", "no"}
+        else None
+    )
+    if opportunity is not None:
+        _require_paid_work_capacity()
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="eligibility_reassessment",
+            limit=app.state.config.eligibility_reassessments_per_hour,
+            window_seconds=3600,
+        )
+    else:
+        _enforce_rate_limit(
+            actor,
+            founder_id,
+            scope="authenticated_write",
+            limit=app.state.config.authenticated_writes_per_minute,
+            window_seconds=60,
+        )
     updated = app.state.repo.answer_eligibility_question(question_id, update.answer)
     if updated is None:  # pragma: no cover - only if the row vanished mid-request
         raise HTTPException(404, not_found)
@@ -1128,7 +1624,6 @@ async def answer_eligibility_question(
         response.headers["X-Kairos-Reassessment"] = "not-requested"
         return updated
 
-    opportunity = app.state.repo.get_opportunity(question.opportunity_id)
     if opportunity is None:
         # Legacy/operator-created rows may not have a persisted source row.
         app.state.repo.mark_eligibility_reassessed(
@@ -1137,6 +1632,18 @@ async def answer_eligibility_question(
             before=datetime.now(timezone.utc),
         )
         response.headers["X-Kairos-Reassessment"] = "unavailable"
+        return updated
+
+    if updated.answer_updated_at is None:  # pragma: no cover - yes/no always stamps it
+        raise HTTPException(500, "eligibility answer timestamp was not persisted")
+    reassessment_key = (
+        f"eligibility:{question_id}:{update.answer}:"
+        f"{updated.answer_updated_at.isoformat()}"
+    )
+    existing = app.state.repo.get_job_by_key(founder_id, reassessment_key)
+    if existing is not None:
+        response.headers["X-Kairos-Reassessment"] = "queued"
+        response.headers["X-Kairos-Reassessment-Job"] = existing.job_id
         return updated
 
     lease = app.state.run_lock.acquire(
@@ -1149,7 +1656,7 @@ async def answer_eligibility_question(
 
     job = job_module.new_job(
         founder_id=founder_id,
-        idempotency_key=None,
+        idempotency_key=reassessment_key,
         source="eligibility_answer",
         use_demo_catalog=False,
         include_grants_gov=False,
@@ -1159,7 +1666,12 @@ async def answer_eligibility_question(
         app.state.repo.save_job(job)
     except Exception:
         lease.release()
-        raise
+        existing = app.state.repo.get_job_by_key(founder_id, reassessment_key)
+        if existing is None:
+            raise
+        response.headers["X-Kairos-Reassessment"] = "queued"
+        response.headers["X-Kairos-Reassessment-Job"] = existing.job_id
+        return updated
     app.state.executor.submit(job, lease)
     response.headers["X-Kairos-Reassessment"] = "queued"
     response.headers["X-Kairos-Reassessment-Job"] = job.job_id
@@ -1295,6 +1807,13 @@ def patch_inbox_item(
         scope=SCOPE_INBOX_WRITE,
         not_found=f"no inbox item {item_id}",
     )
+    _enforce_rate_limit(
+        actor,
+        item.founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
+    )
 
     updated = app.state.repo.set_inbox_state(item_id, update.state)
     if updated is None:  # pragma: no cover - it existed one line ago
@@ -1387,6 +1906,15 @@ async def trigger_run(
         if existing is not None:
             response.status_code = 200
             return existing
+
+    _require_paid_work_capacity()
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="run_trigger",
+        limit=app.state.config.manual_runs_per_hour,
+        window_seconds=3600,
+    )
 
     lease = app.state.run_lock.acquire(
         founder_id=founder_id, run_kind=job_module.RUN_KIND
@@ -1491,6 +2019,13 @@ def cancel_job(
         write=True,
         scope=SCOPE_RUN_CANCEL,
         not_found=f"no job {job_id} for {founder_id}",
+    )
+    _enforce_rate_limit(
+        actor,
+        founder_id,
+        scope="authenticated_write",
+        limit=app.state.config.authenticated_writes_per_minute,
+        window_seconds=60,
     )
     job = app.state.repo.get_job(job_id)
     if job is None or job.founder_id != founder_id:

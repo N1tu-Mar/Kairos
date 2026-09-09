@@ -17,6 +17,7 @@ import {
   splitHeadline,
 } from "@/lib/format";
 import type { InboxItem, Opportunity } from "@/lib/types";
+import { safeExternalHref } from "@/lib/safe-external-href";
 
 /**
  * One surfaced opportunity.
@@ -118,6 +119,7 @@ export function InboxItemCard({
     isDemo(opportunity?.title);
   const assessment = item.assessment;
   const dismissed = item.state === "dismissed";
+  const sourceHref = safeExternalHref(opportunity?.source_url);
 
   return (
     <article
@@ -186,15 +188,19 @@ export function InboxItemCard({
         </dl>
 
         <div className="flex flex-wrap items-center gap-3">
-          {opportunity?.source_url ? (
+          {sourceHref ? (
             <a
-              href={opportunity.source_url}
+              href={sourceHref}
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-accent underline underline-offset-4 hover:text-ink"
             >
               Open the funder&rsquo;s page ↗
             </a>
+          ) : opportunity?.source_url ? (
+            <span className="text-xs text-ink-muted">
+              Funder source link unavailable
+            </span>
           ) : null}
           {item.draft_id ? (
             <Link

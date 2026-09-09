@@ -31,15 +31,27 @@ EXPECTED_TABLES = {
     "drafts",
     "eligibility_questions",
     "inbox",
+    "intake_documents",
+    "intake_messages",
+    "intake_memory_revisions",
+    "intake_sessions",
     "jobs",
     "opportunities",
     "profiles",
+    "rate_limits",
     "runs",
 }
 
 #: The six tables that existed before the async job boundary added `jobs`.
 #: A database in production right now looks exactly like this.
-PRE_JOBS_TABLES = EXPECTED_TABLES - {"jobs", "eligibility_questions"}
+PRE_JOBS_TABLES = EXPECTED_TABLES - {
+    "jobs",
+    "eligibility_questions",
+    "intake_documents",
+    "intake_messages",
+    "intake_sessions",
+    "rate_limits",
+}
 
 
 def alembic(*args: str, db_url: str) -> subprocess.CompletedProcess:

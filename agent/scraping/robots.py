@@ -25,6 +25,10 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from agent.sanitize import sanitize_logged_url
+from agent.scraping.netguard import BlockedAddress, assert_public_url
+from agent.scraping.safehttp import guarded_get
+
 log = logging.getLogger("kairos.scraping.robots")
 
 #: Identifies the crawler and says what it is for. A host that wants to block
@@ -37,6 +41,7 @@ USER_AGENT = (
 #: Used when a host publishes no Crawl-delay. Deliberately slower than a
 #: browser; these are small university sites and nothing here is urgent.
 DEFAULT_CRAWL_DELAY_S = 2.0
+MAX_ROBOTS_BYTES = 512_000
 
 
 @dataclass(frozen=True)
@@ -57,10 +62,16 @@ class RobotsDecision:
 class RobotsCache:
     """One robots.txt per host, cached on disk and in memory."""
 
-    def __init__(self, cache_dir: Path, timeout_s: float = 15.0) -> None:
+    def __init__(
+        self,
+        cache_dir: Path,
+        timeout_s: float = 15.0,
+        http_client: httpx.Client | None = None,
+    ) -> None:
         """`_parsers` caches per host for the life of the process, including negative results — a host whose robots.txt failed to load is not retried within one sweep."""
         self.cache_dir = Path(cache_dir)
         self.timeout_s = timeout_s
+        self.http_client = http_client
         self._parsers: dict[str, RobotFileParser | None] = {}
 
     def _robots_url(self, url: str) -> tuple[str, str]:
@@ -85,11 +96,12 @@ class RobotsCache:
 
         parser: RobotFileParser | None = None
         try:
-            response = httpx.get(
+            response = guarded_get(
                 robots_url,
+                client=self.http_client,
                 timeout=self.timeout_s,
-                follow_redirects=True,
                 headers={"User-Agent": USER_AGENT},
+                max_bytes=MAX_ROBOTS_BYTES,
             )
             if response.status_code == 200:
                 parser = RobotFileParser()
@@ -107,8 +119,14 @@ class RobotsCache:
                 self._write_cache(host, f"# HTTP {response.status_code} — no robots.txt published\n")
             else:
                 parser = None
-        except (httpx.HTTPError, UnicodeDecodeError) as exc:
-            log.warning("robots_fetch_failed", extra={"host": host, "error": str(exc)})
+        except (BlockedAddress, httpx.HTTPError, UnicodeDecodeError) as exc:
+            log.warning(
+                "robots_fetch_failed",
+                extra={
+                    "url": sanitize_logged_url(robots_url),
+                    "error_type": type(exc).__name__,
+                },
+            )
             parser = None
 
         self._parsers[host] = parser
@@ -137,6 +155,18 @@ class RobotsCache:
 
     def check(self, url: str) -> RobotsDecision:
         """May we fetch this URL, and how slowly?"""
+        try:
+            # Validate the page target before even requesting its robots file.
+            # This prevents a credential-bearing or internal URL from causing
+            # any network activity at all.
+            assert_public_url(url)
+        except BlockedAddress:
+            return RobotsDecision(
+                allowed=False,
+                robots_url=sanitize_logged_url(url),
+                crawl_delay_s=DEFAULT_CRAWL_DELAY_S,
+                reason="target address is not a public web destination",
+            )
         host, robots_url = self._robots_url(url)
         parser = self._load(host, robots_url)
 

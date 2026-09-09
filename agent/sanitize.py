@@ -22,6 +22,7 @@ import json
 import re
 import unicodedata
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 #: Rough chars-per-token. Deliberately conservative — this bounds a wallet,
 #: it is not an accounting figure. Real token counts come from Bedrock usage.
@@ -243,3 +244,29 @@ def safe_detail(text: str, limit: int = 500) -> str:
     neither belongs in a response body.
     """
     return redact(scrub_secrets(str(text)))[:limit]
+
+
+def sanitize_logged_url(url: str, limit: int = 240) -> str:
+    """Return a useful URL label without credentials, query data, or fragments.
+
+    Scraper targets are attacker-influenced.  Logging the original value can
+    copy bearer tokens, email addresses, or deliberately misleading control
+    characters into logs and run notes.  The path is retained for diagnosis;
+    userinfo, query strings, and fragments are never retained.
+    """
+    try:
+        parts = urlsplit(strip_control_chars(str(url)))
+        host = parts.hostname or "invalid-host"
+        try:
+            port = f":{parts.port}" if parts.port is not None else ""
+        except ValueError:
+            port = ""
+        sanitized = urlunsplit(
+            (parts.scheme.lower(), f"{host}{port}", parts.path or "/", "", "")
+        )
+    except (TypeError, ValueError, UnicodeError):
+        sanitized = "[invalid-url]"
+    # Do not send a URL through ``scrub_secrets``: its filesystem-path rule
+    # intentionally turns ``/a/b`` into ``[PATH]`` and would make an ordinary
+    # web URL useless. Credentials and query data were removed structurally.
+    return redact(sanitized)[:limit]

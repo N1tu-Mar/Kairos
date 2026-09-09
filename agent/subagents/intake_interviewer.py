@@ -39,6 +39,18 @@ class IntakeProposal(BaseModel):
     evidence_source_ids: list[str] = Field(min_length=1, max_length=10)
 
 
+class IntakeClaimProposal(BaseModel):
+    """One untrusted narrative claim candidate with exact evidence IDs."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: str = Field(min_length=1, max_length=100)
+    text: str = Field(min_length=1, max_length=4_000)
+    confidence: float = Field(ge=0, le=1)
+    evidence_source_ids: list[str] = Field(min_length=1, max_length=10)
+    supersedes_claim_id: str | None = Field(default=None, max_length=200)
+
+
 class IntakeInterviewResult(BaseModel):
     """Strict model output for a single interview turn."""
 
@@ -46,6 +58,8 @@ class IntakeInterviewResult(BaseModel):
 
     assistant_message: str = Field(min_length=1, max_length=2_000)
     proposals: list[IntakeProposal] = Field(default_factory=list, max_length=20)
+    claim_proposals: list[IntakeClaimProposal] = Field(default_factory=list, max_length=30)
+    working_summary: str = Field(default="", max_length=4_000)
     missing_fields: list[str] = Field(default_factory=list, max_length=30)
     next_topic: str | None = Field(default=None, max_length=100)
 
@@ -85,10 +99,22 @@ def _context(
         name: {"status": fact.status, "value": fact.value}
         for name, fact in session.fields.items()
     }
+    claims = [
+        {
+            "claim_id": claim.claim_id,
+            "category": claim.category,
+            "status": claim.status,
+            "text": claim.text,
+            "evidence_source_ids": [item.source_id for item in claim.evidence],
+        }
+        for claim in session.memory.claims.values()
+        if claim.status in {"proposed", "confirmed"}
+    ][:100]
     payload = json.dumps(
         {
             "deterministic_missing_required": missing_required(session),
             "current_field_state": state,
+            "current_claim_state": claims,
             "transcript": transcript,
             "document_chunks": chunks,
         },

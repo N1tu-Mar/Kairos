@@ -43,7 +43,15 @@ CI_OS = "linux"
 CI_CPU = "x64"
 
 
-def resolve_for_ci(package_json: Path, workdir: Path) -> dict:
+def npm_executable() -> str | None:
+    """Return the executable npm entrypoint for this operating system."""
+    # On Windows, ``shutil.which('npm')`` can select the extensionless POSIX
+    # shim shipped beside npm.cmd. CreateProcess cannot execute that shim.
+    candidate = "npm.cmd" if sys.platform == "win32" else "npm"
+    return shutil.which(candidate)
+
+
+def resolve_for_ci(package_json: Path, workdir: Path, npm: str) -> dict:
     """Resolve the dependency tree as ubuntu-latest would, in a clean room.
 
     A clean room matters: npm reads an existing node_modules when deciding
@@ -55,7 +63,7 @@ def resolve_for_ci(package_json: Path, workdir: Path) -> dict:
 
     result = subprocess.run(
         [
-            "npm",
+            npm,
             "install",
             "--package-lock-only",
             "--no-audit",
@@ -104,7 +112,8 @@ def main() -> int:
         print(f"No package.json at {package_json}", file=sys.stderr)
         return 1
 
-    if shutil.which("npm") is None:
+    npm = npm_executable()
+    if npm is None:
         print("npm is not on PATH; skipping the lockfile check.")
         return 0
 
@@ -112,7 +121,7 @@ def main() -> int:
 
     with tempfile.TemporaryDirectory() as tmp:
         try:
-            expected = resolve_for_ci(package_json, Path(tmp))
+            expected = resolve_for_ci(package_json, Path(tmp), npm)
         except (RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
             print(f"Could not resolve dependencies: {exc}", file=sys.stderr)
             return 1

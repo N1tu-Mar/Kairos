@@ -35,8 +35,10 @@ import httpx
 from bs4 import BeautifulSoup
 
 from agent.scraping.models import FetchRecord, content_hash
-from agent.scraping.netguard import BlockedAddress, assert_public_url
+from agent.sanitize import sanitize_logged_url
+from agent.scraping.netguard import BlockedAddress
 from agent.scraping.robots import USER_AGENT, RobotsCache
+from agent.scraping.safehttp import ResponseTooLarge, guarded_get
 
 log = logging.getLogger("kairos.scraping.fetch")
 
@@ -114,11 +116,15 @@ class PoliteFetcher:
         raw_dir: Path,
         timeout_s: float = 30.0,
         robots: RobotsCache | None = None,
+        http_client: httpx.Client | None = None,
     ) -> None:
         """`_last_request` is per-process in-memory state, so the crawl delay is only honoured within one sweep — two concurrent processes would not see each other's timings."""
         self.raw_dir = Path(raw_dir)
         self.timeout_s = timeout_s
-        self.robots = robots or RobotsCache(self.raw_dir / "robots")
+        self.http_client = http_client
+        self.robots = robots or RobotsCache(
+            self.raw_dir / "robots", http_client=http_client
+        )
         self._last_request: dict[str, float] = {}
 
     # ── rate limiting ────────────────────────────────────────────────────
@@ -181,25 +187,13 @@ class PoliteFetcher:
         than `MAX_REDIRECTS` is a loop or a tarpit; both are `httpx.
         TooManyRedirects`, which the caller already records as a fetch error.
         """
-        current = url
-        for _ in range(MAX_REDIRECTS + 1):
-            assert_public_url(current)
-            response = httpx.get(
-                current,
-                timeout=self.timeout_s,
-                # Off on purpose. The loop is here so the guard above runs on
-                # every hop; handing this back to httpx re-opens the hole.
-                follow_redirects=False,
-                headers={"User-Agent": USER_AGENT, "Accept": "text/html,*/*"},
-            )
-            if not response.has_redirect_location:
-                return response
-            # `.join` resolves a relative Location against the URL it came
-            # from, which is what a browser does and what the spec requires.
-            current = str(response.url.join(response.headers["location"]))
-
-        raise httpx.TooManyRedirects(
-            f"more than {MAX_REDIRECTS} redirects", request=response.request
+        return guarded_get(
+            url,
+            client=self.http_client,
+            timeout=self.timeout_s,
+            headers={"User-Agent": USER_AGENT, "Accept": "text/html,*/*"},
+            max_bytes=MAX_BYTES,
+            max_redirects=MAX_REDIRECTS,
         )
 
     def fetch(self, url: str, *, allow_js: bool = False) -> tuple[str, FetchRecord]:
@@ -219,7 +213,7 @@ class PoliteFetcher:
 
         if not decision.allowed:
             record.failure = f"ROBOTS_DISALLOWED: {decision.reason}"
-            log.info("robots_disallowed", extra={"url": url})
+            log.info("robots_disallowed", extra={"url": sanitize_logged_url(url)})
             return "", record
 
         host = urlsplit(url).netloc
@@ -231,10 +225,16 @@ class PoliteFetcher:
             # Refused before a socket was opened. Recorded like a robots
             # denial — a decision about the run, not an error in it.
             record.failure = f"BLOCKED_ADDRESS: {exc}"
-            log.warning("blocked_address", extra={"url": url})
+            log.warning("blocked_address", extra={"url": sanitize_logged_url(url)})
+            return "", record
+        except ResponseTooLarge:
+            record.failure = f"OVERSIZED: response exceeded {MAX_BYTES} bytes"
             return "", record
         except httpx.HTTPError as exc:
-            record.failure = f"FETCH_ERROR: {type(exc).__name__}: {exc}"
+            # Exception strings commonly contain the requested URL, including
+            # its query string.  The type is enough for a reviewer and cannot
+            # copy attacker-controlled secrets into an API-visible run note.
+            record.failure = f"FETCH_ERROR: {type(exc).__name__}"
             return "", record
 
         record.status_code = response.status_code

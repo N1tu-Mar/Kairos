@@ -18,10 +18,14 @@ from agent.models import (
     IntakeEvidence,
     IntakeFieldName,
     IntakeFieldState,
+    IntakeKnowledgeClaim,
+    IntakeProposalBatch,
     IntakeSession,
+    IntakeWorkingMemory,
     KnowledgeChunk,
     Stage,
 )
+from agent.sanitize import clean
 
 REQUIRED_FIELDS = frozenset(
     {
@@ -42,6 +46,20 @@ ALL_FIELDS = frozenset(IntakeFieldName.__args__)
 DEGREES = frozenset(DegreeLevel.__args__)
 ENTITIES = frozenset(EntityType.__args__)
 STAGES = frozenset(Stage.__args__)
+CLAIM_CATEGORIES = frozenset(
+    {
+        "problem",
+        "solution",
+        "customers",
+        "market",
+        "business_model",
+        "differentiation",
+        "team",
+        "traction",
+        "milestones",
+        "funding_needs",
+    }
+)
 
 
 class IntakeConflict(RuntimeError):
@@ -171,8 +189,15 @@ def new_session(founder_id: str, existing: FounderProfile | None) -> IntakeSessi
             fields[name] = _confirmed(
                 name, value, actor="existing-profile", source=existing.founder_id
             )
+    existing_summary = existing.memory_summary if existing is not None else ""
     return IntakeSession(
-        session_id=new_intake_id("intake"), founder_id=founder_id, fields=fields
+        session_id=new_intake_id("intake"),
+        founder_id=founder_id,
+        fields=fields,
+        memory=IntakeWorkingMemory(
+            provisional_summary=existing_summary,
+            confirmed_summary=existing_summary,
+        ),
     )
 
 
@@ -192,7 +217,8 @@ def apply_model_proposals(
     session: IntakeSession,
     proposals: Iterable[object],
     *,
-    source_id: str,
+    source_id: str | None = None,
+    valid_evidence: dict[str, IntakeEvidence] | None = None,
 ) -> IntakeSession:
     """Validate model candidates and mark them proposed, never confirmed.
 
@@ -200,6 +226,11 @@ def apply_model_proposals(
     than the persisted founder message are discarded. A model turn also
     cannot overwrite a fact the founder already confirmed.
     """
+    evidence_by_id = dict(valid_evidence or {})
+    if source_id is not None:
+        evidence_by_id.setdefault(
+            source_id, IntakeEvidence(source_type="message", source_id=source_id)
+        )
     updated = session.model_copy(deep=True)
     now = _now()
     for proposal in proposals:
@@ -207,7 +238,12 @@ def apply_model_proposals(
         value = getattr(proposal, "value", None)
         confidence = getattr(proposal, "confidence", None)
         evidence_source_ids = getattr(proposal, "evidence_source_ids", [])
-        if field not in ALL_FIELDS or source_id not in evidence_source_ids:
+        evidence = [
+            evidence_by_id[evidence_id]
+            for evidence_id in evidence_source_ids
+            if evidence_id in evidence_by_id
+        ]
+        if field not in ALL_FIELDS or not evidence:
             continue
         current = updated.fields.get(field)
         if current is not None and current.status == "confirmed":
@@ -224,9 +260,168 @@ def apply_model_proposals(
             status="proposed",
             value=canonical,
             confidence=numeric_confidence,
-            evidence=[IntakeEvidence(source_type="message", source_id=source_id)],
+            evidence=evidence,
             proposed_at=now,
         )
+    updated.updated_at = now
+    return updated
+
+
+def apply_interview_memory(
+    session: IntakeSession,
+    *,
+    field_proposals: Iterable[object],
+    claim_proposals: Iterable[object],
+    provisional_summary: str,
+    source_message_id: str,
+    valid_evidence: dict[str, IntakeEvidence],
+) -> IntakeSession:
+    """Publish one model turn as provisional memory and one exact batch."""
+    updated = apply_model_proposals(
+        session,
+        field_proposals,
+        source_id=source_message_id,
+        valid_evidence=valid_evidence,
+    )
+    before_fields = session.fields
+    accepted_fields = [
+        name
+        for name, state in updated.fields.items()
+        if state.status == "proposed" and state != before_fields.get(name)
+    ]
+    memory = updated.memory.model_copy(deep=True)
+    accepted_claim_ids: list[str] = []
+    now = _now()
+    for proposal in claim_proposals:
+        category = getattr(proposal, "category", None)
+        raw_text = getattr(proposal, "text", None)
+        confidence = getattr(proposal, "confidence", None)
+        evidence_ids = getattr(proposal, "evidence_source_ids", [])
+        supersedes = getattr(proposal, "supersedes_claim_id", None)
+        if category not in CLAIM_CATEGORIES or not isinstance(raw_text, str):
+            continue
+        text = clean(raw_text).strip()[:4_000]
+        evidence = [
+            valid_evidence[evidence_id]
+            for evidence_id in evidence_ids
+            if evidence_id in valid_evidence
+        ]
+        if not text or not evidence:
+            continue
+        try:
+            numeric_confidence = float(confidence)
+        except (TypeError, ValueError):
+            continue
+        if not 0 <= numeric_confidence <= 1:
+            continue
+        if supersedes is not None:
+            prior = memory.claims.get(supersedes)
+            if prior is None or prior.status not in {"proposed", "confirmed"}:
+                supersedes = None
+        duplicate = next(
+            (
+                claim
+                for claim in memory.claims.values()
+                if claim.status in {"proposed", "confirmed"}
+                and claim.category == category
+                and claim.text.casefold() == text.casefold()
+            ),
+            None,
+        )
+        if duplicate is not None:
+            continue
+        claim_id = new_intake_id("claim")
+        memory.claims[claim_id] = IntakeKnowledgeClaim(
+            claim_id=claim_id,
+            category=category,
+            text=text,
+            confidence=numeric_confidence,
+            evidence=evidence,
+            supersedes_claim_id=supersedes,
+            created_at=now,
+            updated_at=now,
+        )
+        accepted_claim_ids.append(claim_id)
+
+    memory.revision += 1
+    memory.provisional_summary = clean(provisional_summary).strip()[:4_000]
+    memory.updated_at = now
+    updated.memory = memory
+    if accepted_fields or accepted_claim_ids:
+        batch_id = new_intake_id("batch")
+        for claim_id in accepted_claim_ids:
+            memory.claims[claim_id].proposal_batch_id = batch_id
+        updated.pending_confirmation_batch = IntakeProposalBatch(
+            batch_id=batch_id,
+            source_message_id=source_message_id,
+            field_names=accepted_fields,
+            claim_ids=accepted_claim_ids,
+            created_at=now,
+        )
+    else:
+        updated.pending_confirmation_batch = None
+    updated.updated_at = now
+    return updated
+
+
+def confirmed_memory_summary(session: IntakeSession) -> str:
+    """Render only founder-confirmed state; no model-authored summary is reused."""
+    lines: list[str] = []
+    for name in sorted(session.fields):
+        state = session.fields[name]
+        if state.status == "confirmed":
+            lines.append(f"{name.replace('_', ' ').title()}: {state.value}")
+    claims = sorted(
+        (
+            claim
+            for claim in session.memory.claims.values()
+            if claim.status == "confirmed"
+        ),
+        key=lambda claim: (claim.category, claim.created_at, claim.claim_id),
+    )
+    lines.extend(f"{claim.category.replace('_', ' ').title()}: {claim.text}" for claim in claims)
+    return "\n".join(lines)[:8_000]
+
+
+def confirm_proposal_batch(
+    session: IntakeSession, *, batch_id: str, actor: str
+) -> IntakeSession:
+    """Confirm exactly the still-pending candidates from one displayed batch."""
+    if session.status != "active":
+        raise IntakeConflict("only an active intake session can be confirmed")
+    batch = session.pending_confirmation_batch
+    if batch is None or batch.batch_id != batch_id:
+        raise IntakeConflict("proposal batch is stale")
+    updated = session.model_copy(deep=True)
+    now = _now()
+    for field in batch.field_names:
+        state = updated.fields.get(field)
+        if state is None or state.status != "proposed":
+            continue
+        state.status = "confirmed"
+        state.confidence = 1.0
+        state.confirmed_at = now
+        state.confirmed_by = actor
+    for claim_id in batch.claim_ids:
+        claim = updated.memory.claims.get(claim_id)
+        if claim is None or claim.status != "proposed":
+            continue
+        claim.status = "confirmed"
+        claim.confidence = 1.0
+        claim.confirmed_at = now
+        claim.confirmed_by = actor
+        claim.updated_at = now
+        if claim.supersedes_claim_id:
+            prior = updated.memory.claims.get(claim.supersedes_claim_id)
+            if prior is not None and prior.status in {"proposed", "confirmed"}:
+                prior.status = "superseded"
+                prior.superseded_by_claim_id = claim.claim_id
+                prior.updated_at = now
+    updated.pending_confirmation_batch = None
+    updated.memory.revision += 1
+    updated.memory.confirmed_summary = confirmed_memory_summary(updated)
+    updated.memory.updated_at = now
+    updated.revision += 1
     updated.updated_at = now
     return updated
 
@@ -238,6 +433,7 @@ def update_field(
     action: str,
     actor: str,
     value: Any = None,
+    source_id: str | None = None,
 ) -> IntakeSession:
     """Apply an explicit founder action to a copy of the session."""
     if session.status != "active":
@@ -254,7 +450,11 @@ def update_field(
             current.value if current is not None else None
         )
         canonical = validate_field_value(field, candidate)
-        evidence = current.evidence if current is not None else []
+        evidence = list(current.evidence if current is not None else [])
+        if action == "correct" and source_id:
+            evidence.append(
+                IntakeEvidence(source_type="founder_edit", source_id=source_id)
+            )
         proposed_at = current.proposed_at if current is not None else now
         updated.fields[field] = IntakeFieldState(
             field=field,
@@ -268,6 +468,90 @@ def update_field(
         )
     else:
         raise ValueError("action must be confirm, correct, or reject")
+    batch = updated.pending_confirmation_batch
+    if batch is not None and field in batch.field_names:
+        remaining = [name for name in batch.field_names if name != field]
+        updated.pending_confirmation_batch = (
+            batch.model_copy(update={"field_names": remaining})
+            if remaining or batch.claim_ids
+            else None
+        )
+    updated.memory.revision += 1
+    updated.memory.confirmed_summary = confirmed_memory_summary(updated)
+    updated.memory.updated_at = now
+    updated.revision += 1
+    updated.updated_at = now
+    return updated
+
+
+def update_claim(
+    session: IntakeSession,
+    *,
+    claim_id: str,
+    action: str,
+    actor: str,
+    source_id: str,
+    text: str | None = None,
+    category: str | None = None,
+) -> IntakeSession:
+    """Confirm, reject, or replace one narrative claim explicitly."""
+    if session.status != "active":
+        raise ValueError("only an active intake session can be edited")
+    updated = session.model_copy(deep=True)
+    current = updated.memory.claims.get(claim_id)
+    if current is None or current.status in {"rejected", "superseded"}:
+        raise ValueError("knowledge claim is not editable")
+    now = _now()
+    if action == "confirm":
+        current.status = "confirmed"
+        current.confidence = 1.0
+        current.confirmed_at = now
+        current.confirmed_by = actor
+        current.updated_at = now
+    elif action == "reject":
+        current.status = "rejected"
+        current.confirmed_at = None
+        current.confirmed_by = None
+        current.updated_at = now
+    elif action == "correct":
+        if not isinstance(text, str):
+            raise ValueError("a corrected knowledge claim requires text")
+        corrected = clean(text).strip()[:4_000]
+        corrected_category = category or current.category
+        if not corrected or corrected_category not in CLAIM_CATEGORIES:
+            raise ValueError("corrected knowledge claim is invalid")
+        replacement_id = new_intake_id("claim")
+        current.status = "superseded"
+        current.superseded_by_claim_id = replacement_id
+        current.updated_at = now
+        updated.memory.claims[replacement_id] = IntakeKnowledgeClaim(
+            claim_id=replacement_id,
+            category=corrected_category,
+            text=corrected,
+            status="confirmed",
+            confidence=1.0,
+            evidence=[
+                IntakeEvidence(source_type="founder_edit", source_id=source_id)
+            ],
+            supersedes_claim_id=current.claim_id,
+            created_at=now,
+            updated_at=now,
+            confirmed_at=now,
+            confirmed_by=actor,
+        )
+    else:
+        raise ValueError("action must be confirm, correct, or reject")
+    batch = updated.pending_confirmation_batch
+    if batch is not None and claim_id in batch.claim_ids:
+        remaining = [item for item in batch.claim_ids if item != claim_id]
+        updated.pending_confirmation_batch = (
+            batch.model_copy(update={"claim_ids": remaining})
+            if remaining or batch.field_names
+            else None
+        )
+    updated.memory.revision += 1
+    updated.memory.confirmed_summary = confirmed_memory_summary(updated)
+    updated.memory.updated_at = now
     updated.revision += 1
     updated.updated_at = now
     return updated
@@ -299,6 +583,30 @@ def profile_from_session(
                 confidence=1.0,
             )
         )
+    for claim in session.memory.claims.values():
+        if claim.status != "confirmed":
+            continue
+        chunk_id = f"intake:{session.session_id}:{claim.claim_id}"[:200]
+        if any(chunk.chunk_id == chunk_id for chunk in knowledge):
+            continue
+        locations = ", ".join(
+            filter(
+                None,
+                (
+                    f"{evidence.source_type}:{evidence.source_id}"
+                    + (f" ({evidence.location})" if evidence.location else "")
+                    for evidence in claim.evidence
+                ),
+            )
+        )
+        knowledge.append(
+            KnowledgeChunk(
+                chunk_id=chunk_id,
+                text=claim.text,
+                source=f"intake:{session.session_id}:{locations}"[:500],
+                confidence=1.0,
+            )
+        )
     return FounderProfile(
         founder_id=session.founder_id,
         full_name=value("full_name", existing.full_name if existing else None),
@@ -319,4 +627,5 @@ def profile_from_session(
             existing.reuse_eligibility_answers if existing else False
         ),
         knowledge_base=knowledge,
+        memory_summary=confirmed_memory_summary(session),
     )

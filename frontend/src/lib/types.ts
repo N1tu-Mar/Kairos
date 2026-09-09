@@ -267,12 +267,13 @@ export interface FounderProfile {
   geographies: string[];
   reuse_eligibility_answers: boolean;
   knowledge_base: KnowledgeChunk[];
+  memory_summary: string;
 }
 
 // Conversational founder intake
 
 export interface IntakeEvidence {
-  source_type: "message" | "document" | "existing_profile";
+  source_type: "message" | "document" | "existing_profile" | "founder_edit";
   source_id: string;
   location: string | null;
   excerpt: string | null;
@@ -289,6 +290,50 @@ export interface IntakeFieldState {
   confirmed_by: string | null;
 }
 
+export type IntakeClaimCategory =
+  | "problem"
+  | "solution"
+  | "customers"
+  | "market"
+  | "business_model"
+  | "differentiation"
+  | "team"
+  | "traction"
+  | "milestones"
+  | "funding_needs";
+
+export interface IntakeKnowledgeClaim {
+  claim_id: string;
+  category: IntakeClaimCategory;
+  text: string;
+  status: "proposed" | "confirmed" | "rejected" | "superseded";
+  confidence: number;
+  evidence: IntakeEvidence[];
+  proposal_batch_id: string | null;
+  supersedes_claim_id: string | null;
+  superseded_by_claim_id: string | null;
+  created_at: string;
+  updated_at: string;
+  confirmed_at: string | null;
+  confirmed_by: string | null;
+}
+
+export interface IntakeWorkingMemory {
+  revision: number;
+  provisional_summary: string;
+  confirmed_summary: string;
+  claims: Record<string, IntakeKnowledgeClaim>;
+  updated_at: string;
+}
+
+export interface IntakeProposalBatch {
+  batch_id: string;
+  source_message_id: string;
+  field_names: IntakeFieldName[];
+  claim_ids: string[];
+  created_at: string;
+}
+
 export interface IntakeSession {
   session_id: string;
   founder_id: string;
@@ -296,6 +341,8 @@ export interface IntakeSession {
   revision: number;
   pending_message_id: string | null;
   fields: Partial<Record<IntakeFieldName, IntakeFieldState>>;
+  memory: IntakeWorkingMemory;
+  pending_confirmation_batch: IntakeProposalBatch | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -319,10 +366,25 @@ export interface IntakeDocument {
   filename: string;
   media_type: string;
   byte_size: number;
+  slot: number | null;
   status: "processing" | "ready" | "rejected";
-  chunks: unknown[];
+  chunks: IntakeDocumentChunk[];
   error: string | null;
   created_at: string;
+}
+
+export interface IntakeDocumentChunk {
+  chunk_id: string;
+  location: string;
+  text: string;
+  truncated: boolean;
+}
+
+export interface IntakeEvidenceView {
+  source_type: "message" | "document";
+  source_id: string;
+  location: string | null;
+  excerpt: string;
 }
 
 export interface IntakeSessionView {
@@ -338,6 +400,21 @@ export interface IntakeMessageCreate {
   text: string;
   client_message_id: string;
   expected_revision: number;
+}
+
+export interface IntakeFactUpdate {
+  action: "confirm" | "correct" | "reject";
+  expected_revision: number;
+  value?: unknown;
+  client_action_id?: string;
+}
+
+export interface IntakeClaimUpdate {
+  action: "confirm" | "correct" | "reject";
+  expected_revision: number;
+  text?: string;
+  category?: IntakeClaimCategory;
+  client_action_id: string;
 }
 
 // ── Run report ───────────────────────────────────────────────────────────────

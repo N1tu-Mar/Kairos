@@ -14,10 +14,12 @@ query inside a payload from SQL, which we never need to do.
 from __future__ import annotations
 
 import json
+import hashlib
+import math
 from datetime import datetime, timezone
 from typing import Literal, Protocol, TypeVar
 
-from sqlalchemy import Column, Text, func, update
+from sqlalchemy import Column, Text, UniqueConstraint, delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
@@ -31,6 +33,7 @@ from agent.models import (
     InboxItem,
     InboxState,
     IntakeDocument,
+    IntakeMemoryRevision,
     IntakeMessage,
     IntakeSession,
     Opportunity,
@@ -243,9 +246,34 @@ class IntakeDocumentRow(SQLModel, table=True):
     document_id: str = Field(primary_key=True)
     session_id: str = Field(index=True)
     founder_id: str = Field(index=True)
+    slot: int | None = Field(default=None)
     status: str = Field(index=True)
     created_at: datetime = Field(index=True)
     payload: str = Field(sa_column=Column(Text))
+
+    __table_args__ = (UniqueConstraint("session_id", "slot"),)
+
+
+class IntakeMemoryRevisionRow(SQLModel, table=True):
+    """Append-only working-memory snapshots for correction and audit history."""
+
+    __tablename__ = "intake_memory_revisions"
+    snapshot_id: str = Field(primary_key=True)
+    session_id: str = Field(index=True)
+    founder_id: str = Field(index=True)
+    revision: int = Field(index=True)
+    created_at: datetime = Field(index=True)
+    payload: str = Field(sa_column=Column(Text))
+
+
+class RateLimitRow(SQLModel, table=True):
+    """One fixed-window counter without storing a user's raw subject."""
+
+    __tablename__ = "rate_limits"
+    bucket_key: str = Field(primary_key=True)
+    scope: str = Field(index=True)
+    count: int = Field(default=1)
+    expires_at: datetime = Field(index=True)
 
 
 # ── Interface ────────────────────────────────────────────────────────────────
@@ -277,6 +305,13 @@ class Repository(Protocol):
     def save_intake_session(
         self, intake: IntakeSession, *, expected_revision: int
     ) -> bool: ...
+    def save_intake_session_with_messages(
+        self,
+        intake: IntakeSession,
+        messages: list[IntakeMessage],
+        *,
+        expected_revision: int,
+    ) -> Literal["saved", "duplicate", "stale"]: ...
     def complete_intake_session(
         self,
         intake: IntakeSession,
@@ -311,9 +346,24 @@ class Repository(Protocol):
     ) -> IntakeMessage | None: ...
     def list_intake_messages(self, session_id: str) -> list[IntakeMessage]: ...
     def save_intake_document(self, document: IntakeDocument) -> None: ...
+    def reserve_intake_document(self, document: IntakeDocument) -> bool: ...
     def get_intake_document(self, document_id: str) -> IntakeDocument | None: ...
     def list_intake_documents(self, session_id: str) -> list[IntakeDocument]: ...
     def delete_intake_document(self, document_id: str) -> bool: ...
+    def list_intake_memory_revisions(
+        self, session_id: str
+    ) -> list[IntakeMemoryRevision]: ...
+
+    def take_rate_limit(
+        self,
+        scope: str,
+        principal: str,
+        founder_id: str,
+        *,
+        limit: int,
+        window_seconds: int,
+        now: datetime | None = None,
+    ) -> int | None: ...
 
     # Runs: append-only history. `latest_run`/`list_runs` are capped,
     # `get_run` is the only way back to an old one.
@@ -454,6 +504,64 @@ class SqliteRepository:
             row = conn.execute(text("SELECT version_num FROM alembic_version")).first()
         return row[0] if row else None
 
+    def take_rate_limit(
+        self,
+        scope: str,
+        principal: str,
+        founder_id: str,
+        *,
+        limit: int,
+        window_seconds: int,
+        now: datetime | None = None,
+    ) -> int | None:
+        """Atomically consume a fixed-window slot; return retry seconds if full.
+
+        The database UPDATE includes ``count < limit``, so concurrent callers
+        cannot both consume the final slot.  The opaque key keeps identity
+        provider subjects out of this operational table.
+        """
+        if limit <= 0 or window_seconds <= 0:
+            raise ValueError("rate limits and windows must be positive")
+        instant = now or _now()
+        if instant.tzinfo is None:
+            instant = instant.replace(tzinfo=timezone.utc)
+        epoch = int(instant.timestamp())
+        window_start = epoch - (epoch % window_seconds)
+        expires_epoch = window_start + window_seconds
+        expires_at = datetime.fromtimestamp(expires_epoch, tz=timezone.utc)
+        material = f"{scope}\x00{principal}\x00{founder_id}\x00{window_start}"
+        bucket_key = hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+        with Session(self.engine) as session:
+            session.exec(delete(RateLimitRow).where(RateLimitRow.expires_at <= instant))
+            session.add(
+                RateLimitRow(
+                    bucket_key=bucket_key,
+                    scope=scope,
+                    count=1,
+                    expires_at=expires_at,
+                )
+            )
+            try:
+                session.commit()
+                return None
+            except IntegrityError:
+                session.rollback()
+
+        with Session(self.engine) as session:
+            result = session.exec(
+                update(RateLimitRow)
+                .where(
+                    RateLimitRow.bucket_key == bucket_key,
+                    RateLimitRow.count < limit,
+                )
+                .values(count=RateLimitRow.count + 1)
+            )
+            session.commit()
+            if result.rowcount == 1:
+                return None
+        return max(1, math.ceil(expires_epoch - instant.timestamp()))
+
     # -- profiles --
 
     def save_profile(self, profile: FounderProfile) -> None:
@@ -490,10 +598,38 @@ class SqliteRepository:
             payload=redact_json(intake.model_dump_json()),
         )
 
+    @staticmethod
+    def _memory_revision(intake: IntakeSession) -> IntakeMemoryRevision:
+        revision = intake.memory.revision
+        return IntakeMemoryRevision(
+            snapshot_id=f"{intake.session_id}::{revision}",
+            session_id=intake.session_id,
+            founder_id=intake.founder_id,
+            revision=revision,
+            memory=intake.memory.model_copy(deep=True),
+        )
+
+    @classmethod
+    def _record_memory_revision(cls, session: Session, intake: IntakeSession) -> None:
+        snapshot = cls._memory_revision(intake)
+        if session.get(IntakeMemoryRevisionRow, snapshot.snapshot_id) is not None:
+            return
+        session.add(
+            IntakeMemoryRevisionRow(
+                snapshot_id=snapshot.snapshot_id,
+                session_id=snapshot.session_id,
+                founder_id=snapshot.founder_id,
+                revision=snapshot.revision,
+                created_at=snapshot.created_at,
+                payload=redact_json(snapshot.model_dump_json()),
+            )
+        )
+
     def create_intake_session(self, intake: IntakeSession) -> IntakeSession:
         """Insert a session or return the active session that won a race."""
         with Session(self.engine) as session:
             session.add(self._intake_row(intake))
+            self._record_memory_revision(session, intake)
             try:
                 session.commit()
                 return intake
@@ -544,8 +680,63 @@ class SqliteRepository:
                     payload=redact_json(intake.model_dump_json()),
                 )
             )
+            if result.rowcount == 1:
+                self._record_memory_revision(session, intake)
             session.commit()
             return result.rowcount == 1
+
+    def save_intake_session_with_messages(
+        self,
+        intake: IntakeSession,
+        messages: list[IntakeMessage],
+        *,
+        expected_revision: int,
+    ) -> Literal["saved", "duplicate", "stale"]:
+        """Atomically publish a memory edit and its visible chat receipt."""
+        if any(
+            message.session_id != intake.session_id
+            or message.founder_id != intake.founder_id
+            for message in messages
+        ):
+            raise ValueError("intake messages must belong to the updated session")
+        with Session(self.engine) as session:
+            for message in messages:
+                if message.client_message_id is None:
+                    continue
+                key = f"{message.session_id}::{message.client_message_id}"
+                existing = session.exec(
+                    select(IntakeMessageRow).where(
+                        IntakeMessageRow.idempotency_key == key
+                    )
+                ).first()
+                if existing is not None:
+                    return "duplicate"
+            result = session.exec(
+                update(IntakeSessionRow)
+                .where(
+                    IntakeSessionRow.session_id == intake.session_id,
+                    IntakeSessionRow.founder_id == intake.founder_id,
+                    IntakeSessionRow.revision == expected_revision,
+                    IntakeSessionRow.status == "active",
+                )
+                .values(
+                    revision=intake.revision,
+                    updated_at=intake.updated_at,
+                    payload=redact_json(intake.model_dump_json()),
+                )
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                return "stale"
+            self._record_memory_revision(session, intake)
+            for message in messages:
+                session.add(self._message_row(message))
+            try:
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                return "duplicate"
+            return "saved"
 
     def complete_intake_session(
         self,
@@ -575,6 +766,7 @@ class SqliteRepository:
             if result.rowcount != 1:
                 session.rollback()
                 return False
+            self._record_memory_revision(session, intake)
             profile_row = session.get(ProfileRow, profile.founder_id)
             if profile_row is None:
                 profile_row = ProfileRow(founder_id=profile.founder_id, payload="")
@@ -744,6 +936,7 @@ class SqliteRepository:
             if result.rowcount != 1:
                 session.rollback()
                 return False
+            self._record_memory_revision(session, intake)
             session.add(self._message_row(assistant_message))
             try:
                 session.commit()
@@ -815,11 +1008,13 @@ class SqliteRepository:
                     document_id=document.document_id,
                     session_id=document.session_id,
                     founder_id=document.founder_id,
+                    slot=document.slot,
                     status=document.status,
                     created_at=document.created_at,
                     payload="",
                 )
             row.status = document.status
+            row.slot = document.slot
             row.payload = redact_json(document.model_dump_json())
             session.add(row)
             session.commit()
@@ -846,6 +1041,48 @@ class SqliteRepository:
             session.delete(row)
             session.commit()
             return True
+
+    def reserve_intake_document(self, document: IntakeDocument) -> bool:
+        """Atomically claim one of two upload slots for an active session."""
+        if document.status != "processing" or document.slot is not None:
+            raise ValueError("a document reservation must be processing without a slot")
+        for slot in (1, 2):
+            reserved = document.model_copy(update={"slot": slot})
+            try:
+                with Session(self.engine) as session:
+                    session.add(
+                        IntakeDocumentRow(
+                            document_id=reserved.document_id,
+                            session_id=reserved.session_id,
+                            founder_id=reserved.founder_id,
+                            slot=slot,
+                            status=reserved.status,
+                            created_at=reserved.created_at,
+                            payload=redact_json(reserved.model_dump_json()),
+                        )
+                    )
+                    session.commit()
+                return True
+            except IntegrityError:
+                # A concurrent request claimed this slot. Try the other one;
+                # the unique(session_id, slot) constraint is the authority.
+                continue
+        return False
+
+    def list_intake_memory_revisions(
+        self, session_id: str
+    ) -> list[IntakeMemoryRevision]:
+        """Return append-only memory snapshots in revision order."""
+        with Session(self.engine) as session:
+            rows = session.exec(
+                select(IntakeMemoryRevisionRow)
+                .where(IntakeMemoryRevisionRow.session_id == session_id)
+                .order_by(
+                    IntakeMemoryRevisionRow.revision,
+                    IntakeMemoryRevisionRow.snapshot_id,
+                )
+            ).all()
+            return [IntakeMemoryRevision.model_validate_json(row.payload) for row in rows]
 
     # -- membership --
 
@@ -1048,6 +1285,10 @@ class SqliteRepository:
             if row is None:
                 return None
             question = EligibilityQuestion.model_validate_json(row.payload)
+            if question.answer == answer:
+                # A retry or repeated click is not a new fact and must not
+                # refresh the timestamp used to derive reassessment identity.
+                return question
             question.answer = answer
             question.answer_updated_at = _now()
             question.updated_at = question.answer_updated_at
