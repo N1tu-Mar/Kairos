@@ -85,9 +85,8 @@ terraform init \
   -backend-config="encrypt=true"
 ```
 
-You will also need to add a `backend "s3" {}` block to the `terraform {}`
-block in `main.tf`. It is deliberately absent so that `terraform init` in a
-clone does not immediately demand an S3 bucket nobody has created.
+For `terraform validate` in a clone without the bucket, use
+`terraform init -backend=false`.
 
 ## Deploy
 
@@ -127,13 +126,21 @@ price_classify_out_per_mtok  = "4.00"
 alarm_email                  = "you@example.com"
 image_tag                    = "sha-abc1234"   # not "latest"
 supabase_issuer              = "https://<project-ref>.supabase.co/auth/v1"
-api_domain_name              = "api.example.com"  # the name certificate_arn covers
+api_domain_name              = "api.example.com"
+route53_zone_name            = "example.com"      # Terraform issues the cert + alias record
+# certificate_arn            = "arn:aws:acm:..."  # instead, if DNS is not in Route 53
 service_desired_count        = 0                  # first apply only; see below
 ```
 
 `backend_url` is `https://<api_domain_name>`, not the ALB's
-`*.elb.amazonaws.com` name — the certificate cannot match that name. Create a
-CNAME from `api_domain_name` to the `alb_dns_name` output.
+`*.elb.amazonaws.com` name — no certificate can match that name. With
+`route53_zone_name` Terraform creates the alias record; otherwise create a
+CNAME from `api_domain_name` to the `alb_dns_name` output. That URL is
+`KAIROS_API_URL` for the Vercel project `kairos`
+(https://kairos-nu-sepia.vercel.app).
+
+`main.tf` now declares `backend "s3" {}`, so `terraform init` needs the
+`-backend-config` flags above (or `-backend=false` for validate only).
 
 First deploy order: `-target=aws_ecr_repository.backend` apply, push the
 image, full apply with `service_desired_count = 0`, run the migration one-off

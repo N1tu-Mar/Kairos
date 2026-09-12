@@ -107,6 +107,23 @@ All server-side. None of them are exposed to the browser.
 **Never prefix any of these with `NEXT_PUBLIC_`.** That prefix makes a value
 client-visible, and the backend address is not something the browser needs.
 
+## Production (Vercel)
+
+| | |
+|---|---|
+| Production URL | https://kairos-nu-sepia.vercel.app |
+| Vercel project | `kairos` (team `nitu-s-projects2`), Root Directory `frontend` |
+| Git | `main` deploys to production; other branches get protected previews |
+| Supabase redirect URL | `https://kairos-nu-sepia.vercel.app/auth/callback` |
+| Supabase preview redirect | `https://kairos-*-nitu-s-projects2.vercel.app/auth/callback` |
+
+Vercel env (Production + Preview): `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `KAIROS_AUTH_MODE=supabase`,
+`KAIROS_API_TIMEOUT_MS`, and `KAIROS_API_URL` = the `backend_url` Terraform
+output (`https://<api_domain_name>`, see `infra/README.md`). Never
+`KAIROS_API_TOKEN`, the scheduler token, OAuth client secrets, or a Supabase
+service-role key.
+
 ## Scripts
 
 ```bash

@@ -26,13 +26,11 @@ terraform {
     }
   }
 
-  # Remote state is deliberately not configured here — the bucket name is
-  # account-specific and belongs in a backend config file the operator
-  # supplies (`terraform init -backend-config=...`). What matters is that it
-  # is configured *somewhere* before a real apply: this state file contains
-  # the generated API token, and local state means that credential lives in
-  # a file on somebody's laptop with no encryption and no locking.
-  # infra/README.md has the bucket + DynamoDB lock table setup.
+  # State holds the generated scheduler token, so it is never local. The
+  # bucket name is account-specific and supplied at init
+  # (`terraform init -backend-config=...`); `-backend=false` still works for
+  # validate. infra/README.md has the bucket + DynamoDB lock table setup.
+  backend "s3" {}
 }
 
 provider "aws" {
@@ -54,6 +52,59 @@ locals {
   # A demo deployment carries the word in every name, so a console full of
   # resources never leaves you guessing which one takes real traffic.
   is_demo = var.environment == "demo"
+
+  # Known at plan time, unlike the issued certificate's ARN, so it can drive
+  # `count`.
+  tls             = var.certificate_arn != "" || var.route53_zone_name != ""
+  certificate_arn = var.route53_zone_name != "" ? one(aws_acm_certificate_validation.api[*].certificate_arn) : var.certificate_arn
+}
+
+# ── DNS + certificate (when the zone is in Route 53) ─────────────────────────
+
+data "aws_route53_zone" "api" {
+  count        = var.route53_zone_name != "" ? 1 : 0
+  name         = var.route53_zone_name
+  private_zone = false
+}
+
+resource "aws_acm_certificate" "api" {
+  count             = var.route53_zone_name != "" ? 1 : 0
+  domain_name       = var.api_domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "api_validation" {
+  # One domain, no SANs: exactly one validation record.
+  count           = var.route53_zone_name != "" ? 1 : 0
+  zone_id         = data.aws_route53_zone.api[0].zone_id
+  name            = one(aws_acm_certificate.api[0].domain_validation_options).resource_record_name
+  type            = one(aws_acm_certificate.api[0].domain_validation_options).resource_record_type
+  records         = [one(aws_acm_certificate.api[0].domain_validation_options).resource_record_value]
+  ttl             = 60
+  allow_overwrite = true
+}
+
+resource "aws_acm_certificate_validation" "api" {
+  count                   = var.route53_zone_name != "" ? 1 : 0
+  certificate_arn         = aws_acm_certificate.api[0].arn
+  validation_record_fqdns = [aws_route53_record.api_validation[0].fqdn]
+}
+
+resource "aws_route53_record" "api" {
+  count   = var.route53_zone_name != "" ? 1 : 0
+  zone_id = data.aws_route53_zone.api[0].zone_id
+  name    = var.api_domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.backend.dns_name
+    zone_id                = aws_lb.backend.zone_id
+    evaluate_target_health = true
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -69,10 +120,11 @@ resource "terraform_data" "production_requires_tls" {
 
   lifecycle {
     precondition {
-      condition     = var.certificate_arn != "" && var.api_domain_name != ""
+      condition     = local.tls && var.api_domain_name != ""
       error_message = <<-EOT
-        environment = "production" requires certificate_arn and
-        api_domain_name (the hostname that certificate covers).
+        environment = "production" requires api_domain_name plus either
+        route53_zone_name (Terraform issues the certificate) or
+        certificate_arn (an existing certificate for that hostname).
 
         The API authenticates with a bearer token in an Authorization
         header. Over plain HTTP that credential is readable at every hop
@@ -223,7 +275,7 @@ locals {
   task_subnet_ids  = local.production ? aws_subnet.private[*].id : data.aws_subnets.default.ids
   task_public_ip   = !local.production
   efs_subnet_ids   = local.production ? aws_subnet.private[*].id : data.aws_subnets.default.ids
-  backend_protocol = var.certificate_arn == "" ? "http" : "https"
+  backend_protocol = !local.tls ? "http" : "https"
   # The certificate names api_domain_name, never the ALB's generated DNS name.
   backend_host = var.api_domain_name != "" ? var.api_domain_name : aws_lb.backend.dns_name
   backend_url  = "${local.backend_protocol}://${local.backend_host}"
@@ -758,7 +810,7 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "alb_https" {
-  count = var.certificate_arn == "" ? 0 : 1
+  count = !local.tls ? 0 : 1
 
   description       = "HTTPS"
   security_group_id = aws_security_group.alb.id
@@ -820,12 +872,12 @@ resource "aws_lb_listener" "http" {
   # request crosses it. Without one, it serves, which is a demo-only posture
   # and is why production's precondition requires a certificate.
   default_action {
-    type = var.certificate_arn == "" ? "forward" : "redirect"
+    type = !local.tls ? "forward" : "redirect"
 
-    target_group_arn = var.certificate_arn == "" ? aws_lb_target_group.backend.arn : null
+    target_group_arn = !local.tls ? aws_lb_target_group.backend.arn : null
 
     dynamic "redirect" {
-      for_each = var.certificate_arn == "" ? [] : [1]
+      for_each = !local.tls ? [] : [1]
       content {
         port        = "443"
         protocol    = "HTTPS"
@@ -836,12 +888,12 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_lb_listener" "https" {
-  count             = var.certificate_arn == "" ? 0 : 1
+  count             = !local.tls ? 0 : 1
   load_balancer_arn = aws_lb.backend.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = local.certificate_arn
 
   default_action {
     type             = "forward"

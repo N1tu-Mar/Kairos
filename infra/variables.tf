@@ -118,6 +118,16 @@ variable "api_domain_name" {
   default     = ""
 }
 
+variable "route53_zone_name" {
+  description = <<-EOT
+    Public Route 53 hosted zone containing api_domain_name, e.g. example.com.
+    When set, Terraform issues a DNS-validated ACM certificate for
+    api_domain_name and creates its alias record; certificate_arn is ignored.
+  EOT
+  type        = string
+  default     = ""
+}
+
 variable "service_desired_count" {
   description = <<-EOT
     Backend tasks to run. 0 on the first apply so the migration one-off task

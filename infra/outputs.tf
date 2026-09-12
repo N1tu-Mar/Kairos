@@ -31,7 +31,7 @@ output "transport" {
     the bearer token is in the clear)" says exactly what you are accepting.
   EOT
   value = (
-    var.certificate_arn == ""
+    !local.tls
     ? "http (DEMO ONLY — the bearer token is in the clear)"
     : "https"
   )
