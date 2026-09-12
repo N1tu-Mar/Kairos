@@ -1,0 +1,4749 @@
+{
+ "openapi": {
+  "components": {
+   "schemas": {
+    "Body_upload_intake_document_founders__founder_id__intake_sessions__session_id__documents_post": {
+     "properties": {
+      "file": {
+       "contentMediaType": "application/octet-stream",
+       "title": "File",
+       "type": "string"
+      }
+     },
+     "required": [
+      "file"
+     ],
+     "title": "Body_upload_intake_document_founders__founder_id__intake_sessions__session_id__documents_post",
+     "type": "object"
+    },
+    "EligibilityAnswerUpdate": {
+     "additionalProperties": false,
+     "description": "The founder's editable answer to one eligibility requirement.",
+     "properties": {
+      "answer": {
+       "enum": [
+        "yes",
+        "no",
+        "not_sure"
+       ],
+       "title": "Answer",
+       "type": "string"
+      }
+     },
+     "required": [
+      "answer"
+     ],
+     "title": "EligibilityAnswerUpdate",
+     "type": "object"
+    },
+    "EligibilityQuestion": {
+     "additionalProperties": false,
+     "description": "One founder-answerable requirement for one persisted opportunity.",
+     "properties": {
+      "answer": {
+       "anyOf": [
+        {
+         "enum": [
+          "yes",
+          "no",
+          "not_sure"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Answer"
+      },
+      "answer_updated_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Answer Updated At"
+      },
+      "check": {
+       "maxLength": 100,
+       "title": "Check",
+       "type": "string"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "deadline": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Deadline"
+      },
+      "founder_id": {
+       "maxLength": 200,
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "opportunity_id": {
+       "maxLength": 500,
+       "title": "Opportunity Id",
+       "type": "string"
+      },
+      "opportunity_title": {
+       "maxLength": 500,
+       "title": "Opportunity Title",
+       "type": "string"
+      },
+      "question": {
+       "maxLength": 1000,
+       "title": "Question",
+       "type": "string"
+      },
+      "question_id": {
+       "maxLength": 200,
+       "title": "Question Id",
+       "type": "string"
+      },
+      "reassessment_pending": {
+       "default": false,
+       "title": "Reassessment Pending",
+       "type": "boolean"
+      },
+      "requirement": {
+       "maxLength": 20000,
+       "title": "Requirement",
+       "type": "string"
+      },
+      "reused_from_question_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Reused From Question Id"
+      },
+      "source_doc": {
+       "default": "",
+       "maxLength": 2000,
+       "title": "Source Doc",
+       "type": "string"
+      },
+      "source_url": {
+       "maxLength": 2000,
+       "title": "Source Url",
+       "type": "string"
+      },
+      "status": {
+       "default": "pending",
+       "enum": [
+        "pending",
+        "answered"
+       ],
+       "title": "Status",
+       "type": "string"
+      },
+      "updated_at": {
+       "format": "date-time",
+       "title": "Updated At",
+       "type": "string"
+      }
+     },
+     "required": [
+      "question_id",
+      "founder_id",
+      "opportunity_id",
+      "opportunity_title",
+      "source_url",
+      "check",
+      "question",
+      "requirement"
+     ],
+     "title": "EligibilityQuestion",
+     "type": "object"
+    },
+    "EligibilityRules": {
+     "additionalProperties": false,
+     "description": "Machine-checkable eligibility, extracted from source text.\n\n`None` means the source did not state it. It does NOT mean \"no\nrestriction\" \u2014 a permissive default here would silently convert an\nunstated rule into a pass, which is the exact failure Section 11.3 exists\nto prevent. The filter maps `None` to `UNKNOWN`, and `UNKNOWN` becomes a\nfounder-facing question.",
+     "properties": {
+      "citizenships": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Citizenships"
+      },
+      "degree_levels": {
+       "anyOf": [
+        {
+         "items": {
+          "enum": [
+           "undergrad",
+           "masters",
+           "phd",
+           "postdoc"
+          ],
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Degree Levels"
+      },
+      "entity_types": {
+       "anyOf": [
+        {
+         "items": {
+          "enum": [
+           "none",
+           "llc",
+           "c_corp",
+           "s_corp",
+           "nonprofit"
+          ],
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Entity Types"
+      },
+      "geographies": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Geographies"
+      },
+      "institutions": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Institutions"
+      },
+      "max_team_size": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Max Team Size"
+      },
+      "min_team_size": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Min Team Size"
+      },
+      "requires_faculty_pi": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Requires Faculty Pi"
+      },
+      "takes_equity": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Takes Equity"
+      }
+     },
+     "title": "EligibilityRules",
+     "type": "object"
+    },
+    "Evidence": {
+     "additionalProperties": false,
+     "description": "The verbatim span a field was read from, and where it was read.\n\n`text` is quoted, never paraphrased and never summarised. If a span\ncannot be located on the page, the caller must leave the field UNKNOWN \u2014\nthere is no inferred tier (mirrors `agent.models.SourceSpan`).",
+     "properties": {
+      "method": {
+       "default": "",
+       "title": "Method",
+       "type": "string"
+      },
+      "source_url": {
+       "title": "Source Url",
+       "type": "string"
+      },
+      "text": {
+       "description": "Verbatim sentence or clause from the page.",
+       "title": "Text",
+       "type": "string"
+      }
+     },
+     "required": [
+      "text",
+      "source_url"
+     ],
+     "title": "Evidence",
+     "type": "object"
+    },
+    "ExtractedCriterion": {
+     "additionalProperties": false,
+     "description": "An eligibility/award/deadline criterion lifted verbatim from a source.\n\nRendered into founder-facing text by templating, never by asking a model\nto write a sentence about it (Section 11.2).",
+     "properties": {
+      "char_end": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Char End"
+      },
+      "char_start": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Char Start"
+      },
+      "source_doc": {
+       "title": "Source Doc",
+       "type": "string"
+      },
+      "text": {
+       "title": "Text",
+       "type": "string"
+      }
+     },
+     "required": [
+      "text",
+      "source_doc"
+     ],
+     "title": "ExtractedCriterion",
+     "type": "object"
+    },
+    "FetchRecord": {
+     "additionalProperties": false,
+     "description": "What happened when we asked for the page. Failures are recorded, not swallowed.",
+     "properties": {
+      "bytes": {
+       "default": 0,
+       "title": "Bytes",
+       "type": "integer"
+      },
+      "content_format": {
+       "default": "html",
+       "enum": [
+        "html",
+        "markdown"
+       ],
+       "title": "Content Format",
+       "type": "string"
+      },
+      "content_hash": {
+       "default": "",
+       "title": "Content Hash",
+       "type": "string"
+      },
+      "crawl_delay_s": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Crawl Delay S"
+      },
+      "failure": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Failure"
+      },
+      "fallback_reason": {
+       "default": "",
+       "title": "Fallback Reason",
+       "type": "string"
+      },
+      "fetched_at": {
+       "format": "date-time",
+       "title": "Fetched At",
+       "type": "string"
+      },
+      "final_url": {
+       "default": "",
+       "title": "Final Url",
+       "type": "string"
+      },
+      "raw_path": {
+       "default": "",
+       "title": "Raw Path",
+       "type": "string"
+      },
+      "renderer": {
+       "default": "httpx",
+       "enum": [
+        "httpx",
+        "playwright",
+        "firecrawl"
+       ],
+       "title": "Renderer",
+       "type": "string"
+      },
+      "robots_allowed": {
+       "default": true,
+       "title": "Robots Allowed",
+       "type": "boolean"
+      },
+      "robots_url": {
+       "default": "",
+       "title": "Robots Url",
+       "type": "string"
+      },
+      "source_raw_path": {
+       "default": "",
+       "title": "Source Raw Path",
+       "type": "string"
+      },
+      "status_code": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Status Code"
+      },
+      "url": {
+       "title": "Url",
+       "type": "string"
+      }
+     },
+     "required": [
+      "url"
+     ],
+     "title": "FetchRecord",
+     "type": "object"
+    },
+    "FounderProfile": {
+     "additionalProperties": false,
+     "description": "Structured facts about the founder.\n\nOnly these structured fields reach the hard eligibility filter. Free text\nthe model summarised never does \u2014 that is the load-bearing defense against\nprompt injection (Section 10.6).",
+     "properties": {
+      "citizenship": {
+       "description": "ISO-ish token, e.g. \"us_citizen\", \"f1_visa\"",
+       "maxLength": 100,
+       "title": "Citizenship",
+       "type": "string"
+      },
+      "degree_level": {
+       "enum": [
+        "undergrad",
+        "masters",
+        "phd",
+        "postdoc"
+       ],
+       "title": "Degree Level",
+       "type": "string"
+      },
+      "entity_type": {
+       "enum": [
+        "none",
+        "llc",
+        "c_corp",
+        "s_corp",
+        "nonprofit"
+       ],
+       "title": "Entity Type",
+       "type": "string"
+      },
+      "equity_ok": {
+       "title": "Equity Ok",
+       "type": "boolean"
+      },
+      "founder_id": {
+       "maxLength": 200,
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "full_name": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Full Name"
+      },
+      "funding_range": {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        }
+       ],
+       "title": "Funding Range",
+       "type": "array"
+      },
+      "geographies": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 500,
+       "title": "Geographies",
+       "type": "array"
+      },
+      "has_faculty_advisor": {
+       "title": "Has Faculty Advisor",
+       "type": "boolean"
+      },
+      "institution": {
+       "maxLength": 300,
+       "title": "Institution",
+       "type": "string"
+      },
+      "knowledge_base": {
+       "items": {
+        "$ref": "#/components/schemas/KnowledgeChunk"
+       },
+       "maxItems": 2000,
+       "title": "Knowledge Base",
+       "type": "array"
+      },
+      "major": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Major"
+      },
+      "max_application_hours": {
+       "exclusiveMinimum": 0.0,
+       "maximum": 10000.0,
+       "title": "Max Application Hours",
+       "type": "integer"
+      },
+      "memory_summary": {
+       "default": "",
+       "maxLength": 8000,
+       "title": "Memory Summary",
+       "type": "string"
+      },
+      "reuse_eligibility_answers": {
+       "default": false,
+       "title": "Reuse Eligibility Answers",
+       "type": "boolean"
+      },
+      "stage": {
+       "enum": [
+        "idea",
+        "prototype",
+        "mvp",
+        "pilot",
+        "revenue"
+       ],
+       "title": "Stage",
+       "type": "string"
+      },
+      "team_size": {
+       "maximum": 10000.0,
+       "minimum": 1.0,
+       "title": "Team Size",
+       "type": "integer"
+      },
+      "traction": {
+       "additionalProperties": {
+        "type": "number"
+       },
+       "maxProperties": 200,
+       "title": "Traction",
+       "type": "object"
+      }
+     },
+     "required": [
+      "founder_id",
+      "degree_level",
+      "institution",
+      "citizenship",
+      "entity_type",
+      "team_size",
+      "stage",
+      "funding_range",
+      "equity_ok",
+      "has_faculty_advisor",
+      "max_application_hours"
+     ],
+     "title": "FounderProfile",
+     "type": "object"
+    },
+    "FounderReview": {
+     "additionalProperties": false,
+     "description": "A past applicant's account of the program.\n\n**Never scraped.** None of the target pages publish student reviews, and\ninventing one would be the worst possible failure for a file whose whole\njob is to help someone decide where to spend eight hours. This list stays\nempty until a human types into it.",
+     "properties": {
+      "added_at": {
+       "format": "date-time",
+       "title": "Added At",
+       "type": "string"
+      },
+      "added_by": {
+       "description": "The human who entered this. Never a scraper.",
+       "title": "Added By",
+       "type": "string"
+      },
+      "attribution": {
+       "description": "e.g. \"2025 finalist, RBS\" \u2014 or \"anonymous\"",
+       "title": "Attribution",
+       "type": "string"
+      },
+      "source_url": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Source Url"
+      },
+      "text": {
+       "title": "Text",
+       "type": "string"
+      }
+     },
+     "required": [
+      "text",
+      "attribution",
+      "added_by"
+     ],
+     "title": "FounderReview",
+     "type": "object"
+    },
+    "HTTPValidationError": {
+     "properties": {
+      "detail": {
+       "items": {
+        "$ref": "#/components/schemas/ValidationError"
+       },
+       "title": "Detail",
+       "type": "array"
+      }
+     },
+     "title": "HTTPValidationError",
+     "type": "object"
+    },
+    "Identity": {
+     "description": "Who the caller is, and which founder their dashboard should render.\n\nThe frontend used to answer the second question from `KAIROS_FOUNDER_ID`,\na single server-side variable. That is right for one founder and silently\nwrong for two: both people sign in as themselves and are shown the same\ninbox. This model is what replaces it.\n\n`founder_id` is the one to render, and it is chosen here rather than in\nthe frontend so the choice is made once and is deterministic \u2014 the same\nsession picks the same founder on every request, which iterating a\n`frozenset` would not guarantee. `founder_ids` carries the whole set for\nthe cofounder case, where one person holds several.\n\n`subject` is the identity provider's opaque user id, never an email.\n`method` lets the dashboard tell an anonymous local session apart from\nsomebody actually signed in.",
+     "properties": {
+      "can_write": {
+       "title": "Can Write",
+       "type": "boolean"
+      },
+      "founder_id": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Founder Id"
+      },
+      "founder_ids": {
+       "items": {
+        "type": "string"
+       },
+       "title": "Founder Ids",
+       "type": "array"
+      },
+      "method": {
+       "title": "Method",
+       "type": "string"
+      },
+      "subject": {
+       "title": "Subject",
+       "type": "string"
+      }
+     },
+     "required": [
+      "subject",
+      "founder_id",
+      "founder_ids",
+      "can_write",
+      "method"
+     ],
+     "title": "Identity",
+     "type": "object"
+    },
+    "InboxStateUpdate": {
+     "additionalProperties": false,
+     "description": "The one thing a person may change about a surfaced item.",
+     "properties": {
+      "state": {
+       "enum": [
+        "new",
+        "opened",
+        "dismissed",
+        "applied"
+       ],
+       "title": "State",
+       "type": "string"
+      }
+     },
+     "required": [
+      "state"
+     ],
+     "title": "InboxStateUpdate",
+     "type": "object"
+    },
+    "IntakeBatchConfirmation": {
+     "additionalProperties": false,
+     "description": "Confirm exactly one proposal batch at one optimistic revision.",
+     "properties": {
+      "expected_revision": {
+       "minimum": 0.0,
+       "title": "Expected Revision",
+       "type": "integer"
+      }
+     },
+     "required": [
+      "expected_revision"
+     ],
+     "title": "IntakeBatchConfirmation",
+     "type": "object"
+    },
+    "IntakeClaimUpdate": {
+     "additionalProperties": false,
+     "description": "One explicit founder decision about a narrative memory claim.",
+     "properties": {
+      "action": {
+       "enum": [
+        "confirm",
+        "correct",
+        "reject"
+       ],
+       "title": "Action",
+       "type": "string"
+      },
+      "category": {
+       "anyOf": [
+        {
+         "maxLength": 100,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Category"
+      },
+      "client_action_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Client Action Id",
+       "type": "string"
+      },
+      "expected_revision": {
+       "minimum": 0.0,
+       "title": "Expected Revision",
+       "type": "integer"
+      },
+      "text": {
+       "anyOf": [
+        {
+         "maxLength": 4000,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Text"
+      }
+     },
+     "required": [
+      "action",
+      "expected_revision",
+      "client_action_id"
+     ],
+     "title": "IntakeClaimUpdate",
+     "type": "object"
+    },
+    "IntakeDocument": {
+     "additionalProperties": false,
+     "description": "Metadata and bounded extracted content; never the original file bytes.",
+     "properties": {
+      "byte_size": {
+       "maximum": 10485760.0,
+       "minimum": 0.0,
+       "title": "Byte Size",
+       "type": "integer"
+      },
+      "chunks": {
+       "items": {
+        "$ref": "#/components/schemas/IntakeDocumentChunk"
+       },
+       "maxItems": 100,
+       "title": "Chunks",
+       "type": "array"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "document_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Document Id",
+       "type": "string"
+      },
+      "error": {
+       "anyOf": [
+        {
+         "maxLength": 500,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Error"
+      },
+      "filename": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Filename",
+       "type": "string"
+      },
+      "founder_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "media_type": {
+       "maxLength": 100,
+       "minLength": 1,
+       "title": "Media Type",
+       "type": "string"
+      },
+      "session_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Session Id",
+       "type": "string"
+      },
+      "slot": {
+       "anyOf": [
+        {
+         "maximum": 2.0,
+         "minimum": 1.0,
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Slot"
+      },
+      "status": {
+       "enum": [
+        "processing",
+        "ready",
+        "rejected"
+       ],
+       "title": "Status",
+       "type": "string"
+      }
+     },
+     "required": [
+      "document_id",
+      "session_id",
+      "founder_id",
+      "filename",
+      "media_type",
+      "byte_size",
+      "status"
+     ],
+     "title": "IntakeDocument",
+     "type": "object"
+    },
+    "IntakeDocumentChunk": {
+     "additionalProperties": false,
+     "description": "Sanitized extracted text retained after the raw upload is deleted.",
+     "properties": {
+      "chunk_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Chunk Id",
+       "type": "string"
+      },
+      "location": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Location",
+       "type": "string"
+      },
+      "text": {
+       "maxLength": 20000,
+       "minLength": 1,
+       "title": "Text",
+       "type": "string"
+      },
+      "truncated": {
+       "default": false,
+       "title": "Truncated",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "chunk_id",
+      "location",
+      "text"
+     ],
+     "title": "IntakeDocumentChunk",
+     "type": "object"
+    },
+    "IntakeEvidence": {
+     "additionalProperties": false,
+     "description": "A bounded pointer to the founder-controlled source of one proposal.",
+     "properties": {
+      "excerpt": {
+       "anyOf": [
+        {
+         "maxLength": 500,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Excerpt"
+      },
+      "location": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Location"
+      },
+      "source_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Source Id",
+       "type": "string"
+      },
+      "source_type": {
+       "enum": [
+        "message",
+        "document",
+        "existing_profile",
+        "founder_edit"
+       ],
+       "title": "Source Type",
+       "type": "string"
+      }
+     },
+     "required": [
+      "source_type",
+      "source_id"
+     ],
+     "title": "IntakeEvidence",
+     "type": "object"
+    },
+    "IntakeEvidenceView": {
+     "additionalProperties": false,
+     "description": "One founder-owned, sanitized evidence excerpt.",
+     "properties": {
+      "excerpt": {
+       "title": "Excerpt",
+       "type": "string"
+      },
+      "location": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Location"
+      },
+      "source_id": {
+       "title": "Source Id",
+       "type": "string"
+      },
+      "source_type": {
+       "enum": [
+        "message",
+        "document"
+       ],
+       "title": "Source Type",
+       "type": "string"
+      }
+     },
+     "required": [
+      "source_type",
+      "source_id",
+      "excerpt"
+     ],
+     "title": "IntakeEvidenceView",
+     "type": "object"
+    },
+    "IntakeFieldState": {
+     "additionalProperties": false,
+     "description": "One candidate profile fact and whether a founder approved it.\n\n`value` is deliberately JSON-shaped here. The deterministic intake layer\nvalidates it against `field` before this record may be persisted; keeping\nthe transport union here avoids Pydantic coercing `1` into `True` (or the\ninverse) merely because both are members of a broad scalar union.",
+     "properties": {
+      "confidence": {
+       "anyOf": [
+        {
+         "maximum": 1.0,
+         "minimum": 0.0,
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Confidence"
+      },
+      "confirmed_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Confirmed At"
+      },
+      "confirmed_by": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Confirmed By"
+      },
+      "evidence": {
+       "items": {
+        "$ref": "#/components/schemas/IntakeEvidence"
+       },
+       "maxItems": 20,
+       "title": "Evidence",
+       "type": "array"
+      },
+      "field": {
+       "enum": [
+        "startup_description",
+        "full_name",
+        "degree_level",
+        "institution",
+        "major",
+        "citizenship",
+        "entity_type",
+        "team_size",
+        "stage",
+        "traction",
+        "funding_range",
+        "equity_ok",
+        "has_faculty_advisor",
+        "max_application_hours",
+        "geographies"
+       ],
+       "title": "Field",
+       "type": "string"
+      },
+      "proposed_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Proposed At"
+      },
+      "status": {
+       "default": "missing",
+       "enum": [
+        "missing",
+        "proposed",
+        "confirmed"
+       ],
+       "title": "Status",
+       "type": "string"
+      },
+      "value": {
+       "anyOf": [
+        {},
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Value"
+      }
+     },
+     "required": [
+      "field"
+     ],
+     "title": "IntakeFieldState",
+     "type": "object"
+    },
+    "IntakeFieldUpdate": {
+     "additionalProperties": false,
+     "description": "One explicit founder decision about one captured fact.",
+     "properties": {
+      "action": {
+       "enum": [
+        "confirm",
+        "correct",
+        "reject"
+       ],
+       "title": "Action",
+       "type": "string"
+      },
+      "client_action_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Client Action Id"
+      },
+      "expected_revision": {
+       "minimum": 0.0,
+       "title": "Expected Revision",
+       "type": "integer"
+      },
+      "value": {
+       "anyOf": [
+        {},
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Value"
+      }
+     },
+     "required": [
+      "action",
+      "expected_revision"
+     ],
+     "title": "IntakeFieldUpdate",
+     "type": "object"
+    },
+    "IntakeKnowledgeClaim": {
+     "additionalProperties": false,
+     "description": "One provenance-bearing narrative fact in founder working memory.",
+     "properties": {
+      "category": {
+       "enum": [
+        "problem",
+        "solution",
+        "customers",
+        "market",
+        "business_model",
+        "differentiation",
+        "team",
+        "traction",
+        "milestones",
+        "funding_needs"
+       ],
+       "title": "Category",
+       "type": "string"
+      },
+      "claim_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Claim Id",
+       "type": "string"
+      },
+      "confidence": {
+       "maximum": 1.0,
+       "minimum": 0.0,
+       "title": "Confidence",
+       "type": "number"
+      },
+      "confirmed_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Confirmed At"
+      },
+      "confirmed_by": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Confirmed By"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "evidence": {
+       "items": {
+        "$ref": "#/components/schemas/IntakeEvidence"
+       },
+       "maxItems": 20,
+       "minItems": 1,
+       "title": "Evidence",
+       "type": "array"
+      },
+      "proposal_batch_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Proposal Batch Id"
+      },
+      "status": {
+       "default": "proposed",
+       "enum": [
+        "proposed",
+        "confirmed",
+        "rejected",
+        "superseded"
+       ],
+       "title": "Status",
+       "type": "string"
+      },
+      "superseded_by_claim_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Superseded By Claim Id"
+      },
+      "supersedes_claim_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Supersedes Claim Id"
+      },
+      "text": {
+       "maxLength": 4000,
+       "minLength": 1,
+       "title": "Text",
+       "type": "string"
+      },
+      "updated_at": {
+       "format": "date-time",
+       "title": "Updated At",
+       "type": "string"
+      }
+     },
+     "required": [
+      "claim_id",
+      "category",
+      "text",
+      "confidence",
+      "evidence"
+     ],
+     "title": "IntakeKnowledgeClaim",
+     "type": "object"
+    },
+    "IntakeMessage": {
+     "additionalProperties": false,
+     "description": "One bounded chat turn. Message bodies never belong in audit logs.",
+     "properties": {
+      "client_message_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Client Message Id"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "founder_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "in_reply_to": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "In Reply To"
+      },
+      "message_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Message Id",
+       "type": "string"
+      },
+      "role": {
+       "enum": [
+        "founder",
+        "assistant"
+       ],
+       "title": "Role",
+       "type": "string"
+      },
+      "session_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Session Id",
+       "type": "string"
+      },
+      "text": {
+       "maxLength": 8000,
+       "minLength": 1,
+       "title": "Text",
+       "type": "string"
+      }
+     },
+     "required": [
+      "message_id",
+      "session_id",
+      "founder_id",
+      "role",
+      "text"
+     ],
+     "title": "IntakeMessage",
+     "type": "object"
+    },
+    "IntakeMessageCreate": {
+     "additionalProperties": false,
+     "description": "One idempotent founder turn sent from the chat composer.",
+     "properties": {
+      "client_message_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Client Message Id",
+       "type": "string"
+      },
+      "expected_revision": {
+       "minimum": 0.0,
+       "title": "Expected Revision",
+       "type": "integer"
+      },
+      "text": {
+       "maxLength": 8000,
+       "minLength": 1,
+       "title": "Text",
+       "type": "string"
+      }
+     },
+     "required": [
+      "text",
+      "client_message_id",
+      "expected_revision"
+     ],
+     "title": "IntakeMessageCreate",
+     "type": "object"
+    },
+    "IntakeProposalBatch": {
+     "additionalProperties": false,
+     "description": "The exact candidates most recently presented for founder confirmation.",
+     "properties": {
+      "batch_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Batch Id",
+       "type": "string"
+      },
+      "claim_ids": {
+       "items": {
+        "type": "string"
+       },
+       "maxItems": 50,
+       "title": "Claim Ids",
+       "type": "array"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "field_names": {
+       "items": {
+        "enum": [
+         "startup_description",
+         "full_name",
+         "degree_level",
+         "institution",
+         "major",
+         "citizenship",
+         "entity_type",
+         "team_size",
+         "stage",
+         "traction",
+         "funding_range",
+         "equity_ok",
+         "has_faculty_advisor",
+         "max_application_hours",
+         "geographies"
+        ],
+        "type": "string"
+       },
+       "maxItems": 20,
+       "title": "Field Names",
+       "type": "array"
+      },
+      "source_message_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Source Message Id",
+       "type": "string"
+      }
+     },
+     "required": [
+      "batch_id",
+      "source_message_id"
+     ],
+     "title": "IntakeProposalBatch",
+     "type": "object"
+    },
+    "IntakeRevision": {
+     "additionalProperties": false,
+     "description": "Optimistic revision required for terminal session transitions.",
+     "properties": {
+      "expected_revision": {
+       "minimum": 0.0,
+       "title": "Expected Revision",
+       "type": "integer"
+      }
+     },
+     "required": [
+      "expected_revision"
+     ],
+     "title": "IntakeRevision",
+     "type": "object"
+    },
+    "IntakeSession": {
+     "additionalProperties": false,
+     "description": "Persisted state for one founder interview.",
+     "properties": {
+      "completed_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Completed At"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "fields": {
+       "additionalProperties": {
+        "$ref": "#/components/schemas/IntakeFieldState"
+       },
+       "maxProperties": 50,
+       "title": "Fields",
+       "type": "object"
+      },
+      "founder_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "memory": {
+       "$ref": "#/components/schemas/IntakeWorkingMemory"
+      },
+      "pending_confirmation_batch": {
+       "anyOf": [
+        {
+         "$ref": "#/components/schemas/IntakeProposalBatch"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "pending_message_id": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Pending Message Id"
+      },
+      "revision": {
+       "default": 0,
+       "minimum": 0.0,
+       "title": "Revision",
+       "type": "integer"
+      },
+      "session_id": {
+       "maxLength": 200,
+       "minLength": 1,
+       "title": "Session Id",
+       "type": "string"
+      },
+      "status": {
+       "default": "active",
+       "enum": [
+        "active",
+        "completed",
+        "abandoned"
+       ],
+       "title": "Status",
+       "type": "string"
+      },
+      "updated_at": {
+       "format": "date-time",
+       "title": "Updated At",
+       "type": "string"
+      }
+     },
+     "required": [
+      "session_id",
+      "founder_id"
+     ],
+     "title": "IntakeSession",
+     "type": "object"
+    },
+    "IntakeSessionView": {
+     "additionalProperties": false,
+     "description": "Everything the chat needs, already scoped to one founder.",
+     "properties": {
+      "documents": {
+       "items": {
+        "$ref": "#/components/schemas/IntakeDocument"
+       },
+       "title": "Documents",
+       "type": "array"
+      },
+      "messages": {
+       "items": {
+        "$ref": "#/components/schemas/IntakeMessage"
+       },
+       "title": "Messages",
+       "type": "array"
+      },
+      "missing_required": {
+       "items": {
+        "type": "string"
+       },
+       "title": "Missing Required",
+       "type": "array"
+      },
+      "ready_to_complete": {
+       "title": "Ready To Complete",
+       "type": "boolean"
+      },
+      "session": {
+       "$ref": "#/components/schemas/IntakeSession"
+      },
+      "turn_pending": {
+       "title": "Turn Pending",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "session",
+      "messages",
+      "documents",
+      "missing_required",
+      "ready_to_complete",
+      "turn_pending"
+     ],
+     "title": "IntakeSessionView",
+     "type": "object"
+    },
+    "IntakeWorkingMemory": {
+     "additionalProperties": false,
+     "description": "Current two-layer memory; raw transcript remains stored separately.",
+     "properties": {
+      "claims": {
+       "additionalProperties": {
+        "$ref": "#/components/schemas/IntakeKnowledgeClaim"
+       },
+       "maxProperties": 500,
+       "title": "Claims",
+       "type": "object"
+      },
+      "confirmed_summary": {
+       "default": "",
+       "maxLength": 8000,
+       "title": "Confirmed Summary",
+       "type": "string"
+      },
+      "provisional_summary": {
+       "default": "",
+       "maxLength": 4000,
+       "title": "Provisional Summary",
+       "type": "string"
+      },
+      "revision": {
+       "default": 0,
+       "minimum": 0.0,
+       "title": "Revision",
+       "type": "integer"
+      },
+      "updated_at": {
+       "format": "date-time",
+       "title": "Updated At",
+       "type": "string"
+      }
+     },
+     "title": "IntakeWorkingMemory",
+     "type": "object"
+    },
+    "KnowledgeChunk": {
+     "additionalProperties": false,
+     "description": "One provenance-tagged fact about the founder.\n\nThe closed world for drafting. If a claim is not supported by a chunk in\nhere, the Drafter may not make it.",
+     "properties": {
+      "chunk_id": {
+       "maxLength": 200,
+       "title": "Chunk Id",
+       "type": "string"
+      },
+      "confidence": {
+       "default": 1.0,
+       "maximum": 1.0,
+       "minimum": 0.0,
+       "title": "Confidence",
+       "type": "number"
+      },
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "source": {
+       "maxLength": 500,
+       "title": "Source",
+       "type": "string"
+      },
+      "text": {
+       "maxLength": 20000,
+       "title": "Text",
+       "type": "string"
+      }
+     },
+     "required": [
+      "chunk_id",
+      "text",
+      "source"
+     ],
+     "title": "KnowledgeChunk",
+     "type": "object"
+    },
+    "Opportunity": {
+     "additionalProperties": false,
+     "description": "A funding opportunity.\n\n`description_excerpt` is untrusted text from the open web. It is\nsanitised and length-capped at ingestion (`agent.sanitize`) and is only\never passed to a model inside a delimited untrusted block.",
+     "properties": {
+      "award_max": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Award Max"
+      },
+      "award_min": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Award Min"
+      },
+      "criteria": {
+       "items": {
+        "$ref": "#/components/schemas/ExtractedCriterion"
+       },
+       "title": "Criteria",
+       "type": "array"
+      },
+      "deadline": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Deadline"
+      },
+      "description_excerpt": {
+       "default": "",
+       "title": "Description Excerpt",
+       "type": "string"
+      },
+      "effort_hours_estimate": {
+       "anyOf": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Effort Hours Estimate"
+      },
+      "eligibility": {
+       "$ref": "#/components/schemas/EligibilityRules"
+      },
+      "funder": {
+       "title": "Funder",
+       "type": "string"
+      },
+      "id": {
+       "title": "Id",
+       "type": "string"
+      },
+      "retrieved_at": {
+       "format": "date-time",
+       "title": "Retrieved At",
+       "type": "string"
+      },
+      "rolling": {
+       "default": false,
+       "title": "Rolling",
+       "type": "boolean"
+      },
+      "source": {
+       "enum": [
+        "seed",
+        "grants_gov",
+        "browser"
+       ],
+       "title": "Source",
+       "type": "string"
+      },
+      "source_url": {
+       "title": "Source Url",
+       "type": "string"
+      },
+      "title": {
+       "title": "Title",
+       "type": "string"
+      },
+      "verified": {
+       "default": false,
+       "title": "Verified",
+       "type": "boolean"
+      },
+      "verified_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Verified At"
+      }
+     },
+     "required": [
+      "id",
+      "title",
+      "funder",
+      "source",
+      "source_url"
+     ],
+     "title": "Opportunity",
+     "type": "object"
+    },
+    "Rejection": {
+     "additionalProperties": false,
+     "description": "Why the deterministic filter dropped an opportunity.\n\nStructured so a judge asking \"how do I know it isn't hiding things?\"\ngets a table, not an explanation (Section 9, rule 5).",
+     "properties": {
+      "check": {
+       "description": "Machine id, e.g. \"DEGREE_LEVEL\"",
+       "title": "Check",
+       "type": "string"
+      },
+      "detail": {
+       "description": "One line, written to be read by a human.",
+       "title": "Detail",
+       "type": "string"
+      },
+      "founder_value": {
+       "title": "Founder Value",
+       "type": "string"
+      },
+      "opportunity_id": {
+       "title": "Opportunity Id",
+       "type": "string"
+      },
+      "opportunity_title": {
+       "title": "Opportunity Title",
+       "type": "string"
+      },
+      "required_value": {
+       "title": "Required Value",
+       "type": "string"
+      }
+     },
+     "required": [
+      "opportunity_id",
+      "opportunity_title",
+      "check",
+      "detail",
+      "founder_value",
+      "required_value"
+     ],
+     "title": "Rejection",
+     "type": "object"
+    },
+    "RunJob": {
+     "additionalProperties": false,
+     "description": "One accepted invocation of the pipeline, durable from the moment the\nAPI says 202.\n\nThe job is the HTTP-visible half of a run: it exists so a request can\nreturn immediately, so a retry with the same idempotency key resolves to\nthe same work, and so a crash mid-run leaves a row that says *failed*\nrather than a connection that says nothing. The `RunReport` it eventually\npoints at stays immutable and append-only, exactly as before \u2014 a job\nrecords the lifecycle, never the verdicts.",
+     "properties": {
+      "created_at": {
+       "format": "date-time",
+       "title": "Created At",
+       "type": "string"
+      },
+      "error": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Error"
+      },
+      "finished_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Finished At"
+      },
+      "founder_id": {
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "idempotency_key": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Idempotency Key"
+      },
+      "include_grants_gov": {
+       "default": true,
+       "title": "Include Grants Gov",
+       "type": "boolean"
+      },
+      "job_id": {
+       "title": "Job Id",
+       "type": "string"
+      },
+      "run_id": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Run Id"
+      },
+      "source": {
+       "default": "unknown",
+       "enum": [
+        "manual",
+        "scheduled",
+        "eligibility_answer",
+        "unknown"
+       ],
+       "title": "Source",
+       "type": "string"
+      },
+      "started_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Started At"
+      },
+      "status": {
+       "default": "queued",
+       "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "halted",
+        "failed",
+        "cancelled"
+       ],
+       "title": "Status",
+       "type": "string"
+      },
+      "target_opportunity_id": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Target Opportunity Id"
+      },
+      "use_demo_catalog": {
+       "default": false,
+       "title": "Use Demo Catalog",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "job_id",
+      "founder_id"
+     ],
+     "title": "RunJob",
+     "type": "object"
+    },
+    "RunReport": {
+     "additionalProperties": false,
+     "description": "The four counters are the entire pitch in one line.\n\n\"Scanned 214. Discarded 198. Judged 16. Surfaced 3.\" The agent's judgment\nis measured by what it throws away silently (Section 2).",
+     "properties": {
+      "duration_s": {
+       "default": 0.0,
+       "title": "Duration S",
+       "type": "number"
+      },
+      "filtered_out": {
+       "default": 0,
+       "title": "Filtered Out",
+       "type": "integer"
+      },
+      "finished_at": {
+       "anyOf": [
+        {
+         "format": "date-time",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Finished At"
+      },
+      "founder_id": {
+       "title": "Founder Id",
+       "type": "string"
+      },
+      "halted_reason": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Halted Reason"
+      },
+      "judged": {
+       "default": 0,
+       "title": "Judged",
+       "type": "integer"
+      },
+      "notes": {
+       "items": {
+        "type": "string"
+       },
+       "title": "Notes",
+       "type": "array"
+      },
+      "rejections": {
+       "items": {
+        "$ref": "#/components/schemas/Rejection"
+       },
+       "title": "Rejections",
+       "type": "array"
+      },
+      "run_id": {
+       "title": "Run Id",
+       "type": "string"
+      },
+      "scanned": {
+       "default": 0,
+       "title": "Scanned",
+       "type": "integer"
+      },
+      "skips": {
+       "items": {
+        "$ref": "#/components/schemas/SkipRecord"
+       },
+       "title": "Skips",
+       "type": "array"
+      },
+      "sources_failed": {
+       "items": {
+        "$ref": "#/components/schemas/SourceFailure"
+       },
+       "title": "Sources Failed",
+       "type": "array"
+      },
+      "started_at": {
+       "format": "date-time",
+       "title": "Started At",
+       "type": "string"
+      },
+      "stateless": {
+       "default": false,
+       "title": "Stateless",
+       "type": "boolean"
+      },
+      "surfaced": {
+       "default": 0,
+       "title": "Surfaced",
+       "type": "integer"
+      },
+      "usage": {
+       "$ref": "#/components/schemas/TokenUsage"
+      }
+     },
+     "required": [
+      "run_id",
+      "founder_id"
+     ],
+     "title": "RunReport",
+     "type": "object"
+    },
+    "RunTrigger": {
+     "additionalProperties": false,
+     "description": "Run request. Same code path whether a person or the scheduler asks.\n\n`idempotency_key` is how a retry resolves to the same logical\ninvocation: EventBridge sends its execution id, the dashboard sends a\ngenerated one per click. `source` is recorded on the job and on any\nfailure-log entry, so \"did last night's *scheduled* run fail?\" is\nanswerable.\n\n`extra=\"forbid\"`: a misspelled flag is a caller who thinks they asked for\nsomething. Accepting `use_demo_catalogue` and silently running against\nthe real catalogue is the failure this prevents.",
+     "properties": {
+      "idempotency_key": {
+       "anyOf": [
+        {
+         "maxLength": 200,
+         "minLength": 1,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Idempotency Key"
+      },
+      "include_grants_gov": {
+       "default": true,
+       "title": "Include Grants Gov",
+       "type": "boolean"
+      },
+      "source": {
+       "default": "unknown",
+       "enum": [
+        "manual",
+        "scheduled",
+        "unknown"
+       ],
+       "title": "Source",
+       "type": "string"
+      },
+      "use_demo_catalog": {
+       "default": false,
+       "title": "Use Demo Catalog",
+       "type": "boolean"
+      }
+     },
+     "title": "RunTrigger",
+     "type": "object"
+    },
+    "ScrapedOpportunity": {
+     "additionalProperties": false,
+     "description": "One funding opportunity as a page stated it.\n\nThe shape follows the schema the request specified. Two additions carry\nthe honesty requirements: `unknown_fields` names every field the page did\nnot answer, and `evidence` holds the span behind every field it did.",
+     "properties": {
+      "applicant_type": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Applicant Type"
+      },
+      "award_max": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Award Max"
+      },
+      "award_min": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Award Min"
+      },
+      "award_type": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Award Type"
+      },
+      "caveats": {
+       "items": {
+        "type": "string"
+       },
+       "title": "Caveats",
+       "type": "array"
+      },
+      "deadline": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Deadline"
+      },
+      "deadline_iso": {
+       "anyOf": [
+        {
+         "format": "date",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Deadline Iso"
+      },
+      "degree_levels": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Degree Levels"
+      },
+      "equity_required": {
+       "anyOf": [
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Equity Required"
+      },
+      "evidence": {
+       "additionalProperties": {
+        "$ref": "#/components/schemas/Evidence"
+       },
+       "title": "Evidence",
+       "type": "object"
+      },
+      "fetch": {
+       "$ref": "#/components/schemas/FetchRecord"
+      },
+      "founder_reviews": {
+       "items": {
+        "$ref": "#/components/schemas/FounderReview"
+       },
+       "title": "Founder Reviews",
+       "type": "array"
+      },
+      "institution": {
+       "anyOf": [
+        {
+         "items": {
+          "type": "string"
+         },
+         "type": "array"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Institution"
+      },
+      "organization": {
+       "title": "Organization",
+       "type": "string"
+      },
+      "review_status": {
+       "default": "NEEDS_HUMAN_REVIEW",
+       "enum": [
+        "NEEDS_HUMAN_REVIEW",
+        "ACCEPTED",
+        "REJECTED"
+       ],
+       "title": "Review Status",
+       "type": "string"
+      },
+      "scrape_id": {
+       "title": "Scrape Id",
+       "type": "string"
+      },
+      "scraped_at": {
+       "format": "date-time",
+       "title": "Scraped At",
+       "type": "string"
+      },
+      "source_url": {
+       "title": "Source Url",
+       "type": "string"
+      },
+      "team_size_max": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Team Size Max"
+      },
+      "team_size_min": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Team Size Min"
+      },
+      "title": {
+       "title": "Title",
+       "type": "string"
+      },
+      "unknown_fields": {
+       "items": {
+        "type": "string"
+       },
+       "title": "Unknown Fields",
+       "type": "array"
+      }
+     },
+     "required": [
+      "scrape_id",
+      "title",
+      "organization",
+      "source_url",
+      "fetch"
+     ],
+     "title": "ScrapedOpportunity",
+     "type": "object"
+    },
+    "ScraperCandidateGroup": {
+     "description": "One candidate file, shaped for the dashboard.",
+     "properties": {
+      "candidates": {
+       "items": {
+        "$ref": "#/components/schemas/ScrapedOpportunity"
+       },
+       "title": "Candidates",
+       "type": "array"
+      },
+      "label": {
+       "title": "Label",
+       "type": "string"
+      },
+      "lane": {
+       "enum": [
+        "university",
+        "general"
+       ],
+       "title": "Lane",
+       "type": "string"
+      },
+      "source_file": {
+       "title": "Source File",
+       "type": "string"
+      },
+      "total": {
+       "title": "Total",
+       "type": "integer"
+      }
+     },
+     "required": [
+      "lane",
+      "label",
+      "source_file",
+      "total",
+      "candidates"
+     ],
+     "title": "ScraperCandidateGroup",
+     "type": "object"
+    },
+    "SkipRecord": {
+     "additionalProperties": false,
+     "description": "The silent path, written down.\n\nThe founder does not see these by default. A judge asking to see them\ngets one click (Section 9, rule 5).",
+     "properties": {
+      "opportunity_id": {
+       "title": "Opportunity Id",
+       "type": "string"
+      },
+      "opportunity_title": {
+       "title": "Opportunity Title",
+       "type": "string"
+      },
+      "reason": {
+       "title": "Reason",
+       "type": "string"
+      },
+      "stage": {
+       "enum": [
+        "hard_filter",
+        "assessor",
+        "escalation_policy"
+       ],
+       "title": "Stage",
+       "type": "string"
+      }
+     },
+     "required": [
+      "opportunity_id",
+      "opportunity_title",
+      "stage",
+      "reason"
+     ],
+     "title": "SkipRecord",
+     "type": "object"
+    },
+    "SourceFailure": {
+     "additionalProperties": false,
+     "description": "A source that did not answer. Reported, never smoothed over.\n\nA silent partial run is a lie (Section 9, rule 6).",
+     "properties": {
+      "at": {
+       "format": "date-time",
+       "title": "At",
+       "type": "string"
+      },
+      "detail": {
+       "title": "Detail",
+       "type": "string"
+      },
+      "source": {
+       "enum": [
+        "seed",
+        "grants_gov",
+        "browser"
+       ],
+       "title": "Source",
+       "type": "string"
+      }
+     },
+     "required": [
+      "source",
+      "detail"
+     ],
+     "title": "SourceFailure",
+     "type": "object"
+    },
+    "TokenUsage": {
+     "additionalProperties": false,
+     "description": "Token and dollar totals for one run.\n\n`usd_estimate` is an estimate in the literal sense \u2014 it is computed from\nthe configured prices, and those default to zero. A run showing $0.00 may\nmean it was cheap or may mean prices were never configured; `/ready`\nreports which in production.",
+     "properties": {
+      "input_tokens": {
+       "default": 0,
+       "title": "Input Tokens",
+       "type": "integer"
+      },
+      "output_tokens": {
+       "default": 0,
+       "title": "Output Tokens",
+       "type": "integer"
+      },
+      "total_tokens": {
+       "default": 0,
+       "title": "Total Tokens",
+       "type": "integer"
+      },
+      "usd_estimate": {
+       "default": 0.0,
+       "title": "Usd Estimate",
+       "type": "number"
+      }
+     },
+     "title": "TokenUsage",
+     "type": "object"
+    },
+    "ValidationError": {
+     "properties": {
+      "ctx": {
+       "title": "Context",
+       "type": "object"
+      },
+      "input": {
+       "title": "Input"
+      },
+      "loc": {
+       "items": {
+        "anyOf": [
+         {
+          "type": "string"
+         },
+         {
+          "type": "integer"
+         }
+        ]
+       },
+       "title": "Location",
+       "type": "array"
+      },
+      "msg": {
+       "title": "Message",
+       "type": "string"
+      },
+      "type": {
+       "title": "Error Type",
+       "type": "string"
+      }
+     },
+     "required": [
+      "loc",
+      "msg",
+      "type"
+     ],
+     "title": "ValidationError",
+     "type": "object"
+    }
+   }
+  },
+  "info": {
+   "title": "Kairos",
+   "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+   "/drafts/{draft_id}": {
+    "get": {
+     "description": "One draft, ownership-checked.\n\nA draft is the most sensitive object in the system \u2014 it is the founder's\nknowledge base rendered into prose \u2014 so the draft's own `founder_id` is\nchecked against the principal rather than trusting an opaque id.",
+     "operationId": "get_draft_drafts__draft_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "draft_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Draft Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Get Draft Drafts  Draft Id  Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Draft"
+    }
+   },
+   "/founders/{founder_id}": {
+    "get": {
+     "description": "One founder profile. Ownership-checked, and 404 for a founder that is not yours.",
+     "operationId": "get_founder_founders__founder_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/FounderProfile"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Founder"
+    },
+    "put": {
+     "description": "Create or replace a founder profile.\n\nA full replace, not a patch. These fields are what the deterministic\neligibility filter compares against, so a half-applied update is the one\noutcome worth ruling out entirely \u2014 `citizenship` set without\n`degree_level` is how a founder gets told they are eligible for something\nthey are not.\n\nBoth ids are checked: the path (which the principal must own) and the\nbody. Without the second check a principal could replace their own\nprofile with a document naming someone else's founder id.",
+     "operationId": "put_founder_founders__founder_id__put",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/FounderProfile"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/FounderProfile"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Put Founder"
+    }
+   },
+   "/founders/{founder_id}/drafts": {
+    "get": {
+     "description": "Every draft for a founder, newest form first.\n\nCounts come from `Draft.counts()` \u2014 computed in Python, never by a model\n(Section 9, rule 8).",
+     "operationId": "list_drafts_founders__founder_id__drafts_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "opportunity_id",
+       "required": false,
+       "schema": {
+        "anyOf": [
+         {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Opportunity Id"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "items": {
+           "additionalProperties": true,
+           "type": "object"
+          },
+          "title": "Response List Drafts Founders  Founder Id  Drafts Get",
+          "type": "array"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "List Drafts"
+    }
+   },
+   "/founders/{founder_id}/eligibility-questions": {
+    "get": {
+     "description": "Founder-answerable uncertainty only; missing source facts do not belong here.",
+     "operationId": "list_eligibility_questions_founders__founder_id__eligibility_questions_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "status",
+       "required": false,
+       "schema": {
+        "default": "pending",
+        "enum": [
+         "pending",
+         "answered",
+         "all"
+        ],
+        "title": "Status",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "items": {
+           "$ref": "#/components/schemas/EligibilityQuestion"
+          },
+          "title": "Response List Eligibility Questions Founders  Founder Id  Eligibility Questions Get",
+          "type": "array"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "List Eligibility Questions"
+    }
+   },
+   "/founders/{founder_id}/eligibility-questions/{question_id}/answer": {
+    "put": {
+     "description": "Save an answer and queue a one-opportunity reassessment when possible.",
+     "operationId": "answer_eligibility_question_founders__founder_id__eligibility_questions__question_id__answer_put",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "question_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Question Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EligibilityAnswerUpdate"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/EligibilityQuestion"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Answer Eligibility Question"
+    }
+   },
+   "/founders/{founder_id}/inbox": {
+    "get": {
+     "description": "Surfaced opportunities for one founder, newest first.\n\n`include_passive=False` drops passively-surfaced items \u2014 the ones the run\nrecorded but did not consider worth interrupting for.\n\nNote the ordering: `limit` is applied by the database and the passive\nfilter afterwards in Python, so `include_passive=False` can return fewer\nthan `limit` rows while more non-passive rows exist further back. The\ndashboard asks for a generous limit rather than paginating, which hides\nthis; a caller that pages through this endpoint would not be so lucky.",
+     "operationId": "get_inbox_founders__founder_id__inbox_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "include_passive",
+       "required": false,
+       "schema": {
+        "default": true,
+        "title": "Include Passive",
+        "type": "boolean"
+       }
+      },
+      {
+       "in": "query",
+       "name": "limit",
+       "required": false,
+       "schema": {
+        "default": 50,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "items": {},
+          "title": "Response Get Inbox Founders  Founder Id  Inbox Get",
+          "type": "array"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Inbox"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions": {
+    "post": {
+     "description": "Return the founder's active interview, creating one when absent.",
+     "operationId": "create_or_resume_intake_session_founders__founder_id__intake_sessions_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Create Or Resume Intake Session"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}": {
+    "delete": {
+     "operationId": "abandon_intake_session_founders__founder_id__intake_sessions__session_id__delete",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntakeRevision"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Abandon Intake Session"
+    },
+    "get": {
+     "operationId": "get_intake_session_founders__founder_id__intake_sessions__session_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Intake Session"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/claims/{claim_id}": {
+    "patch": {
+     "description": "Apply a founder-owned decision to one provisional narrative claim.",
+     "operationId": "update_intake_claim_founders__founder_id__intake_sessions__session_id__claims__claim_id__patch",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "claim_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Claim Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntakeClaimUpdate"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Update Intake Claim"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/complete": {
+    "post": {
+     "operationId": "complete_intake_session_founders__founder_id__intake_sessions__session_id__complete_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntakeRevision"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/FounderProfile"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Complete Intake Session"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/documents": {
+    "post": {
+     "description": "Extract one founder-owned document; raw bytes are never persisted.",
+     "operationId": "upload_intake_document_founders__founder_id__intake_sessions__session_id__documents_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "multipart/form-data": {
+        "schema": {
+         "$ref": "#/components/schemas/Body_upload_intake_document_founders__founder_id__intake_sessions__session_id__documents_post"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeDocument"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Upload Intake Document"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/documents/{document_id}": {
+    "delete": {
+     "operationId": "remove_intake_document_founders__founder_id__intake_sessions__session_id__documents__document_id__delete",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "document_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Document Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {}
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Remove Intake Document"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/evidence/{source_id}": {
+    "get": {
+     "operationId": "get_intake_evidence_founders__founder_id__intake_sessions__session_id__evidence__source_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "source_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Source Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeEvidenceView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Intake Evidence"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/fields/{field}": {
+    "patch": {
+     "operationId": "update_intake_field_founders__founder_id__intake_sessions__session_id__fields__field__patch",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "field",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Field",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntakeFieldUpdate"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Update Intake Field"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/messages": {
+    "post": {
+     "description": "Persist one founder turn, call Bedrock once, and publish proposals.",
+     "operationId": "send_intake_message_founders__founder_id__intake_sessions__session_id__messages_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntakeMessageCreate"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Send Intake Message"
+    }
+   },
+   "/founders/{founder_id}/intake/sessions/{session_id}/proposal-batches/{batch_id}/confirm": {
+    "post": {
+     "description": "Confirm exactly the candidates the founder was shown in one batch.",
+     "operationId": "confirm_intake_proposal_batch_founders__founder_id__intake_sessions__session_id__proposal_batches__batch_id__confirm_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "session_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Session Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "batch_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Batch Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/IntakeBatchConfirmation"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/IntakeSessionView"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Confirm Intake Proposal Batch"
+    }
+   },
+   "/founders/{founder_id}/jobs": {
+    "get": {
+     "description": "Recent jobs for one founder, newest first \u2014 running and finished alike.",
+     "operationId": "list_jobs_founders__founder_id__jobs_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "limit",
+       "required": false,
+       "schema": {
+        "default": 20,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "items": {
+           "$ref": "#/components/schemas/RunJob"
+          },
+          "title": "Response List Jobs Founders  Founder Id  Jobs Get",
+          "type": "array"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "List Jobs"
+    }
+   },
+   "/founders/{founder_id}/jobs/{job_id}": {
+    "get": {
+     "description": "One job, with its report once the run has one.\n\nThe poll target for the dashboard's manual-run button. `report` is null\nuntil the run finishes; a halted run has a report too \u2014 halting is a\nreported outcome, not an error.",
+     "operationId": "get_job_founders__founder_id__jobs__job_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "job_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Job Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Get Job Founders  Founder Id  Jobs  Job Id  Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Job"
+    }
+   },
+   "/founders/{founder_id}/jobs/{job_id}/cancel": {
+    "post": {
+     "description": "Ask the executor to stop a running job.\n\nCooperative: the run stops at its next await point and the job records\n`cancelled`. What the run already persisted stays persisted \u2014 cancel\nstops future work, it does not rewrite history. A job that is already\nterminal, or running in a process this API cannot reach, reports\n`cancelled: false`.",
+     "operationId": "cancel_job_founders__founder_id__jobs__job_id__cancel_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "job_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Job Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Cancel Job Founders  Founder Id  Jobs  Job Id  Cancel Post",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Cancel Job"
+    }
+   },
+   "/founders/{founder_id}/runs": {
+    "get": {
+     "description": "Recent run reports for one founder, newest first, capped at `limit`.",
+     "operationId": "list_runs_founders__founder_id__runs_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "limit",
+       "required": false,
+       "schema": {
+        "default": 20,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "items": {
+           "$ref": "#/components/schemas/RunReport"
+          },
+          "title": "Response List Runs Founders  Founder Id  Runs Get",
+          "type": "array"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "List Runs"
+    },
+    "post": {
+     "description": "Accept a run and return immediately. EventBridge calls this too.\n\nThree outcomes, all fast:\n\n*   **202** \u2014 a job was created and is now running in the background.\n    Poll `GET /founders/{id}/jobs/{job_id}` for its state.\n*   **200** \u2014 this idempotency key already landed; here is that job\n    again. A scheduler retry or a double-submitted form resolves to the\n    same logical invocation instead of a second run.\n*   **409** \u2014 another run holds the lease for this founder. The body\n    names the running job when it is known.\n\nThe connection no longer spans the run. A run takes minutes; sockets,\nload balancers and browsers all have opinions about minutes.",
+     "operationId": "trigger_run_founders__founder_id__runs_post",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RunTrigger"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "202": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/RunJob"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Trigger Run"
+    }
+   },
+   "/founders/{founder_id}/runs/latest": {
+    "get": {
+     "description": "The most recent run report. 404 when the founder has never had a run.",
+     "operationId": "latest_run_founders__founder_id__runs_latest_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/RunReport"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Latest Run"
+    }
+   },
+   "/founders/{founder_id}/runs/latest/skips": {
+    "get": {
+     "description": "Everything the agent threw away, and why.\n\nThe founder does not see this by default. A judge asking \"how do I know\nit isn't hiding things?\" gets it in one click.",
+     "operationId": "latest_skips_founders__founder_id__runs_latest_skips_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Latest Skips Founders  Founder Id  Runs Latest Skips Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Latest Skips"
+    }
+   },
+   "/founders/{founder_id}/runs/{run_id}": {
+    "get": {
+     "description": "One run by id, however old.\n\n`list_runs` is capped, so without this a link to an older run resolves to\nnothing and the transparency trail has a horizon.",
+     "operationId": "get_run_founders__founder_id__runs__run_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "run_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Run Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/RunReport"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Run"
+    }
+   },
+   "/founders/{founder_id}/runs/{run_id}/skips": {
+    "get": {
+     "description": "The silent path for one specific run.",
+     "operationId": "get_run_skips_founders__founder_id__runs__run_id__skips_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "path",
+       "name": "run_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Run Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Get Run Skips Founders  Founder Id  Runs  Run Id  Skips Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Run Skips"
+    }
+   },
+   "/founders/{founder_id}/scheduler/failures": {
+    "get": {
+     "description": "Recent invocations that failed to start or finish, newest first.\n\nSanitised before persistence \u2014 no credentials, no prompts, no stack\ntraces. CloudWatch keeps the archive; this answers \"did last night's\nrun fail?\" from the dashboard.",
+     "operationId": "scheduler_failures_founders__founder_id__scheduler_failures_get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "founder_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Founder Id",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "limit",
+       "required": false,
+       "schema": {
+        "default": 20,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "items": {},
+          "title": "Response Scheduler Failures Founders  Founder Id  Scheduler Failures Get",
+          "type": "array"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Scheduler Failures"
+    }
+   },
+   "/health": {
+    "get": {
+     "description": "Liveness. The process is up and serving; nothing more is claimed.\n\nDeliberately dependency-free. A liveness probe that checks the database\nis a liveness probe that restarts a healthy container because storage\nhiccuped, and restarting rarely fixes storage.",
+     "operationId": "health_health_get",
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Health Health Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      }
+     },
+     "summary": "Health"
+    }
+   },
+   "/inbox/{item_id}": {
+    "patch": {
+     "description": "Record what the founder did with an item: opened, dismissed, applied.\n\n`state` is the only mutable field. Everything else on an inbox item is\nwhat the run decided, and letting a later edit rewrite it would turn the\naudit trail into a record of the most recent opinion.\n\nThe item is read before it is written so its owner can be checked. The\nid is otherwise unguessable-by-design but not unguessable-in-fact \u2014\nit is `{run_id}:{opportunity_id}` \u2014 so ownership is verified rather\nthan assumed.",
+     "operationId": "patch_inbox_item_inbox__item_id__patch",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "item_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Item Id",
+        "type": "string"
+       }
+      }
+     ],
+     "requestBody": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InboxStateUpdate"
+        }
+       }
+      },
+      "required": true
+     },
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {}
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Patch Inbox Item"
+    }
+   },
+   "/me": {
+    "get": {
+     "description": "What this session owns.\n\nDeliberately takes no founder id. A `/me/{founder_id}` would tell any\nholder of any credential whether an id exists, which is the enumeration\nthat `owned()` answers 404 rather than 403 to prevent. This route can\nonly ever describe its own caller, so there is nothing to authorize.\n\nA principal with no founders is a real answer, not an error: it is what a\nverified person looks like when auto-provisioning is off and no operator\nhas granted them anything yet. The dashboard shows them a request-access\npage rather than an empty inbox.",
+     "operationId": "me_me_get",
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/Identity"
+         }
+        }
+       },
+       "description": "Successful Response"
+      }
+     },
+     "summary": "Me"
+    }
+   },
+   "/opportunities/{opportunity_id}": {
+    "get": {
+     "description": "The row a verdict was made about.\n\nAward range, deadline and the extracted eligibility rules live here as\nstructured fields. Anything that wants to sort or filter on them reads\nthis rather than parsing the headline a run happened to compose.\n\nThis is the one resource-id route with no ownership check, and the reason\nis that an opportunity is not founder data: it is a public funding\nprogramme, the same row for everyone, discovered from Grants.gov or a\npublished catalogue. Which opportunities a *founder* was shown is founder\ndata, and that lives in the inbox, which is scoped. Authentication is\nstill required \u2014 an unauthenticated caller has no business enumerating\nthe catalogue. A scheduler principal is authenticated and still 404s:\nlisting programmes is a founder-read, not `run:trigger`.",
+     "operationId": "get_opportunity_opportunities__opportunity_id__get",
+     "parameters": [
+      {
+       "in": "path",
+       "name": "opportunity_id",
+       "required": true,
+       "schema": {
+        "maxLength": 200,
+        "minLength": 1,
+        "title": "Opportunity Id",
+        "type": "string"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/Opportunity"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Opportunity"
+    }
+   },
+   "/ready": {
+    "get": {
+     "description": "Readiness: can this process actually serve a request right now?\n\nChecks what a request needs and nothing that costs money:\n\n*   **storage** \u2014 one trivial query against the database, and a write\n    probe against the state directory. Both are the failure modes an\n    EFS mount produces, and neither is visible from `/health`.\n*   **configuration** \u2014 that model IDs resolve at all, and in production\n    mode that the deployment is not accidentally open or unpriced.\n\nNo model is invoked. A readiness check that costs a Bedrock call is a\nreadiness check that bills you per probe interval.\n\nThe body names *which* check failed and never what it was configured\nwith: no model IDs, no paths, no token. `/ready` is reachable without a\ncredential, so it must not describe the deployment to a stranger.",
+     "operationId": "ready_ready_get",
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": true,
+          "title": "Response Ready Ready Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      }
+     },
+     "summary": "Ready"
+    }
+   },
+   "/scraper/candidates": {
+    "get": {
+     "description": "Search-discovered candidate rows, grouped by scraper lane.\n\nThese are review queues, not the runtime opportunity catalog. The rows\ncome from scraper candidate files and keep their `NEEDS_HUMAN_REVIEW`,\n`ACCEPTED`, or `REJECTED` status exactly as written there.",
+     "operationId": "get_scraper_candidates_scraper_candidates_get",
+     "parameters": [
+      {
+       "in": "query",
+       "name": "lane",
+       "required": false,
+       "schema": {
+        "default": "both",
+        "enum": [
+         "university",
+         "general",
+         "both"
+        ],
+        "title": "Lane",
+        "type": "string"
+       }
+      },
+      {
+       "in": "query",
+       "name": "limit",
+       "required": false,
+       "schema": {
+        "default": 6,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Limit",
+        "type": "integer"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "additionalProperties": {
+           "$ref": "#/components/schemas/ScraperCandidateGroup"
+          },
+          "title": "Response Get Scraper Candidates Scraper Candidates Get",
+          "type": "object"
+         }
+        }
+       },
+       "description": "Successful Response"
+      },
+      "422": {
+       "content": {
+        "application/json": {
+         "schema": {
+          "$ref": "#/components/schemas/HTTPValidationError"
+         }
+        }
+       },
+       "description": "Validation Error"
+      }
+     },
+     "summary": "Get Scraper Candidates"
+    }
+   }
+  }
+ },
+ "routes": [
+  [
+   "/docs",
+   [
+    "GET",
+    "HEAD"
+   ],
+   null,
+   "swagger_ui_html"
+  ],
+  [
+   "/docs/oauth2-redirect",
+   [
+    "GET",
+    "HEAD"
+   ],
+   null,
+   "swagger_ui_redirect"
+  ],
+  [
+   "/drafts/{draft_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_draft"
+  ],
+  [
+   "/founders/{founder_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_founder"
+  ],
+  [
+   "/founders/{founder_id}",
+   [
+    "PUT"
+   ],
+   null,
+   "put_founder"
+  ],
+  [
+   "/founders/{founder_id}/drafts",
+   [
+    "GET"
+   ],
+   null,
+   "list_drafts"
+  ],
+  [
+   "/founders/{founder_id}/eligibility-questions",
+   [
+    "GET"
+   ],
+   null,
+   "list_eligibility_questions"
+  ],
+  [
+   "/founders/{founder_id}/eligibility-questions/{question_id}/answer",
+   [
+    "PUT"
+   ],
+   null,
+   "answer_eligibility_question"
+  ],
+  [
+   "/founders/{founder_id}/inbox",
+   [
+    "GET"
+   ],
+   null,
+   "get_inbox"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions",
+   [
+    "POST"
+   ],
+   null,
+   "create_or_resume_intake_session"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}",
+   [
+    "DELETE"
+   ],
+   null,
+   "abandon_intake_session"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_intake_session"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/claims/{claim_id}",
+   [
+    "PATCH"
+   ],
+   null,
+   "update_intake_claim"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/complete",
+   [
+    "POST"
+   ],
+   null,
+   "complete_intake_session"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/documents",
+   [
+    "POST"
+   ],
+   null,
+   "upload_intake_document"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/documents/{document_id}",
+   [
+    "DELETE"
+   ],
+   null,
+   "remove_intake_document"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/evidence/{source_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_intake_evidence"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/fields/{field}",
+   [
+    "PATCH"
+   ],
+   null,
+   "update_intake_field"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/messages",
+   [
+    "POST"
+   ],
+   null,
+   "send_intake_message"
+  ],
+  [
+   "/founders/{founder_id}/intake/sessions/{session_id}/proposal-batches/{batch_id}/confirm",
+   [
+    "POST"
+   ],
+   null,
+   "confirm_intake_proposal_batch"
+  ],
+  [
+   "/founders/{founder_id}/jobs",
+   [
+    "GET"
+   ],
+   null,
+   "list_jobs"
+  ],
+  [
+   "/founders/{founder_id}/jobs/{job_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_job"
+  ],
+  [
+   "/founders/{founder_id}/jobs/{job_id}/cancel",
+   [
+    "POST"
+   ],
+   null,
+   "cancel_job"
+  ],
+  [
+   "/founders/{founder_id}/runs",
+   [
+    "GET"
+   ],
+   null,
+   "list_runs"
+  ],
+  [
+   "/founders/{founder_id}/runs",
+   [
+    "POST"
+   ],
+   202,
+   "trigger_run"
+  ],
+  [
+   "/founders/{founder_id}/runs/latest",
+   [
+    "GET"
+   ],
+   null,
+   "latest_run"
+  ],
+  [
+   "/founders/{founder_id}/runs/latest/skips",
+   [
+    "GET"
+   ],
+   null,
+   "latest_skips"
+  ],
+  [
+   "/founders/{founder_id}/runs/{run_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_run"
+  ],
+  [
+   "/founders/{founder_id}/runs/{run_id}/skips",
+   [
+    "GET"
+   ],
+   null,
+   "get_run_skips"
+  ],
+  [
+   "/founders/{founder_id}/scheduler/failures",
+   [
+    "GET"
+   ],
+   null,
+   "scheduler_failures"
+  ],
+  [
+   "/health",
+   [
+    "GET"
+   ],
+   null,
+   "health"
+  ],
+  [
+   "/inbox/{item_id}",
+   [
+    "PATCH"
+   ],
+   null,
+   "patch_inbox_item"
+  ],
+  [
+   "/me",
+   [
+    "GET"
+   ],
+   null,
+   "me"
+  ],
+  [
+   "/openapi.json",
+   [
+    "GET",
+    "HEAD"
+   ],
+   null,
+   "openapi"
+  ],
+  [
+   "/opportunities/{opportunity_id}",
+   [
+    "GET"
+   ],
+   null,
+   "get_opportunity"
+  ],
+  [
+   "/ready",
+   [
+    "GET"
+   ],
+   null,
+   "ready"
+  ],
+  [
+   "/redoc",
+   [
+    "GET",
+    "HEAD"
+   ],
+   null,
+   "redoc_html"
+  ],
+  [
+   "/scraper/candidates",
+   [
+    "GET"
+   ],
+   null,
+   "get_scraper_candidates"
+  ]
+ ]
+}
