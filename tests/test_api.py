@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from agent.models import Assessment, InboxItem, Rejection, RunReport, SkipRecord
 from agent.scraping.agent import GENERAL_LANE, UNIVERSITY_LANE
 import api.main as api_main
+import api.routes.catalog as catalog_routes
 from api.main import app
 from api.repository import SqliteRepository
 from tests.factories import draft, generated, opportunity, profile
@@ -285,7 +286,7 @@ def test_scraper_candidates_are_grouped_by_lane(client, monkeypatch, tmp_path):
         )
     )
     monkeypatch.setattr(
-        api_main,
+        catalog_routes,
         "SCRAPER_CANDIDATE_LANES",
         {
             "university": replace(UNIVERSITY_LANE, output_path=university_path),
@@ -304,7 +305,7 @@ def test_scraper_candidates_are_grouped_by_lane(client, monkeypatch, tmp_path):
 
 def test_missing_scraper_candidate_file_is_an_empty_lane(client, monkeypatch, tmp_path):
     monkeypatch.setattr(
-        api_main,
+        catalog_routes,
         "SCRAPER_CANDIDATE_LANES",
         {
             "university": replace(

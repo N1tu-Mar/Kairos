@@ -13,12 +13,12 @@ query inside a payload from SQL, which we never need to do.
 
 from __future__ import annotations
 
-import json
 import hashlib
 import math
 from datetime import datetime, timezone
 from typing import Literal, Protocol, TypeVar
 
+from pydantic import BaseModel
 from sqlalchemy import Column, Text, UniqueConstraint, delete, func, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, Session, SQLModel, create_engine, select
@@ -48,12 +48,17 @@ from agent.semantic import (
     is_reusable,
 )
 
-T = TypeVar("T")
+M = TypeVar("M", bound=BaseModel)
 
 
 def _now() -> datetime:
     """Current UTC instant. Every timestamp written here is timezone-aware; a naive datetime compared against an aware one raises, and that has been the source of more than one ordering bug."""
     return datetime.now(timezone.utc)
+
+
+def _payload(record: BaseModel) -> str:
+    """The stored form of a record: its JSON, redacted at the persistence boundary."""
+    return redact_json(record.model_dump_json())
 
 
 # ── Tables ───────────────────────────────────────────────────────────────────
@@ -488,6 +493,33 @@ class SqliteRepository:
         if create_schema:
             SQLModel.metadata.create_all(self.engine)
 
+    # -- payload helpers --
+    #
+    # Every table stores one redacted Pydantic document in `payload`. These
+    # three cover the reads that are nothing more than "find rows, validate
+    # payloads". Anything with a guard, a compare-and-swap or more than one
+    # statement stays written out in full.
+
+    def _get(self, row_type: type[SQLModel], key, model: type[M]) -> M | None:
+        """One row by primary key, validated, or None."""
+        with Session(self.engine) as session:
+            row = session.get(row_type, key)
+            return model.model_validate_json(row.payload) if row else None
+
+    def _first(self, statement, model: type[M]) -> M | None:
+        """The first row a statement selects, validated, or None."""
+        with Session(self.engine) as session:
+            row = session.exec(statement).first()
+            return model.model_validate_json(row.payload) if row else None
+
+    def _all(self, statement, model: type[M]) -> list[M]:
+        """Every row a statement selects, validated, in statement order."""
+        with Session(self.engine) as session:
+            return [
+                model.model_validate_json(row.payload)
+                for row in session.exec(statement).all()
+            ]
+
     def schema_version(self) -> str | None:
         """The Alembic revision this database is at, or None if unmanaged.
 
@@ -572,16 +604,14 @@ class SqliteRepository:
             )
             # Redact at the persistence boundary, not at display time
             # (Section 10.4).
-            row.payload = redact_json(profile.model_dump_json())
+            row.payload = _payload(profile)
             row.updated_at = _now()
             session.add(row)
             session.commit()
 
     def get_profile(self, founder_id: str) -> FounderProfile | None:
         """Load a profile by founder id, or None if this founder has never saved one."""
-        with Session(self.engine) as session:
-            row = session.get(ProfileRow, founder_id)
-            return FounderProfile.model_validate_json(row.payload) if row else None
+        return self._get(ProfileRow, founder_id, FounderProfile)
 
     # -- conversational intake --
 
@@ -595,7 +625,7 @@ class SqliteRepository:
             revision=intake.revision,
             created_at=intake.created_at,
             updated_at=intake.updated_at,
-            payload=redact_json(intake.model_dump_json()),
+            payload=_payload(intake),
         )
 
     @staticmethod
@@ -621,7 +651,7 @@ class SqliteRepository:
                 founder_id=snapshot.founder_id,
                 revision=snapshot.revision,
                 created_at=snapshot.created_at,
-                payload=redact_json(snapshot.model_dump_json()),
+                payload=_payload(snapshot),
             )
         )
 
@@ -645,18 +675,15 @@ class SqliteRepository:
                 return IntakeSession.model_validate_json(row.payload)
 
     def get_intake_session(self, session_id: str) -> IntakeSession | None:
-        with Session(self.engine) as session:
-            row = session.get(IntakeSessionRow, session_id)
-            return IntakeSession.model_validate_json(row.payload) if row else None
+        return self._get(IntakeSessionRow, session_id, IntakeSession)
 
     def get_active_intake_session(self, founder_id: str) -> IntakeSession | None:
-        with Session(self.engine) as session:
-            row = session.exec(
-                select(IntakeSessionRow).where(
-                    IntakeSessionRow.active_founder_id == founder_id
-                )
-            ).first()
-            return IntakeSession.model_validate_json(row.payload) if row else None
+        return self._first(
+            select(IntakeSessionRow).where(
+                IntakeSessionRow.active_founder_id == founder_id
+            ),
+            IntakeSession,
+        )
 
     def save_intake_session(
         self, intake: IntakeSession, *, expected_revision: int
@@ -677,7 +704,7 @@ class SqliteRepository:
                     status=intake.status,
                     revision=intake.revision,
                     updated_at=intake.updated_at,
-                    payload=redact_json(intake.model_dump_json()),
+                    payload=_payload(intake),
                 )
             )
             if result.rowcount == 1:
@@ -722,7 +749,7 @@ class SqliteRepository:
                 .values(
                     revision=intake.revision,
                     updated_at=intake.updated_at,
-                    payload=redact_json(intake.model_dump_json()),
+                    payload=_payload(intake),
                 )
             )
             if result.rowcount != 1:
@@ -760,7 +787,7 @@ class SqliteRepository:
                     status=intake.status,
                     revision=intake.revision,
                     updated_at=intake.updated_at,
-                    payload=redact_json(intake.model_dump_json()),
+                    payload=_payload(intake),
                 )
             )
             if result.rowcount != 1:
@@ -770,7 +797,7 @@ class SqliteRepository:
             profile_row = session.get(ProfileRow, profile.founder_id)
             if profile_row is None:
                 profile_row = ProfileRow(founder_id=profile.founder_id, payload="")
-            profile_row.payload = redact_json(profile.model_dump_json())
+            profile_row.payload = _payload(profile)
             profile_row.updated_at = _now()
             session.add(profile_row)
             session.commit()
@@ -791,7 +818,7 @@ class SqliteRepository:
                     role=message.role,
                     idempotency_key=key,
                     created_at=message.created_at,
-                    payload=redact_json(message.model_dump_json()),
+                    payload=_payload(message),
                 )
             )
             try:
@@ -815,7 +842,7 @@ class SqliteRepository:
             role=message.role,
             idempotency_key=key,
             created_at=message.created_at,
-            payload=redact_json(message.model_dump_json()),
+            payload=_payload(message),
         )
 
     def begin_intake_turn(
@@ -891,7 +918,7 @@ class SqliteRepository:
                 .values(
                     revision=reserved.revision,
                     updated_at=now,
-                    payload=redact_json(reserved.model_dump_json()),
+                    payload=_payload(reserved),
                 )
             )
             if result.rowcount != 1:
@@ -930,7 +957,7 @@ class SqliteRepository:
                 .values(
                     revision=intake.revision,
                     updated_at=intake.updated_at,
-                    payload=redact_json(intake.model_dump_json()),
+                    payload=_payload(intake),
                 )
             )
             if result.rowcount != 1:
@@ -973,7 +1000,7 @@ class SqliteRepository:
                 .values(
                     revision=released.revision,
                     updated_at=now,
-                    payload=redact_json(released.model_dump_json()),
+                    payload=_payload(released),
                 )
             )
             session.commit()
@@ -982,23 +1009,21 @@ class SqliteRepository:
     def get_intake_message_by_client_id(
         self, session_id: str, client_message_id: str
     ) -> IntakeMessage | None:
-        with Session(self.engine) as session:
-            row = session.exec(
-                select(IntakeMessageRow).where(
-                    IntakeMessageRow.idempotency_key
-                    == f"{session_id}::{client_message_id}"
-                )
-            ).first()
-            return IntakeMessage.model_validate_json(row.payload) if row else None
+        return self._first(
+            select(IntakeMessageRow).where(
+                IntakeMessageRow.idempotency_key
+                == f"{session_id}::{client_message_id}"
+            ),
+            IntakeMessage,
+        )
 
     def list_intake_messages(self, session_id: str) -> list[IntakeMessage]:
-        with Session(self.engine) as session:
-            rows = session.exec(
-                select(IntakeMessageRow)
-                .where(IntakeMessageRow.session_id == session_id)
-                .order_by(IntakeMessageRow.created_at, IntakeMessageRow.message_id)
-            ).all()
-            return [IntakeMessage.model_validate_json(row.payload) for row in rows]
+        return self._all(
+            select(IntakeMessageRow)
+            .where(IntakeMessageRow.session_id == session_id)
+            .order_by(IntakeMessageRow.created_at, IntakeMessageRow.message_id),
+            IntakeMessage,
+        )
 
     def save_intake_document(self, document: IntakeDocument) -> None:
         with Session(self.engine) as session:
@@ -1015,23 +1040,20 @@ class SqliteRepository:
                 )
             row.status = document.status
             row.slot = document.slot
-            row.payload = redact_json(document.model_dump_json())
+            row.payload = _payload(document)
             session.add(row)
             session.commit()
 
     def get_intake_document(self, document_id: str) -> IntakeDocument | None:
-        with Session(self.engine) as session:
-            row = session.get(IntakeDocumentRow, document_id)
-            return IntakeDocument.model_validate_json(row.payload) if row else None
+        return self._get(IntakeDocumentRow, document_id, IntakeDocument)
 
     def list_intake_documents(self, session_id: str) -> list[IntakeDocument]:
-        with Session(self.engine) as session:
-            rows = session.exec(
-                select(IntakeDocumentRow)
-                .where(IntakeDocumentRow.session_id == session_id)
-                .order_by(IntakeDocumentRow.created_at, IntakeDocumentRow.document_id)
-            ).all()
-            return [IntakeDocument.model_validate_json(row.payload) for row in rows]
+        return self._all(
+            select(IntakeDocumentRow)
+            .where(IntakeDocumentRow.session_id == session_id)
+            .order_by(IntakeDocumentRow.created_at, IntakeDocumentRow.document_id),
+            IntakeDocument,
+        )
 
     def delete_intake_document(self, document_id: str) -> bool:
         with Session(self.engine) as session:
@@ -1058,7 +1080,7 @@ class SqliteRepository:
                             slot=slot,
                             status=reserved.status,
                             created_at=reserved.created_at,
-                            payload=redact_json(reserved.model_dump_json()),
+                            payload=_payload(reserved),
                         )
                     )
                     session.commit()
@@ -1073,16 +1095,15 @@ class SqliteRepository:
         self, session_id: str
     ) -> list[IntakeMemoryRevision]:
         """Return append-only memory snapshots in revision order."""
-        with Session(self.engine) as session:
-            rows = session.exec(
-                select(IntakeMemoryRevisionRow)
-                .where(IntakeMemoryRevisionRow.session_id == session_id)
-                .order_by(
-                    IntakeMemoryRevisionRow.revision,
-                    IntakeMemoryRevisionRow.snapshot_id,
-                )
-            ).all()
-            return [IntakeMemoryRevision.model_validate_json(row.payload) for row in rows]
+        return self._all(
+            select(IntakeMemoryRevisionRow)
+            .where(IntakeMemoryRevisionRow.session_id == session_id)
+            .order_by(
+                IntakeMemoryRevisionRow.revision,
+                IntakeMemoryRevisionRow.snapshot_id,
+            ),
+            IntakeMemoryRevision,
+        )
 
     # -- membership --
 
@@ -1174,20 +1195,19 @@ class SqliteRepository:
                 started_at=report.started_at,
                 payload="",
             )
-            row.payload = redact_json(report.model_dump_json())
+            row.payload = _payload(report)
             session.add(row)
             session.commit()
 
     def list_runs(self, founder_id: str, limit: int = 20) -> list[RunReport]:
         """Most recent runs for one founder, newest first, capped at `limit`."""
-        with Session(self.engine) as session:
-            rows = session.exec(
-                select(RunRow)
-                .where(RunRow.founder_id == founder_id)
-                .order_by(RunRow.started_at.desc())
-                .limit(limit)
-            ).all()
-            return [RunReport.model_validate_json(r.payload) for r in rows]
+        return self._all(
+            select(RunRow)
+            .where(RunRow.founder_id == founder_id)
+            .order_by(RunRow.started_at.desc())
+            .limit(limit),
+            RunReport,
+        )
 
     def latest_run(self, founder_id: str) -> RunReport | None:
         """The most recent run for a founder, or None if they have never run one."""
@@ -1200,9 +1220,7 @@ class SqliteRepository:
         `list_runs` is capped, so a link to a run from six months ago has to
         resolve through the primary key or not at all.
         """
-        with Session(self.engine) as session:
-            row = session.get(RunRow, run_id)
-            return RunReport.model_validate_json(row.payload) if row else None
+        return self._get(RunRow, run_id, RunReport)
 
     # -- opportunities --
 
@@ -1219,7 +1237,7 @@ class SqliteRepository:
             # `description_excerpt` is untrusted text from the open web. It was
             # sanitised at ingestion; redact again here because this is the
             # persistence boundary and the boundary is where it belongs.
-            row.payload = redact_json(opportunity.model_dump_json())
+            row.payload = _payload(opportunity)
             row.source = opportunity.source
             row.updated_at = _now()
             session.add(row)
@@ -1227,9 +1245,7 @@ class SqliteRepository:
 
     def get_opportunity(self, opportunity_id: str) -> Opportunity | None:
         """One opportunity by id, or None if no run has ever recorded it."""
-        with Session(self.engine) as session:
-            row = session.get(OpportunityRow, opportunity_id)
-            return Opportunity.model_validate_json(row.payload) if row else None
+        return self._get(OpportunityRow, opportunity_id, Opportunity)
 
     # -- eligibility clarifications --
 
@@ -1249,15 +1265,13 @@ class SqliteRepository:
             row.founder_id = question.founder_id
             row.opportunity_id = question.opportunity_id
             row.status = question.status
-            row.payload = redact_json(question.model_dump_json())
+            row.payload = _payload(question)
             session.add(row)
             session.commit()
 
     def get_eligibility_question(self, question_id: str) -> EligibilityQuestion | None:
         """Load one clarification by id, or None."""
-        with Session(self.engine) as session:
-            row = session.get(EligibilityQuestionRow, question_id)
-            return EligibilityQuestion.model_validate_json(row.payload) if row else None
+        return self._get(EligibilityQuestionRow, question_id, EligibilityQuestion)
 
     def list_eligibility_questions(
         self,
@@ -1295,7 +1309,7 @@ class SqliteRepository:
             question.reassessment_pending = answer in {"yes", "no"}
             question.align_status_with_answer()
             row.status = question.status
-            row.payload = redact_json(question.model_dump_json())
+            row.payload = _payload(question)
             session.add(row)
             session.commit()
             return question
@@ -1321,7 +1335,7 @@ class SqliteRepository:
                 ):
                     question.reassessment_pending = False
                     question.updated_at = _now()
-                    row.payload = redact_json(question.model_dump_json())
+                    row.payload = _payload(question)
                     session.add(row)
                     changed += 1
             if changed:
@@ -1360,7 +1374,7 @@ class SqliteRepository:
                     founder_id=item.founder_id,
                     opportunity_id=item.opportunity_id,
                     created_at=item.created_at,
-                    payload=redact_json(item.model_dump_json()),
+                    payload=_payload(item),
                 )
             )
             session.commit()
@@ -1372,14 +1386,13 @@ class SqliteRepository:
         No state filter: dismissed and applied items come back too, and the
         caller (or the dashboard) decides what to show.
         """
-        with Session(self.engine) as session:
-            rows = session.exec(
-                select(InboxRow)
-                .where(InboxRow.founder_id == founder_id)
-                .order_by(InboxRow.created_at.desc())
-                .limit(limit)
-            ).all()
-            return [InboxItem.model_validate_json(r.payload) for r in rows]
+        return self._all(
+            select(InboxRow)
+            .where(InboxRow.founder_id == founder_id)
+            .order_by(InboxRow.created_at.desc())
+            .limit(limit),
+            InboxItem,
+        )
 
     def get_inbox_item(self, item_id: str) -> InboxItem | None:
         """One inbox item by id, or None.
@@ -1387,9 +1400,7 @@ class SqliteRepository:
         Note this does not take a `founder_id` — authorization that the caller
         owns this item is the API layer's job, not the repository's.
         """
-        with Session(self.engine) as session:
-            row = session.get(InboxRow, item_id)
-            return InboxItem.model_validate_json(row.payload) if row else None
+        return self._get(InboxRow, item_id, InboxItem)
 
     def set_inbox_state(self, item_id: str, state: InboxState) -> InboxItem | None:
         """Record what the founder did with an item.
@@ -1404,7 +1415,7 @@ class SqliteRepository:
                 return None
             item = InboxItem.model_validate_json(row.payload)
             item.state = state
-            row.payload = redact_json(item.model_dump_json())
+            row.payload = _payload(item)
             session.add(row)
             session.commit()
             return item
@@ -1424,15 +1435,13 @@ class SqliteRepository:
                 opportunity_id=draft.opportunity_id,
                 payload="",
             )
-            row.payload = redact_json(draft.model_dump_json())
+            row.payload = _payload(draft)
             session.add(row)
             session.commit()
 
     def get_draft(self, draft_id: str) -> Draft | None:
         """One draft by id, or None."""
-        with Session(self.engine) as session:
-            row = session.get(DraftRow, draft_id)
-            return Draft.model_validate_json(row.payload) if row else None
+        return self._get(DraftRow, draft_id, Draft)
 
     def list_drafts(
         self, founder_id: str, opportunity_id: str | None = None
@@ -1476,36 +1485,32 @@ class SqliteRepository:
                 payload="",
             )
             row.status = job.status
-            row.payload = redact_json(job.model_dump_json())
+            row.payload = _payload(job)
             session.add(row)
             session.commit()
 
     def get_job(self, job_id: str) -> RunJob | None:
         """One job by id, or None. The dashboard polls this while a run is in flight."""
-        with Session(self.engine) as session:
-            row = session.get(JobRow, job_id)
-            return RunJob.model_validate_json(row.payload) if row else None
+        return self._get(JobRow, job_id, RunJob)
 
     def get_job_by_key(self, founder_id: str, idempotency_key: str) -> RunJob | None:
         """The job a retry should resolve to, if the original ever landed."""
-        with Session(self.engine) as session:
-            row = session.exec(
-                select(JobRow).where(
-                    JobRow.idempotency_key == f"{founder_id}::{idempotency_key}"
-                )
-            ).first()
-            return RunJob.model_validate_json(row.payload) if row else None
+        return self._first(
+            select(JobRow).where(
+                JobRow.idempotency_key == f"{founder_id}::{idempotency_key}"
+            ),
+            RunJob,
+        )
 
     def list_jobs(self, founder_id: str, limit: int = 20) -> list[RunJob]:
         """Jobs for one founder, newest first, capped at `limit`."""
-        with Session(self.engine) as session:
-            rows = session.exec(
-                select(JobRow)
-                .where(JobRow.founder_id == founder_id)
-                .order_by(JobRow.created_at.desc())
-                .limit(limit)
-            ).all()
-            return [RunJob.model_validate_json(r.payload) for r in rows]
+        return self._all(
+            select(JobRow)
+            .where(JobRow.founder_id == founder_id)
+            .order_by(JobRow.created_at.desc())
+            .limit(limit),
+            RunJob,
+        )
 
     def fail_orphaned_jobs(self, reason: str) -> list[RunJob]:
         """Mark every queued/running job failed. Called once, at startup.
@@ -1525,7 +1530,7 @@ class SqliteRepository:
                 job.error = reason
                 job.finished_at = _now()
                 row.status = job.status
-                row.payload = redact_json(job.model_dump_json())
+                row.payload = _payload(job)
                 session.add(row)
                 orphaned.append(job)
             session.commit()
@@ -1550,7 +1555,7 @@ class SqliteRepository:
                 question_key=key,
                 payload="",
             )
-            row.payload = redact_json(field.model_dump_json())
+            row.payload = _payload(field)
             session.add(row)
             session.commit()
 
