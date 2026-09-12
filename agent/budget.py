@@ -221,6 +221,14 @@ class DailyLedger:
             conn.close()
 
 
+@dataclass(frozen=True)
+class Reservation:
+    """Budget held for one in-flight model call until it is reconciled."""
+
+    tokens: int
+    usd: float
+
+
 @dataclass
 class RunBudget:
     """Per-run accounting. One instance per scheduled run.
@@ -237,6 +245,12 @@ class RunBudget:
 
     usage: TokenUsage = field(default_factory=TokenUsage)
     assessments_made: int = 0
+    #: Assessor calls allowed in flight at once. 1 means sequential and no
+    #: reservations are ever taken.
+    assessment_concurrency: int = 1
+    #: Held by calls in flight and not yet charged. Always zero when sequential.
+    reserved_tokens: int = 0
+    reserved_usd: float = 0.0
 
     @classmethod
     def from_settings(cls, settings) -> RunBudget:
@@ -247,6 +261,7 @@ class RunBudget:
             max_assessments=settings.max_assessments,
             daily_usd_cap=settings.daily_usd_cap,
             ledger=DailyLedger(settings.state_dir),
+            assessment_concurrency=getattr(settings, "assessment_concurrency", 1),
             prices={
                 "reasoning": TierPrice(
                     settings.prices.reasoning_in, settings.prices.reasoning_out
@@ -404,8 +419,56 @@ class RunBudget:
         Floored rather than allowed to go negative because it feeds
         `strands_limits`, and a negative per-call limit is not a meaningful
         request. Zero here means the next `charge` will halt the run.
+
+        Tokens reserved by calls still in flight are not left. Sequential runs
+        never reserve, so for them this is unchanged.
         """
-        return max(0, self.max_run_tokens - self.usage.total_tokens)
+        return max(0, self.max_run_tokens - self.usage.total_tokens - self.reserved_tokens)
+
+    # ── Reservations (concurrent assessments only) ───────────────────────
+
+    def reserve(self, *, tier: str, share: float = 0.25) -> Reservation | None:
+        """Hold budget for one call before it starts, or return None.
+
+        The token reservation is the same share of what is left that
+        `strands_limits` hands the call, computed after every other in-flight
+        reservation. The dollar reservation prices those tokens at the tier's
+        most expensive rate and must fit under the daily cap together with
+        today's ledger and every other reservation.
+
+        Called on the event loop between awaits, so no two reservations can
+        interleave.
+        """
+        available = self.remaining_tokens()
+        if available <= 0:
+            return None
+        tokens = max(1, int(available * share))
+        price = self.prices.get(tier, TierPrice())
+        usd = tokens * max(price.input_per_mtok, price.output_per_mtok) / 1_000_000
+        if self.daily_usd_cap > 0 and (
+            self.ledger.spent_today() + self.reserved_usd + usd > self.daily_usd_cap
+        ):
+            return None
+        self.reserved_tokens += tokens
+        self.reserved_usd += usd
+        return Reservation(tokens=tokens, usd=usd)
+
+    def release(self, reservation: Reservation) -> None:
+        """Return a reservation. Actual spend is recorded by `charge`, not here."""
+        self.reserved_tokens -= reservation.tokens
+        self.reserved_usd -= reservation.usd
+
+    def refusal(self) -> BudgetExceeded:
+        """Why `reserve` returned None with nothing in flight to wait for."""
+        if self.max_run_tokens - self.usage.total_tokens <= 0:
+            return BudgetExceeded(
+                "RUN_TOKEN_CEILING",
+                f"{self.usage.total_tokens:,} tokens used, ceiling is {self.max_run_tokens:,}",
+            )
+        return BudgetExceeded(
+            "DAILY_USD_CAP",
+            f"the next call could exceed the daily cap of ${self.daily_usd_cap:.2f}",
+        )
 
     def strands_limits(self, share: float = 0.25) -> dict[str, int]:
         """A per-invocation `Limits` dict for `Agent.invoke_async`.

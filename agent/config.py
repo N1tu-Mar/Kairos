@@ -102,6 +102,14 @@ def _positive_int(key: str, default: int) -> int:
     return value
 
 
+def _int_between(key: str, default: int, low: int, high: int) -> int:
+    """An int setting that must fall inside `[low, high]`, or the process refuses to start."""
+    value = _int(key, default)
+    if not low <= value <= high:
+        raise ValueError(f"{key} must be between {low} and {high}")
+    return value
+
+
 def _float(key: str, default: float) -> float:
     """Read a float setting. Blank means default; unparseable raises, as in `_int`."""
     raw = os.getenv(key, "").strip()
@@ -266,6 +274,10 @@ class Settings:
     #: token or without live prices, and the auth layer refuses anonymous
     #: identity outright. Set `KAIROS_ENV=production` to turn it on.
     environment: str
+    #: How many Assessor calls may be in flight at once. 1 is the sequential
+    #: pipeline, unchanged. Above 1, every call reserves token and dollar
+    #: budget before it starts; see docs/perf/assessment-concurrency.md.
+    assessment_concurrency: int = 1
 
     @property
     def production(self) -> bool:
@@ -368,6 +380,7 @@ def settings() -> Settings:
         # opens an API leaves it shut.
         allow_open_api=_bool("KAIROS_ALLOW_OPEN_API", False),
         environment=os.getenv("KAIROS_ENV", "local").strip().lower(),
+        assessment_concurrency=_int_between("KAIROS_ASSESSMENT_CONCURRENCY", 1, 1, 4),
     )
 
 

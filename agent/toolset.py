@@ -37,6 +37,48 @@ from agent.tools.eligibility import hard_eligibility_filter
 log = logging.getLogger("kairos.tools")
 
 
+async def judge(ctx: RunContext, opportunity, eligibility) -> tuple:
+    """One Assessor call, without writing to `ctx`.
+
+    Returns `(assessment, note)`. An abstention is an outcome, not an error:
+    it becomes INSUFFICIENT_INFO plus a note, exactly as `assess_fit` records
+    it. Every other exception propagates.
+    """
+    from agent.models import Assessment
+    from agent.subagents.assessor import assess
+
+    try:
+        assessor, assessor_version = ctx.agents.assessor_for_call()
+        assessment = await assess(
+            assessor,
+            assessor_version,
+            opportunity,
+            ctx.profile,
+            eligibility,
+            ctx.today,
+            budget=ctx.budget,
+        )
+        return assessment, None
+    except Abstention as exc:
+        assessment = Assessment(
+            verdict="INSUFFICIENT_INFO",
+            reason="I could not judge this one from the material available.",
+            effort_hours=0.0,
+            opportunity_id=opportunity.id,
+        )
+        return assessment, safe_detail(
+            f"assessor abstained on {opportunity.id}: {exc.detail}"
+        )
+
+
+def record_assessment(ctx: RunContext, assessment, note: str | None) -> None:
+    """Write one judged result into the run, in the order the caller chooses."""
+    if note:
+        ctx.report.notes.append(note)
+    ctx.assessments[assessment.opportunity_id] = assessment
+    ctx.report.judged = len(ctx.assessments)
+
+
 def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
     """Bind the tools to one run and return them for `Agent(tools=...)`."""
 
@@ -106,36 +148,10 @@ def build_toolset(ctx: RunContext, sources: list[Source]) -> list:
         if eligibility is None:
             return f"{opportunity_id} has not been through the eligibility filter yet."
 
-        from agent.subagents.assessor import assess
-
-        try:
-            assessor, assessor_version = ctx.agents.assessor_for_call()
-            assessment = await assess(
-                assessor,
-                assessor_version,
-                opportunity,
-                ctx.profile,
-                eligibility,
-                ctx.today,
-                budget=ctx.budget,
-            )
-        except Abstention as exc:
-            # An abstention is an outcome, not an error. It surfaces as
-            # "needs a human look" rather than disappearing.
-            from agent.models import Assessment
-
-            assessment = Assessment(
-                verdict="INSUFFICIENT_INFO",
-                reason="I could not judge this one from the material available.",
-                effort_hours=0.0,
-                opportunity_id=opportunity_id,
-            )
-            ctx.report.notes.append(
-                safe_detail(f"assessor abstained on {opportunity_id}: {exc.detail}")
-            )
-
-        ctx.assessments[opportunity_id] = assessment
-        ctx.report.judged = len(ctx.assessments)
+        # An abstention is an outcome, not an error. It surfaces as
+        # "needs a human look" rather than disappearing.
+        assessment, note = await judge(ctx, opportunity, eligibility)
+        record_assessment(ctx, assessment, note)
         return (
             f"{opportunity_id}: {assessment.verdict} "
             f"(~{assessment.effort_hours:.1f}h). {assessment.reason}"
