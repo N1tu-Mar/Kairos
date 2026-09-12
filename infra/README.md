@@ -127,7 +127,18 @@ price_classify_out_per_mtok  = "4.00"
 alarm_email                  = "you@example.com"
 image_tag                    = "sha-abc1234"   # not "latest"
 supabase_issuer              = "https://<project-ref>.supabase.co/auth/v1"
+api_domain_name              = "api.example.com"  # the name certificate_arn covers
+service_desired_count        = 0                  # first apply only; see below
 ```
+
+`backend_url` is `https://<api_domain_name>`, not the ALB's
+`*.elb.amazonaws.com` name — the certificate cannot match that name. Create a
+CNAME from `api_domain_name` to the `alb_dns_name` output.
+
+First deploy order: `-target=aws_ecr_repository.backend` apply, push the
+image, full apply with `service_desired_count = 0`, run the migration one-off
+task (`terraform output -raw migration_network_configuration` supplies its
+`--network-configuration`), then apply with `service_desired_count = 1`.
 
 Then build, migrate, and push:
 
