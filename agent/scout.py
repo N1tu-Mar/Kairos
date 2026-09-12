@@ -50,6 +50,30 @@ log = logging.getLogger("kairos.scout")
 _SOURCE_PRIORITY = {"seed": 3, "browser": 2, "grants_gov": 2}
 
 
+class _StageClock:
+    """Logs how long each pipeline stage took, measured between marks.
+
+    Durations only. Stage names are fixed strings, so nothing a source or a
+    model wrote can reach this log line.
+    """
+
+    def __init__(self, run_id: str) -> None:
+        self.run_id = run_id
+        self.last = time.perf_counter()
+
+    def __call__(self, stage: str) -> None:
+        now = time.perf_counter()
+        log.info(
+            "stage_complete",
+            extra={
+                "run_id": self.run_id,
+                "stage": stage,
+                "duration_ms": round((now - self.last) * 1000, 1),
+            },
+        )
+        self.last = now
+
+
 def assessment_priority(opportunity: Opportunity, today: date) -> tuple:
     """Rank decision quality and urgency before possible award size."""
     known_eligibility = sum(
@@ -137,19 +161,23 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
     # the same tool objects the Scout agent is given, so both paths share one
     # implementation and one audit trail.
     tools = {t.tool_name: t for t in build_toolset(ctx, sources)}
+    stage = _StageClock(report.run_id)
 
     try:
         # 1. Discover. A dead source is recorded; the run continues.
         tools["discover"]()
+        stage("discover")
 
         # 2. Deterministic gate. Cheap, and it decides most of the outcome.
         tools["filter_eligibility"]()
+        stage("filter_eligibility")
 
         # Source-stated rules the profile cannot answer stay three-valued.
         # Definite founder answers may resolve them before model judgment.
         from agent.eligibility_clarifications import resolve_founder_answers
 
         await resolve_founder_answers(ctx)
+        stage("resolve_founder_answers")
 
         # 3. Judge the survivors, most valuable first, until the cap.
         survivors = sorted(
@@ -181,7 +209,9 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
 
         from agent.eligibility_clarifications import persist_plausible_questions
 
+        stage("assess")
         persist_plausible_questions(ctx)
+        stage("persist_questions")
 
         # 4. Apply the escalation policy, then rank what survives it.
         candidates = []
@@ -214,12 +244,16 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
             key=lambda c: guardrails.rank_key(c[1], ctx.retrieved[c[0]]), reverse=True
         )
 
+        stage("escalation_policy")
+
         # 5. Draft only what will actually be shown, and only above the
         #    cold-start floor. Drafting something nobody sees is pure spend.
         notifying = candidates[: guardrails.MAX_SURFACED_PER_RUN]
         for opportunity_id, _, _ in notifying:
             if opportunity_id in ctx.forms and not ctx.kb.is_cold(guardrails.MIN_KB_CHUNKS):
                 await tools["draft_and_audit"](opportunity_id)
+
+        stage("draft_and_audit")
 
         # 6. Queue. Overflow past the cap goes to a passive list with no ping.
         for index, (opportunity_id, assessment, decision) in enumerate(candidates):
@@ -303,6 +337,7 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
                     before=report.started_at,
                 )
 
+    stage("persist")
     report.usage = ctx.budget.usage
     report.finished_at = datetime.now(timezone.utc)
     report.duration_s = round(time.perf_counter() - started, 3)
