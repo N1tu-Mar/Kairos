@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import sys
 from pathlib import Path
@@ -21,16 +20,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agent.budget import RunBudget, UnenforceableSpendCap  # noqa: E402
 from agent.config import REPO_ROOT, settings, stamp_placeholder_models  # noqa: E402
-from agent.models import ApplicationForm, FounderProfile  # noqa: E402
+from agent.models import FounderProfile  # noqa: E402
+from agent.run_inputs import build_sources as build_run_sources  # noqa: E402
+from agent.run_inputs import load_forms  # noqa: E402
 from agent.runtime import SubAgents  # noqa: E402
 from agent.scout import new_run_context, run_once  # noqa: E402
-from agent.tools.campus import CampusDiscoverySource, reviewed_web_sources  # noqa: E402
-from agent.tools.discovery import (  # noqa: E402
-    GrantsGovClient,
-    GrantsGovSource,
-    SeedCatalog,
-    keywords_for_profile,
-)
+from agent.tools.discovery import keywords_for_profile  # noqa: E402
 from api.repository import SqliteRepository  # noqa: E402
 
 
@@ -40,44 +35,18 @@ def build_sources(
     profile: FounderProfile | None = None,
     live_campus_scrape: bool = False,
 ):
-    """Assemble the CLI's discovery sources, mirroring `api/jobs.build_sources`.
+    """The CLI's discovery sources, from the same factory the API job uses.
 
-    Two copies of this list exist on purpose — the flags differ between a
-    terminal and a scheduled job — but they must agree on what each flag
-    means. A source added to one and not the other makes the CLI and the
-    dashboard disagree about what a run searched.
+    Only the flags differ: Grants.gov keywords come from the profile, and a
+    live campus sweep is possible with `--campus-scrape`.
     """
-    config = settings()
-    catalog = "opportunities.demo.json" if demo else "opportunities.seed.json"
-    sources = [
-        SeedCatalog(
-            config.data_dir / catalog,
-            allow_unverified=demo or config.allow_unverified_seed,
-        )
-    ]
-    if grants_gov:
-        keywords = (
-            keywords_for_profile(profile)
-            if profile is not None
-            else ("student", "undergraduate", "entrepreneurship")
-        )
-        sources.append(
-            GrantsGovSource(
-                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s),
-                keywords=keywords,
-            )
-        )
-    # Tier 3. Off unless KAIROS_ENABLE_BROWSER is set, and even then it adds
-    # only campus rows a human marked ACCEPTED. A live sweep needs a second,
-    # explicit opt-in because it makes network requests during a run.
-    sources.append(
-        CampusDiscoverySource(
-            enabled=config.enable_browser,
-            allow_live_scrape=config.enable_browser and live_campus_scrape,
-        )
+    return build_run_sources(
+        settings(),
+        demo=demo,
+        grants_gov=grants_gov,
+        keywords=keywords_for_profile(profile) if profile is not None else None,
+        live_campus_scrape=live_campus_scrape,
     )
-    sources.extend(reviewed_web_sources())
-    return sources
 
 
 def _dry_run_settings():
@@ -89,15 +58,6 @@ def _dry_run_settings():
     """
     stamp_placeholder_models("[DRY-RUN]no-model")
     return settings()
-
-
-def load_forms() -> dict[str, ApplicationForm]:
-    """Load the transcribed application forms, keyed by opportunity id."""
-    directory = REPO_ROOT / "data" / "forms"
-    return {
-        (form := ApplicationForm.model_validate(json.loads(p.read_text()))).opportunity_id: form
-        for p in sorted(directory.glob("*.json"))
-    } if directory.exists() else {}
 
 
 async def one_run(args) -> int:

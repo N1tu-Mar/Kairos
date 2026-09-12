@@ -57,7 +57,12 @@ LOADERS = [
 
 
 def _patched_repo_root(module, root: Path, monkeypatch):
-    monkeypatch.setattr(module, "REPO_ROOT", root, raising=False)
+    # Patch wherever the default forms directory is resolved, before and
+    # after the loaders were consolidated into `agent.run_inputs`.
+    import agent.run_inputs
+
+    for target in (module, agent.run_inputs):
+        monkeypatch.setattr(target, "REPO_ROOT", root, raising=False)
     return module.load_forms()
 
 
