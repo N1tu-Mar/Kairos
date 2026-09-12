@@ -125,6 +125,12 @@ async def lifespan(app: FastAPI):
         app.state.repo, app.state.failure_log, app.state.run_lock
     )
     app.state.executor = LocalJobExecutor(app.state.repo, app.state.failure_log)
+    if config.production and config.db_url.startswith("sqlite"):
+        log.warning(
+            "single-task topology: SQLite is single-writer and run jobs execute in "
+            "this process; do not run more than one API task "
+            "(docs/ops/production-scaling-plan.md)"
+        )
     yield
 
 
