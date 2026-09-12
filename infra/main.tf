@@ -69,9 +69,10 @@ resource "terraform_data" "production_requires_tls" {
 
   lifecycle {
     precondition {
-      condition     = var.certificate_arn != ""
+      condition     = var.certificate_arn != "" && var.api_domain_name != ""
       error_message = <<-EOT
-        environment = "production" requires certificate_arn.
+        environment = "production" requires certificate_arn and
+        api_domain_name (the hostname that certificate covers).
 
         The API authenticates with a bearer token in an Authorization
         header. Over plain HTTP that credential is readable at every hop
@@ -223,6 +224,9 @@ locals {
   task_public_ip   = !local.production
   efs_subnet_ids   = local.production ? aws_subnet.private[*].id : data.aws_subnets.default.ids
   backend_protocol = var.certificate_arn == "" ? "http" : "https"
+  # The certificate names api_domain_name, never the ALB's generated DNS name.
+  backend_host = var.api_domain_name != "" ? var.api_domain_name : aws_lb.backend.dns_name
+  backend_url  = "${local.backend_protocol}://${local.backend_host}"
 }
 
 # ── Image registry ───────────────────────────────────────────────────────────
@@ -708,7 +712,7 @@ resource "aws_ecs_service" "backend" {
   # SQLite on EFS is single-writer in practice. One task, and a deploy stops
   # the old task before starting the new one, for the same reason. The run
   # lease (agent/scheduler.py) is the second line of defence, not the first.
-  desired_count                      = 1
+  desired_count                      = var.service_desired_count
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
 
@@ -1046,7 +1050,7 @@ resource "aws_cloudwatch_event_api_destination" "trigger_run" {
   name                             = "${local.name}-trigger-run"
   connection_arn                   = aws_cloudwatch_event_connection.backend.arn
   http_method                      = "POST"
-  invocation_endpoint              = "${local.backend_protocol}://${aws_lb.backend.dns_name}/founders/${var.founder_id}/runs"
+  invocation_endpoint              = "${local.backend_url}/founders/${var.founder_id}/runs"
   invocation_rate_limit_per_second = 1
 }
 

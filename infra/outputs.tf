@@ -11,7 +11,17 @@ output "environment" {
 
 output "backend_url" {
   description = "Base URL of the deployed API. Set KAIROS_API_URL to this in the frontend host."
-  value       = "${local.backend_protocol}://${aws_lb.backend.dns_name}"
+  value       = local.backend_url
+}
+
+output "alb_dns_name" {
+  description = "CNAME target for api_domain_name."
+  value       = aws_lb.backend.dns_name
+}
+
+output "migration_network_configuration" {
+  description = "Pass to `aws ecs run-task --network-configuration` for the one-off migration task."
+  value       = "awsvpcConfiguration={subnets=[${join(",", local.task_subnet_ids)}],securityGroups=[${aws_security_group.service.id}],assignPublicIp=${local.task_public_ip ? "ENABLED" : "DISABLED"}}"
 }
 
 output "transport" {

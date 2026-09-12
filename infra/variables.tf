@@ -107,6 +107,31 @@ variable "certificate_arn" {
   default     = ""
 }
 
+variable "api_domain_name" {
+  description = <<-EOT
+    Hostname the certificate_arn certificate covers, e.g. api.example.com.
+    Required in production: the certificate cannot match the ALB's
+    *.elb.amazonaws.com name, so HTTPS clients (Vercel, EventBridge) must
+    use this name. Point a CNAME at the `alb_dns_name` output.
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "service_desired_count" {
+  description = <<-EOT
+    Backend tasks to run. 0 on the first apply so the migration one-off task
+    runs before any service task starts; then 1. Never above 1 (SQLite on EFS).
+  EOT
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = contains([0, 1], var.service_desired_count)
+    error_message = "service_desired_count must be 0 or 1."
+  }
+}
+
 variable "allowed_frontend_origin" {
   description = "Origin of the deployed dashboard, for documentation next to the CORS list in api/main.py."
   type        = string
