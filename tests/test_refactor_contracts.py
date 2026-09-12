@@ -26,10 +26,21 @@ from tests.factories import profile
 CONTRACT = Path(__file__).parent / "fixtures" / "api_contract.json"
 
 
+def _flat_routes(routes):
+    """Every concrete route. FastAPI 0.141 keeps an included router as one
+    nested entry rather than copying its routes onto the app."""
+    for route in routes:
+        nested = getattr(route, "original_router", None)
+        if nested is not None:
+            yield from _flat_routes(nested.routes)
+        else:
+            yield route
+
+
 def _contract(app) -> dict:
     routes = sorted(
         [r.path, sorted(r.methods), getattr(r, "status_code", None), r.name]
-        for r in app.routes
+        for r in _flat_routes(app.routes)
         if hasattr(r, "methods")
     )
     # Round-trip so tuples and lists compare the way the fixture stores them.
