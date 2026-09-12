@@ -21,22 +21,10 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from agent.guardrails import blocklisted  # noqa: E402
 from agent.models import ApplicationForm  # noqa: E402
+from agent.run_inputs import load_forms  # noqa: E402
 
 SEED = REPO_ROOT / "data" / "opportunities.seed.json"
 FORMS_DIR = REPO_ROOT / "data" / "forms"
-
-
-def load_forms(directory: Path = FORMS_DIR) -> dict[str, ApplicationForm]:
-    """Load every form JSON in `directory`, keyed by opportunity id.
-
-    A later file with the same `opportunity_id` overwrites an earlier one, so
-    the count printed by this script counts opportunities, not files.
-    """
-    forms = {}
-    for path in sorted(directory.glob("*.json")):
-        form = ApplicationForm.model_validate(json.loads(path.read_text()))
-        forms[form.opportunity_id] = form
-    return forms
 
 
 def report(rows: list[dict], forms: dict[str, ApplicationForm]) -> dict:

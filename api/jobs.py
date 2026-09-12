@@ -38,14 +38,14 @@ from datetime import datetime, timezone
 from typing import Protocol
 
 from agent.budget import RunBudget
-from agent.config import REPO_ROOT, settings
-from agent.models import ApplicationForm, Opportunity, RunJob
+from agent.config import settings
+from agent.models import Opportunity, RunJob
+from agent.run_inputs import build_sources as build_run_sources
+from agent.run_inputs import load_forms
 from agent.runtime import SubAgents
 from agent.scheduler import Lease, RunLock, ScheduledRunFailureLog
 from agent.sanitize import safe_detail
 from agent.scout import new_run_context, run_once
-from agent.tools.campus import CampusDiscoverySource, reviewed_web_sources
-from agent.tools.discovery import GrantsGovClient, GrantsGovSource, SeedCatalog
 
 log = logging.getLogger("kairos.jobs")
 
@@ -87,29 +87,6 @@ def new_job(
     )
 
 
-def load_forms() -> dict[str, ApplicationForm]:
-    """Load every transcribed application form, keyed by opportunity id.
-
-    Read fresh on each job rather than cached at import, so editing a form
-    JSON takes effect on the next run without a restart. A form whose JSON
-    fails validation raises here and is reported as a `startup` failure — the
-    run does not silently proceed with the form missing.
-
-    Only one form per opportunity survives: later files with the same
-    `opportunity_id` overwrite earlier ones in glob order.
-    """
-    import json
-
-    directory = REPO_ROOT / "data" / "forms"
-    if not directory.exists():
-        return {}
-    forms = {}
-    for path in sorted(directory.glob("*.json")):
-        form = ApplicationForm.model_validate(json.loads(path.read_text()))
-        forms[form.opportunity_id] = form
-    return forms
-
-
 class PersistedOpportunitySource:
     """A one-row source for answer-triggered reassessment."""
 
@@ -140,31 +117,13 @@ def build_sources(job: RunJob, repo=None):
             )
         return [PersistedOpportunitySource(opportunity)]
 
-    config = settings()
-    catalog = "opportunities.demo.json" if job.use_demo_catalog else "opportunities.seed.json"
-    sources = [
-        SeedCatalog(
-            config.data_dir / catalog,
-            # The demo catalog is synthetic and unverified by construction,
-            # so loading it at all is an explicit opt-in.
-            allow_unverified=job.use_demo_catalog or config.allow_unverified_seed,
-        )
-    ]
-    if job.include_grants_gov:
-        sources.append(
-            GrantsGovSource(
-                GrantsGovClient(config.grants_gov_base_url, config.http_timeout_s)
-            )
-        )
-    # The same Tier 3 source the CLI builds. Without this line the flag would
-    # mean one thing from a terminal and another from the dashboard, which is
-    # worse than the flag not existing. No live sweep is ever run from a job:
-    # a scheduled request must not start a crawl.
-    sources.append(
-        CampusDiscoverySource(enabled=config.enable_browser, allow_live_scrape=False)
+    # Same factory as the CLI. No live sweep is ever run from a job: a
+    # scheduled request must not start a crawl, so `live_campus_scrape` stays off.
+    return build_run_sources(
+        settings(),
+        demo=job.use_demo_catalog,
+        grants_gov=job.include_grants_gov,
     )
-    sources.extend(reviewed_web_sources())
-    return sources
 
 
 class JobExecutor(Protocol):
