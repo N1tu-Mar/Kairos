@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import random
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -24,6 +26,8 @@ from typing import TypeVar
 from pydantic import BaseModel, ValidationError
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+log = logging.getLogger("kairos.model")
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -276,6 +280,7 @@ async def structured_call(
     last_error = "no attempt was made"
 
     for attempt in range(MAX_STRUCTURED_RETRIES + 1):
+        started = time.perf_counter()
         try:
             result = await _invoke_with_backoff(
                 agent,
@@ -299,6 +304,21 @@ async def structured_call(
             last_error = f"{type(exc).__name__}: {exc}"
             attempt_prompt = _retry_prompt(prompt, attempt, last_error)
             continue
+
+        usage = getattr(getattr(result, "metrics", None), "accumulated_usage", None) or {}
+        # Sizes and timings only: never the prompt, the output or an error
+        # message, any of which can carry founder data.
+        log.info(
+            "model_call",
+            extra={
+                "agent": agent_name,
+                "attempt": attempt,
+                "prompt_bytes": len(attempt_prompt.encode("utf-8")),
+                "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+                "input_tokens": usage.get("inputTokens"),
+                "output_tokens": usage.get("outputTokens"),
+            },
+        )
 
         # Charge before inspecting the answer. A call that came back
         # unparseable still cost what it cost, and a ceiling that only counts

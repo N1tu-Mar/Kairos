@@ -23,11 +23,13 @@ NEEDS_FOUNDER regardless of how good the prose is.
 
 from __future__ import annotations
 
+import logging
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from agent.config import settings
+from agent.evidence import drafter_evidence
 from agent.guardrails import MIN_KB_CHUNKS, blocklisted
 from agent.models import (
     ApplicationForm,
@@ -41,6 +43,8 @@ from agent.models import (
 from agent.prompting import structured_call
 from agent.sanitize import wrap_untrusted
 from agent.subagents.base import build_subagent
+
+log = logging.getLogger("kairos.drafter")
 
 DESCRIPTION = (
     "Fills an application form from the founder's knowledge base. Classifies every "
@@ -254,10 +258,23 @@ async def draft_application(
             askable.add(spec.field_id)
 
     if askable:
+        # Only the chunks relevant to the asked fields reach the model, and
+        # only those can be cited. The ship gate still checks the full `kb`.
+        pack = drafter_evidence(kb, form, askable)
+        log.info(
+            "evidence_pack",
+            extra={
+                "agent": "drafter",
+                "selected_chunks": pack.selected_chunks,
+                "total_chunks": pack.total_chunks,
+                "selected_bytes": pack.selected_bytes,
+                "complete": pack.complete,
+            },
+        )
         proposal = await structured_call(
             agent,
             DraftProposal,
-            render_context(form, opportunity, profile, kb, askable),
+            render_context(form, opportunity, profile, pack.kb, askable),
             agent_name="drafter",
             budget=budget,
             tier="reasoning",
@@ -271,7 +288,7 @@ async def draft_application(
                 # rather than trusting a field_id it invented.
                 continue
 
-            spans, missing = _spans_for(proposed.provenance_chunk_ids, kb)
+            spans, missing = _spans_for(proposed.provenance_chunk_ids, pack.kb)
 
             if proposed.status in {"GENERATED", "KNOWN", "REUSED"} and (
                 missing or not spans

@@ -17,12 +17,19 @@ goes back to the founder (Section 11.12).
 
 from __future__ import annotations
 
+import logging
+
 from pydantic import BaseModel, Field
 
 from agent.config import settings
+from agent.evidence import auditor_evidence
 from agent.models import AuditReport, Draft, FieldAudit, KnowledgeBase
 from agent.prompting import structured_call
 from agent.subagents.base import build_subagent
+
+log = logging.getLogger("kairos.auditor")
+
+AUDITED_STATUSES = {"GENERATED", "KNOWN", "REUSED"}
 
 DESCRIPTION = (
     "Independently checks whether every claim in a finished draft is supported by "
@@ -107,10 +114,24 @@ async def audit_draft(
             prompt_version=prompt_version,
         )
 
+    # Cited chunks plus the chunks related to each answered question. The
+    # Auditor never learns which field cited which; the ship gate afterwards
+    # still checks every claim against the full `kb`.
+    pack = auditor_evidence(kb, draft, AUDITED_STATUSES)
+    log.info(
+        "evidence_pack",
+        extra={
+            "agent": "auditor",
+            "selected_chunks": pack.selected_chunks,
+            "total_chunks": pack.total_chunks,
+            "selected_bytes": pack.selected_bytes,
+            "complete": pack.complete,
+        },
+    )
     proposal = await structured_call(
         agent,
         ProposedAudit,
-        render_context(draft, kb),
+        render_context(draft, pack.kb),
         agent_name="auditor",
         # D7: the Auditor runs on the reasoning tier, not the cheap one.
         budget=budget,
