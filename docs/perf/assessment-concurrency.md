@@ -69,12 +69,22 @@ note instead of writing `ctx`. Results are written to `ctx.assessments` and
 `report.notes` in ranked order after all tasks finish.
 
 **Failure: halt and surface nothing partial.** On the first `BudgetExceeded`,
-`Throttled`, cancellation or unexpected exception, every other in-flight task is
-cancelled and awaited, nothing from the batch is written to `ctx`, and the
-exception propagates to `run_once`'s existing handlers, which clear the pending
-inbox. If several tasks fail, the failure of the highest-ranked task is raised,
-so the reported halt reason does not depend on timing. An `Abstention` stays an
-outcome (`INSUFFICIENT_INFO`), not a failure, as today.
+`Throttled` or unexpected exception, nothing new is admitted. Calls already in
+flight are allowed to finish, because a cancelled Bedrock call is still billed
+and would never reach the ledger; finishing them keeps the daily cap honest.
+Results ranked above the highest-ranked failure are recorded, which is exactly
+what a sequential run would have recorded before halting; the rest are dropped.
+That failure propagates to `run_once`'s existing handlers, which clear the pending
+inbox. The reported halt reason therefore does not depend on timing. An
+`Abstention` stays an outcome (`INSUFFICIENT_INFO`), not a failure, as today.
+
+**External cancellation.** A job cancel or run timeout cancels every in-flight
+call immediately and releases their reservations; the job records `cancelled` or
+`failed` as before.
+
+**Stricter at the edges.** With concurrency above 1, a call whose reservation
+cannot fit under the daily cap is refused before it starts, where a sequential
+run would make the call and halt afterwards. This spends less, never more.
 
 ## Not in scope
 

@@ -97,6 +97,75 @@ def assessment_priority(opportunity: Opportunity, today: date) -> tuple:
     )
 
 
+async def assess_concurrently(ctx: RunContext, ranked: list[Opportunity], limit: int) -> None:
+    """Judge `ranked` with at most `limit` Assessor calls in flight.
+
+    *   **Admission in rank order.** A call starts only after reserving token
+        and dollar budget. When a reservation does not fit, admission waits
+        for an in-flight call to reconcile; with nothing in flight it halts
+        with the cap that refused it.
+    *   **Deterministic output.** Results are written to `ctx` in rank order,
+        never completion order.
+    *   **Failure halts.** After the first failure nothing new is admitted.
+        Calls already in flight finish, so their spend is charged rather than
+        billed and forgotten. Results ranked above the highest-ranked failure
+        are recorded — exactly what a sequential run would have recorded —
+        and that failure is raised for `run_once` to halt on.
+    *   **External cancellation** (job cancel, run timeout) cancels every
+        in-flight call immediately and releases their reservations.
+    """
+    import asyncio
+
+    from agent.toolset import judge, record_assessment
+
+    budget = ctx.budget
+    results: dict[int, tuple] = {}
+    failures: dict[int, BaseException] = {}
+    running: dict[asyncio.Task, tuple[int, object]] = {}
+    queue = list(enumerate(ranked))
+
+    try:
+        while queue or running:
+            while queue and not failures and len(running) < limit:
+                reservation = budget.reserve(tier="reasoning")
+                if reservation is None:
+                    if not running:
+                        failures[queue[0][0]] = budget.refusal()
+                    break
+                index, opportunity = queue.pop(0)
+                budget.take_assessment_slot()
+                task = asyncio.ensure_future(
+                    judge(ctx, opportunity, ctx.eligibility[opportunity.id])
+                )
+                running[task] = (index, reservation)
+            if not running:
+                break
+            done, _ = await asyncio.wait(running, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                index, reservation = running.pop(task)
+                budget.release(reservation)
+                if task.cancelled():
+                    failures[index] = asyncio.CancelledError()
+                elif task.exception() is not None:
+                    failures[index] = task.exception()
+                else:
+                    results[index] = task.result()
+    finally:
+        if running:
+            for task in running:
+                task.cancel()
+            await asyncio.gather(*running, return_exceptions=True)
+            for _, reservation in running.values():
+                budget.release(reservation)
+
+    first_failure = min(failures) if failures else len(ranked)
+    for index in range(first_failure):
+        if index in results:
+            record_assessment(ctx, *results[index])
+    if failures:
+        raise failures[first_failure]
+
+
 def new_run_context(
     *,
     profile: FounderProfile,
@@ -186,7 +255,11 @@ async def run_once(ctx: RunContext, sources: list[Source]) -> RunReport:
             reverse=True,
         )
         assessed = 0
-        for opportunity in survivors:
+        if ctx.budget.assessment_concurrency > 1:
+            admitted = survivors[: ctx.budget.max_assessments]
+            await assess_concurrently(ctx, admitted, ctx.budget.assessment_concurrency)
+            assessed = len(admitted)
+        for opportunity in survivors[assessed:]:
             if assessed >= ctx.budget.max_assessments:
                 # Reported, never silently dropped (Section 9, rule 12).
                 skipped = len(survivors) - assessed
