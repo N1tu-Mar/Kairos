@@ -225,6 +225,20 @@ def check_config(production: bool) -> list[Check]:
     results.extend(_check_schema(settings, production))
     results.extend(check_supabase(settings))
 
+    # Topology. Not a misconfiguration today, but a hard ceiling an operator
+    # must not scale past by accident: SQLite is single-writer, and jobs run
+    # as tasks inside the API process, so a second task means two writers and
+    # a scheduler call that can land on a process with no view of the run.
+    if settings.db_url.startswith("sqlite"):
+        results.append(
+            check(
+                "topology",
+                WARN if production else PASS,
+                "single task only: SQLite is single-writer and run jobs execute inside "
+                "the API process; keep ECS desired_count = 1 (docs/ops/production-scaling-plan.md)",
+            )
+        )
+
     # Run timeout vs lease TTL. The lease must outlive the run it protects.
     results.append(
         check(

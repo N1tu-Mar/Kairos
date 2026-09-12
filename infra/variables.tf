@@ -107,12 +107,6 @@ variable "certificate_arn" {
   default     = ""
 }
 
-variable "allowed_frontend_origin" {
-  description = "Origin of the deployed dashboard, for documentation next to the CORS list in api/main.py."
-  type        = string
-  default     = "https://kairos.vercel.app"
-}
-
 variable "daily_usd_cap" {
   description = "KAIROS_DAILY_USD_CAP inside the task."
   type        = string
