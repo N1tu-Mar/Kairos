@@ -125,5 +125,7 @@ worker decisions are documented and left open.
 ## Not verified
 
 - No live Bedrock call. Token savings are prompt-size estimates.
-- Terraform was not run (`terraform` is not installed here); the variable removal
-  is checked by the drift tests' parser, not by `terraform validate`.
+- Terraform was validated but not planned. Using the CI-pinned Terraform 1.9.8
+  (checksum-verified), `fmt -check -recursive`, `init -backend=false` and
+  `validate` pass on this branch and on the baseline. `plan` needs AWS
+  credentials and was not run.
