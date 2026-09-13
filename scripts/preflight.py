@@ -235,7 +235,7 @@ def check_config(production: bool) -> list[Check]:
                 "topology",
                 WARN if production else PASS,
                 "single task only: SQLite is single-writer and run jobs execute inside "
-                "the API process; keep ECS desired_count = 1 (docs/ops/production-scaling-plan.md)",
+                "the API process; never run more than one ECS task, service_desired_count is 0 or 1 (docs/ops/production-scaling-plan.md)",
             )
         )
 

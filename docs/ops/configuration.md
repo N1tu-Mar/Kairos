@@ -15,7 +15,8 @@ Columns:
 The current deployment is one ECS Fargate task with SQLite on EFS. Run jobs
 execute as asyncio tasks inside that API process. Therefore:
 
-- `desired_count` must stay `1`. A second task is a second SQLite writer and a
+- `service_desired_count` must stay at most `1`; `0` exists only for the
+  migrate-before-start first apply. A second task is a second SQLite writer and a
   second job executor that cannot see or cancel the first one's runs.
 - Scaling out is not a configuration change. It needs the migration in
   `docs/ops/production-scaling-plan.md`.

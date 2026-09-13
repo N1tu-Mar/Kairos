@@ -67,7 +67,7 @@ the endpoint is designed never to do.
 
 ## Proposed migration path (not implemented)
 
-Each step ships separately and keeps `desired_count = 1` until step 4.
+Each step ships separately and keeps `service_desired_count` at most 1 until step 4.
 
 1. **Decide 1 and 2.** Everything below assumes Postgres; DynamoDB follows the
    same order with conditional writes instead of transactions.
@@ -81,7 +81,7 @@ Each step ships separately and keeps `desired_count = 1` until step 4.
    atomicity: ledger increment in one transaction, lease take-over with a
    conditional update. `KAIROS_STATE_DIR` then holds nothing shared.
 4. **Cut over storage.** Point `KAIROS_DB_URL` at Postgres, keep one task, run
-   for a release. Only then allow `desired_count > 1` for the API.
+   for a release. Only then widen the `service_desired_count` validation above 1 for the API.
 5. **Queue-backed executor.** Implement the existing `JobExecutor` protocol with
    SQS: `submit` enqueues the job id, a worker service (same image, different
    command) claims it, takes the same lease and calls `execute_job`. `cancel`
