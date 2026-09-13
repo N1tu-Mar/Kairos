@@ -1,8 +1,9 @@
 # Deployment configuration
 
-Generated from `agent/deploy_contract.py`. That module is the single list of
-variables; `tests/test_deploy_contract.py` fails when Python, Terraform, the
-dashboard, `.env.example` or this page disagree with it.
+The tables below mirror `agent/deploy_contract.py`, the single list of
+variables. `tests/test_deploy_contract.py` fails when Python, Terraform, the
+dashboard or `.env.example` disagree with that module, or when a variable is
+missing from this page. Update the contract first, then this page.
 
 Columns:
 
