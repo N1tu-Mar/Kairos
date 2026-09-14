@@ -1,0 +1,51 @@
+# Kairos backend on Render. The frontend stays on Vercel (project `kairos`)
+# and reaches this service through KAIROS_API_URL.
+#
+# One instance with a persistent disk: SQLite, run leases and the spend
+# ledger live on /data, so this must not scale past one instance.
+#
+# Migrations run in the start command, not preDeployCommand: Render's
+# pre-deploy step runs on separate compute that cannot see the disk.
+services:
+  - type: web
+    name: kairos-api
+    runtime: docker
+    plan: starter # disks need a paid instance
+    region: virginia # next to Vercel iad1
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerCommand: sh -c "uv run alembic upgrade head && exec uv run uvicorn api.main:app --host 0.0.0.0 --port 8000"
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    disk:
+      name: kairos-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: KAIROS_ENV
+        value: production
+      - key: KAIROS_AUTH_MODE
+        value: supabase
+      - key: KAIROS_SUPABASE_ISSUER
+        value: https://stsydysntanwalgtyzqz.supabase.co/auth/v1
+      - key: AWS_REGION
+        value: us-east-1
+      # Prompted for on first Blueprint sync.
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: BEDROCK_MODEL_REASONING
+        sync: false
+      - key: BEDROCK_MODEL_CLASSIFY
+        sync: false
+      - key: KAIROS_PRICE_REASONING_IN_PER_MTOK
+        sync: false
+      - key: KAIROS_PRICE_REASONING_OUT_PER_MTOK
+        sync: false
+      - key: KAIROS_PRICE_CLASSIFY_IN_PER_MTOK
+        sync: false
+      - key: KAIROS_PRICE_CLASSIFY_OUT_PER_MTOK
+        sync: false
